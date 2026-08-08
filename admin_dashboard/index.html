@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AEGIS Admin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #0b0f14; --panel: #131a22; --border: #223041; --text: #e6edf3;
+    --muted: #8b98a5; --green: #3fb950; --red: #f85149; --yellow: #d29922;
+    --blue: #58a6ff;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family: -apple-system, Segoe UI, Roboto, sans-serif; }
+  header { padding:16px 24px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+  header h1 { font-size:18px; margin:0; }
+  #login { max-width:360px; margin:80px auto; padding:24px; background:var(--panel); border:1px solid var(--border); border-radius:8px; }
+  #login input { width:100%; padding:10px; margin:8px 0; background:#0d1117; border:1px solid var(--border); color:var(--text); border-radius:6px; }
+  #login button, .btn { padding:10px 16px; background:var(--blue); color:#031; border:none; border-radius:6px; cursor:pointer; font-weight:600; }
+  .btn.danger { background:var(--red); color:white; }
+  main { padding:24px; max-width:1100px; margin:0 auto; display:none; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:16px; margin-bottom:24px; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:16px; }
+  .card .num { font-size:28px; font-weight:700; }
+  .card .label { color:var(--muted); font-size:13px; }
+  table { width:100%; border-collapse:collapse; background:var(--panel); border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+  th, td { text-align:left; padding:10px 14px; border-bottom:1px solid var(--border); font-size:14px; }
+  th { color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; }
+  .pill { padding:2px 8px; border-radius:12px; font-size:12px; font-weight:600; }
+  .pill.online, .pill.active { background:rgba(63,185,80,.15); color:var(--green); }
+  .pill.offline, .pill.suspended, .pill.canceled { background:rgba(248,81,73,.15); color:var(--red); }
+  .pill.past_due { background:rgba(210,153,34,.15); color:var(--yellow); }
+  section { margin-bottom:32px; }
+  section h2 { font-size:15px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+  #error { color:var(--red); margin-top:8px; font-size:13px; }
+  .refresh-note { color:var(--muted); font-size:12px; }
+  .charts-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px; }
+  .chart-card h3 { margin-top:0; font-size:14px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.5px; }
+  @media (max-width: 700px) { .charts-row { grid-template-columns:1fr; } }</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+</head>
+<body>
+
+<div id="login">
+  <h2>AEGIS Admin</h2>
+  <p style="color:var(--muted); font-size:13px;">Enter the backend URL and your admin API key (printed once in the backend's logs on first startup, or set via <code>ADMIN_BOOTSTRAP_KEY</code>).</p>
+  <input id="apiUrl" placeholder="https://your-backend.example" value="">
+  <input id="apiKey" placeholder="X-API-Key" type="password">
+  <button class="btn" onclick="login()">Connect</button>
+  <div id="error"></div>
+</div>
+
+<header id="appHeader" style="display:none;">
+  <h1>AEGIS Admin</h1>
+  <div>
+    <a href="http://localhost:3000" target="_blank" style="color:var(--muted); font-size:13px; margin-right:16px;">Grafana ↗</a>
+    <span class="refresh-note" id="lastRefresh"></span>
+    <button class="btn" onclick="logout()" style="margin-left:12px; background:var(--border); color:var(--text);">Log out</button>
+  </div>
+</header>
+
+<main id="app">
+  <div class="cards" id="summaryCards"></div>
+
+  <div class="charts-row">
+    <div class="card chart-card">
+      <h3>Subscriptions by Status</h3>
+      <canvas id="subChart" height="180"></canvas>
+    </div>
+    <div class="card chart-card">
+      <h3>Devices Online vs Offline</h3>
+      <canvas id="deviceChart" height="180"></canvas>
+    </div>
+  </div>
+
+  <section>
+    <h2>Devices</h2>
+    <table id="deviceTable">
+      <thead><tr><th>Account</th><th>Status</th><th>Battery</th><th>Last Capture</th><th>Cached</th><th>Version</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Subscriptions</h2>
+    <table id="subTable">
+      <thead><tr><th>Account</th><th>Status</th><th>Provider</th><th>Period End</th><th>Actions</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+</main>
+
+<script>
+let apiUrl = localStorage.getItem('aegis_admin_url') || '';
+let apiKey = localStorage.getItem('aegis_admin_key') || '';
+
+function login() {
+  apiUrl = document.getElementById('apiUrl').value.replace(/\/$/, '');
+  apiKey = document.getElementById('apiKey').value;
+  if (!apiUrl || !apiKey) { showError('Enter both fields.'); return; }
+  localStorage.setItem('aegis_admin_url', apiUrl);
+  localStorage.setItem('aegis_admin_key', apiKey);
+  showError('');
+  init();
+}
+
+function logout() {
+  localStorage.removeItem('aegis_admin_url');
+  localStorage.removeItem('aegis_admin_key');
+  location.reload();
+}
+
+function showError(msg) {
+  document.getElementById('error').textContent = msg;
+}
+
+async function api(path) {
+  const res = await fetch(apiUrl + path, { headers: { 'X-API-Key': apiKey } });
+  if (!res.ok) throw new Error(`${path} -> HTTP ${res.status}`);
+  return res.json();
+}
+
+async function disconnectAccount(accountId) {
+  if (!confirm(`Disconnect MT5 worker for ${accountId}?`)) return;
+  await fetch(apiUrl + '/api/trading/disconnect/' + encodeURIComponent(accountId), {
+    method: 'POST',
+    headers: { 'X-API-Key': apiKey }
+  });
+  refresh();
+}
+
+async function cancelSubscription(accountId) {
+  if (!confirm(`Cancel ${accountId}'s subscription with their payment provider? This cannot be undone from here.`)) return;
+  try {
+    const res = await fetch(apiUrl + '/api/subscriptions/' + encodeURIComponent(accountId) + '/cancel', {
+      method: 'POST',
+      headers: { 'X-API-Key': apiKey }
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      alert('Cancel failed: ' + (body.detail || res.status));
+      return;
+    }
+    refresh();
+  } catch (e) {
+    alert('Cancel failed: ' + e.message);
+  }
+}
+
+function renderCards(summary) {
+  const c = document.getElementById('summaryCards');
+  c.innerHTML = `
+    <div class="card"><div class="num">${summary.devices.online}/${summary.devices.total}</div><div class="label">Devices Online</div></div>
+    <div class="card"><div class="num">${summary.subscriptions.by_status.active || 0}</div><div class="label">Active Subscriptions</div></div>
+    <div class="card"><div class="num">${summary.subscriptions.by_status.past_due || 0}</div><div class="label">Past Due (Grace Period)</div></div>
+    <div class="card"><div class="num">${summary.active_workers_this_instance}</div><div class="label">Active MT5 Workers</div></div>
+  `;
+}
+
+function renderDevices(devices) {
+  const tbody = document.querySelector('#deviceTable tbody');
+  tbody.innerHTML = devices.map(d => `
+    <tr>
+      <td>${d.account_id}</td>
+      <td><span class="pill ${d.status}">${d.status}</span></td>
+      <td>${d.battery_percent != null ? d.battery_percent + '%' + (d.is_charging ? ' ⚡' : '') : '-'}</td>
+      <td>${d.seconds_since_heartbeat != null ? Math.round(d.seconds_since_heartbeat) + 's ago' : '-'}</td>
+      <td>${d.cached_screenshot_count ?? '-'}</td>
+      <td>${d.app_version ?? '-'}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="6" style="color:var(--muted)">No devices reported yet.</td></tr>';
+}
+
+function renderSubscriptions(subs) {
+  const tbody = document.querySelector('#subTable tbody');
+  tbody.innerHTML = subs.map(s => `
+    <tr>
+      <td>${s.account_id}</td>
+      <td><span class="pill ${s.status}">${s.status}</span></td>
+      <td>${s.provider ?? '-'}</td>
+      <td>${s.current_period_end ? new Date(s.current_period_end).toLocaleDateString() : '-'}</td>
+      <td>
+        <button class="btn danger" onclick="disconnectAccount('${s.account_id}')">Disconnect</button>
+        <button class="btn danger" onclick="cancelSubscription('${s.account_id}')" style="margin-left:6px;">Cancel Sub</button>
+      </td>
+    </tr>
+  `).join('') || '<tr><td colspan="5" style="color:var(--muted)">No subscriptions yet.</td></tr>';
+}
+
+let subChartInstance = null;
+let deviceChartInstance = null;
+
+function renderCharts(summary) {
+  const subCtx = document.getElementById('subChart').getContext('2d');
+  const subLabels = Object.keys(summary.subscriptions.by_status);
+  const subData = Object.values(summary.subscriptions.by_status);
+  const subColors = { active: '#3fb950', past_due: '#d29922', suspended: '#f85149', canceled: '#8b98a5' };
+
+  if (subChartInstance) subChartInstance.destroy();
+  subChartInstance = new Chart(subCtx, {
+    type: 'doughnut',
+    data: {
+      labels: subLabels,
+      datasets: [{ data: subData, backgroundColor: subLabels.map(l => subColors[l] || '#58a6ff') }]
+    },
+    options: { plugins: { legend: { labels: { color: '#e6edf3' } } } }
+  });
+
+  const deviceCtx = document.getElementById('deviceChart').getContext('2d');
+  if (deviceChartInstance) deviceChartInstance.destroy();
+  deviceChartInstance = new Chart(deviceCtx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Online', 'Offline'],
+      datasets: [{
+        data: [summary.devices.online, summary.devices.offline],
+        backgroundColor: ['#3fb950', '#f85149']
+      }]
+    },
+    options: { plugins: { legend: { labels: { color: '#e6edf3' } } } }
+  });
+}
+
+async function refresh() {
+  try {
+    const [summary, devices, subs] = await Promise.all([
+      api('/api/admin/summary'),
+      api('/api/devices/health'),
+      api('/api/subscriptions'),
+    ]);
+    renderCards(summary);
+    renderCharts(summary);
+    renderDevices(devices);
+    renderSubscriptions(subs);
+    document.getElementById('lastRefresh').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    showError('');
+  } catch (e) {
+    showError('Failed to load: ' + e.message);
+  }
+}
+
+function init() {
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('appHeader').style.display = 'flex';
+  document.getElementById('app').style.display = 'block';
+  refresh();
+  setInterval(refresh, 15000);
+}
+
+if (apiUrl && apiKey) init();
+</script>
+</body>
+</html>
