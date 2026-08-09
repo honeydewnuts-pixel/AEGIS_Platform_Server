@@ -1,6 +1,7 @@
 package com.aegis.mobile.capture
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.*
 import android.content.Context
 import android.content.Intent
@@ -377,15 +378,16 @@ class ScreenCaptureService : Service() {
      * crash or spam SecurityExceptions - the service keeps working either way,
      * the user just won't see live status text in the notification shade.
      */
+    @SuppressLint("MissingPermission")
     private fun updateNotification(status: String) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            return
+        val hasPermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED
+
+        if (hasPermission) {
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.notify(NOTIF_ID, buildNotification(status))
         }
-        val manager = getSystemService(NotificationManager::class.java)
-        manager.notify(NOTIF_ID, buildNotification(status))
     }
 
     override fun onDestroy() {
