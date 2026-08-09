@@ -1,8 +1,10 @@
 package com.aegis.mobile.capture
 
+import android.Manifest
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
@@ -18,6 +20,7 @@ import android.os.Looper
 import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.aegis.mobile.R
 import com.aegis.mobile.data.HealthStatus
 import com.aegis.mobile.data.PrefKeys
@@ -363,7 +366,24 @@ class ScreenCaptureService : Service() {
             .build()
     }
 
+    /**
+     * On Android 13+ (TIRAMISU), posting a notification requires the runtime
+     * POST_NOTIFICATIONS permission. This only guards the *ongoing status update*
+     * notify() calls used to refresh the existing foreground notification's text
+     * (e.g. "Last signal: BUY @ 10:02:31") - it does not affect startForeground()
+     * in onCreate(), which the OS allows regardless so the foreground service
+     * itself can still run even if the user never grants notification access.
+     * If the permission isn't granted, we simply skip the update rather than
+     * crash or spam SecurityExceptions - the service keeps working either way,
+     * the user just won't see live status text in the notification shade.
+     */
     private fun updateNotification(status: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
         val manager = getSystemService(NotificationManager::class.java)
         manager.notify(NOTIF_ID, buildNotification(status))
     }
