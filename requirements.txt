@@ -15,21 +15,33 @@
 # and an HTTPEndpoint method-dispatch issue - fixed across versions up
 # to 1.3.1). fastapi is bumped to a version built for the lifespan API
 # (main.py no longer uses @app.on_event, which Starlette 1.0+ removed).
+#
+# Second pip-audit pass (this fix) - five more packages had drifted
+# behind real, current CVEs since they were first pinned: path
+# traversal + several DoS issues in python-multipart, a long list of
+# decompression-bomb/heap-overflow issues in pillow (font/PDF/TGA/JPEG2000
+# parsing paths), a symlink-following file-overwrite issue in
+# python-dotenv, a .netrc credential leak in requests, and several
+# certificate-validation and a Bleichenbacher-oracle issue in
+# cryptography. None of these require a code change on this project's
+# side - confirmed none of the fixed CVEs touch the specific APIs this
+# codebase actually uses (e.g. cryptography's AESGCM class, used in
+# credential_vault_service.py, is untouched by any of them).
 
 fastapi>=0.136.3
 starlette>=1.3.1
 uvicorn[standard]==0.34.0
-python-multipart==0.0.20
+python-multipart>=0.0.31
 opencv-python-headless==4.10.0.84
 numpy==1.26.4
-pillow==11.0.0
+pillow>=12.3.0
 pydantic==2.10.4
 pydantic-settings==2.7.0
 email-validator==2.2.0
-python-dotenv==1.0.1
-requests==2.32.3
+python-dotenv>=1.2.2
+requests>=2.33.0
 aiofiles==24.1.0
-cryptography==44.0.0
+cryptography>=50.0.0
 redis==5.2.1
 httpx==0.28.1
 stripe==11.4.1
