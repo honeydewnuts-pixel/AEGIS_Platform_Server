@@ -37,6 +37,6 @@ object PrefKeys {
 // Replace with your actual Render URL,
 // e.g. "https://aegis-backend.onrender.com/"
 const val DEFAULT_SERVER_URL =
-    "https://your-app-name.onrender.com/"
+    "https://aegis-api-0z1p.onrender.com"
 
 const val DEFAULT_MIN_CONFIDENCE = 0.70f
