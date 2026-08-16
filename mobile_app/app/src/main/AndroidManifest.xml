@@ -8,6 +8,19 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <!-- Visible packages we may launch after Minimize -->
+    <queries>
+        <package android:name="net.metaquotes.metatrader5" />
+        <package android:name="net.metaquotes.metatrader5x" />
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
+
 
     <application
         android:allowBackup="true"
@@ -21,7 +34,10 @@
         <!-- Main UI -->
         <activity
             android:name=".ui.MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:excludeFromRecents="false"
+            android:finishOnTaskLaunch="false">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -30,6 +46,7 @@
 
         <!-- Settings UI -->
         <activity android:name=".ui.SettingsActivity" />
+        <activity android:name=".ui.IndicatorSetupActivity" />
 
         <!-- Phase 1: Screen Capture Service -->
         <service
@@ -37,6 +54,11 @@
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="mediaProjection" />
+
+        <service
+            android:name=".ui.FloatingHudService"
+            android:enabled="true"
+            android:exported="false" />
 
         <!-- Phase 2: MT5 AutoClick Accessibility Service -->
         <service

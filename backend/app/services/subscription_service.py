@@ -18,6 +18,8 @@ Status lifecycle:
 
 from __future__ import annotations
 
+from app.services.plan_catalog import resolve_plan
+
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -246,3 +248,76 @@ class SubscriptionService:
                 row.status = "canceled"
                 row.updated_at = datetime.now(timezone.utc)
                 await session.commit()
+
+    async def get_plan(self, account_id: str) -> str:
+        async with async_session_factory() as session:
+            result = await session.execute(
+                select(Subscription).where(Subscription.account_id == account_id)
+            )
+            row = result.scalar_one_or_none()
+        if row is None:
+            return "none"
+        plan = getattr(row, "plan", None) or "live"
+        if row.status in ("active", "past_due", "demo"):
+            if row.status == "demo":
+                return "demo"
+            return plan or "starter"
+        return "none"
+
+    async def allows_brain(self, account_id: str) -> bool:
+        return (await self.get_plan(account_id)) in ("live", "demo")
+
+    async def allows_live_trading(self, account_id: str) -> bool:
+        plan_code = await self.get_plan(account_id)
+        if plan_code in ("none",):
+            return False
+        if not await self.is_active(account_id) and plan_code != "demo":
+            return False
+        return bool(resolve_plan(plan_code).get("live_trading"))
+
+    async def activate_demo(self, account_id: str) -> dict[str, str]:
+        from datetime import datetime, timedelta, timezone
+        import secrets as sec
+        now = datetime.now(timezone.utc)
+        portal_token = sec.token_urlsafe(24)
+        async with async_session_factory() as session:
+            result = await session.execute(
+                select(Subscription).where(Subscription.account_id == account_id)
+            )
+            existing = result.scalar_one_or_none()
+            if existing:
+                existing.status = "active"
+                existing.plan = "demo"
+                existing.max_devices = 1
+                existing.max_trades_per_day = 5
+                existing.updated_at = now
+                existing.current_period_end = now + timedelta(days=14)
+                if not existing.portal_token:
+                    existing.portal_token = portal_token
+                else:
+                    portal_token = existing.portal_token
+            else:
+                session.add(Subscription(
+                    account_id=account_id,
+                    provider="demo",
+                    status="active",
+                    plan="demo",
+                    max_devices=1,
+                    max_trades_per_day=5,
+                    portal_token=portal_token,
+                    current_period_end=now + timedelta(days=14),
+                    updated_at=now,
+                ))
+            await session.commit()
+        mobile_api_key = await issue_api_key(
+            account_id=account_id,
+            is_admin=False,
+            label=f"demo mobile key for {account_id}",
+            issued_by="demo_signup",
+        )
+        return {
+            "account_id": account_id,
+            "portal_token": portal_token,
+            "mobile_api_key": mobile_api_key,
+            "plan": "demo",
+        }

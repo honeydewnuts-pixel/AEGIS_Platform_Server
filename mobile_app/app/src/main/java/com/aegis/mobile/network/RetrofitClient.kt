@@ -61,11 +61,17 @@ object RetrofitClient {
             chain.proceed(newRequest)
         }
 
+        // Timeouts sized for Render free-tier cold starts (container wake
+        // + Postgres/Redis + first OpenCV load can exceed 30s). Live
+        // captures after the service is warm finish well under these.
         val client = OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
             .addInterceptor(logging)
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(90, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .callTimeout(120, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
             .build()
 
         val gson = GsonBuilder()

@@ -7,7 +7,7 @@ File    : subscription_router.py
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 from app.security import verify_api_key, require_account_match, require_admin, AuthContext
 from app.core.rate_limit import limiter
@@ -208,3 +208,45 @@ async def cancel_subscription(
         await worker_pool.stop_worker(account_id)
 
     return {"status": "canceled", "account_id": account_id}
+
+
+import uuid
+
+
+class DemoSignupRequest(BaseModel):
+    account_id: str | None = Field(default=None, description="Optional; auto-generated if omitted")
+
+
+@router.post("/demo/signup")
+async def demo_signup(body: DemoSignupRequest, request: Request):
+    """
+    Public endpoint: create a 14-day demo plan (brain + chart analysis).
+    Live market orders remain blocked until a paid subscription is active.
+    Returns account_id, portal_token, mobile_api_key, and a one-time APK download URL.
+    """
+    account_id = (body.account_id or "").strip() or f"DEMO-{uuid.uuid4().hex[:10].upper()}"
+    sub = request.app.state.subscription_service
+    issued = await sub.activate_demo(account_id)
+    token = await request.app.state.device_bindings.issue_download_token(
+        account_id=account_id, plan="demo", max_uses=1, ttl_hours=72
+    )
+    base = str(request.base_url).rstrip("/")
+    if hasattr(request.app.state, "audit_service"):
+        await request.app.state.audit_service.record(
+            action="subscription.demo_signup",
+            actor_type="system",
+            account_id=account_id,
+            detail="demo plan activated",
+            ip=request.client.host if request.client else None,
+        )
+    return {
+        **issued,
+        "download_url": f"{base}/api/download/apk?token={token}",
+        "download_token": token,
+        "limits": {
+            "brain_analysis": True,
+            "live_trading": False,
+            "device_binding": True,
+            "demo_days": 14,
+        },
+    }

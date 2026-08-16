@@ -57,12 +57,14 @@ class ScreenCaptureService : Service() {
     // fetched - safe fallback if the config endpoint is unreachable, since
     // sending too much is a bandwidth cost, sending too little could crop
     // off real chart data the brain needs.
-    @Volatile private var captureTopPercent: Float = 0.0f
-    @Volatile private var captureBottomPercent: Float = 1.0f
+    @Volatile private var captureTopPercent: Float = 0.06f
+    @Volatile private var captureBottomPercent: Float = 0.88f
 
     companion object {
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_RESULT_DATA = "result_data"
+        const val ACTION_STOP = "com.aegis.mobile.STOP_CAPTURE"
+        const val ACTION_START = "com.aegis.mobile.START_CAPTURE"
         private const val NOTIF_ID = 1001
         private const val CAPTURE_INTERVAL = 3000L      // 3 seconds
         private const val HEARTBEAT_INTERVAL = 60000L   // 1 minute - independent of the capture loop
@@ -82,30 +84,94 @@ class ScreenCaptureService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Explicit stop from the UI — do not restart.
+        if (intent?.action == ACTION_STOP) {
+            Log.i("AEGIS", "Stop capture requested")
+            stopCaptureSession()
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
         val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, 0) ?: 0
-        val resultData = intent?.getParcelableExtra<Intent>(EXTRA_RESULT_DATA) ?: return START_NOT_STICKY
+        val resultData = intent?.getParcelableExtra<Intent>(EXTRA_RESULT_DATA)
+        if (resultData == null || resultCode == 0) {
+            // System may restart a sticky service without the MediaProjection token.
+            // We cannot capture without a fresh user grant — shut down cleanly.
+            Log.w("AEGIS", "No MediaProjection token; not restarting capture")
+            HealthStatus.mediaProjectionActive.postValue(false)
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        // If already running, ignore duplicate start intents.
+        if (mediaProjection != null && HealthStatus.mediaProjectionActive.value == true) {
+            Log.i("AEGIS", "Capture already active")
+            return START_NOT_STICKY
+        }
 
         mediaProjection = mediaProjectionManager.getMediaProjection(resultCode, resultData)
         mediaProjection?.registerCallback(object : MediaProjection.Callback() {
             override fun onStop() {
-                // The OS or user revoked the capture session (this can happen on some
-                // OEM skins, or after certain system events). We can't silently resume -
-                // MediaProjection requires a fresh user-granted token - so surface it
-                // clearly instead of quietly doing nothing.
-                Log.w("AEGIS", "MediaProjection stopped unexpectedly.")
-                HealthStatus.mediaProjectionActive.postValue(false)
-                updateNotification("Capture stopped - reopen AEGIS to resume")
+                Log.w("AEGIS", "MediaProjection stopped by system/user")
+                handler.post {
+                    stopCaptureSession()
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                }
             }
         }, handler)
 
         HealthStatus.mediaProjectionActive.postValue(true)
         setupVirtualDisplay()
         scope.launch { refreshCaptureRoi() }
+        handler.removeCallbacks(captureRunnable)
+        handler.removeCallbacks(heartbeatRunnable)
+        handler.removeCallbacks(cacheDrainRunnable)
+        handler.removeCallbacks(roiRefreshRunnable)
         handler.postDelayed(captureRunnable, CAPTURE_INTERVAL)
         handler.postDelayed(heartbeatRunnable, HEARTBEAT_INTERVAL)
         handler.postDelayed(cacheDrainRunnable, CACHE_DRAIN_INTERVAL)
         handler.postDelayed(roiRefreshRunnable, ROI_REFRESH_INTERVAL)
-        return START_STICKY
+        updateNotification("Capturing MT5 chart region")
+        acquireServiceWakeLock()
+        // NOT sticky: prevents auto-restart without a valid projection token (which
+        // made Stop appear to "restart" capture and left the UI inconsistent).
+        return START_NOT_STICKY
+    }
+
+    private fun acquireServiceWakeLock() {
+        try {
+            if (wakeLock == null) {
+                wakeLock = powerManager.newWakeLock(
+                    PowerManager.PARTIAL_WAKE_LOCK,
+                    "AEGIS::ServiceAlive"
+                )
+            }
+            if (wakeLock?.isHeld != true) {
+                @Suppress("DEPRECATION")
+                wakeLock?.acquire()
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun stopCaptureSession() {
+        handler.removeCallbacks(captureRunnable)
+        handler.removeCallbacks(heartbeatRunnable)
+        handler.removeCallbacks(cacheDrainRunnable)
+        handler.removeCallbacks(roiRefreshRunnable)
+        try { virtualDisplay?.release() } catch (_: Exception) {}
+        virtualDisplay = null
+        try { mediaProjection?.stop() } catch (_: Exception) {}
+        mediaProjection = null
+        try { imageReader?.close() } catch (_: Exception) {}
+        imageReader = null
+        if (wakeLock?.isHeld == true) {
+            try { wakeLock?.release() } catch (_: Exception) {}
+        }
+        HealthStatus.mediaProjectionActive.postValue(false)
+        Log.i("AEGIS", "Capture session cleaned up")
     }
 
     private fun setupVirtualDisplay() {
@@ -219,10 +285,26 @@ class ScreenCaptureService : Service() {
     }
 
     private fun captureAndSend() {
+        val mt5Fg = com.aegis.mobile.automation.Mt5AccessibilityService.isMt5Foreground
+        HealthStatus.mt5Foreground.postValue(mt5Fg)
+        updateNotification(
+            if (mt5Fg) "Capturing MT5 chart region"
+            else "Capturing chart ROI — keep MT5 visible under HUD"
+        )
+
+        // Hide operator overlay so it is not painted into the frame sent to the brain.
+        try {
+            startService(Intent(this, com.aegis.mobile.ui.FloatingHudService::class.java).apply {
+                action = com.aegis.mobile.ui.FloatingHudService.ACTION_CAPTURE_HIDE
+            })
+            Thread.sleep(40)
+        } catch (_: Exception) {
+        }
+
         withBriefWakeLock {
             val image = imageReader?.acquireLatestImage()
             if (image == null) {
-                HealthStatus.recordCaptureFailure()
+                HealthStatus.recordCaptureFailure(networkError = false)
                 return@withBriefWakeLock
             }
             val capturedAtMs = System.currentTimeMillis()
@@ -241,6 +323,7 @@ class ScreenCaptureService : Service() {
             image.close()
 
             val croppedBitmap = applyRoiCrop(bitmap)
+            HealthStatus.publishPreview(croppedBitmap)
 
             scope.launch {
                 val accountId = resolveAccountId()
@@ -261,6 +344,12 @@ class ScreenCaptureService : Service() {
                 }
                 tempFile.delete()
             }
+        }
+        try {
+            startService(Intent(this, com.aegis.mobile.ui.FloatingHudService::class.java).apply {
+                action = com.aegis.mobile.ui.FloatingHudService.ACTION_CAPTURE_SHOW
+            })
+        } catch (_: Exception) {
         }
     }
 
@@ -283,13 +372,26 @@ class ScreenCaptureService : Service() {
 
     /**
      * Shared send path for both live captures and replayed cached ones.
-     * Returns true only on a confirmed successful upload - callers decide
-     * what to do on failure (cache it, or leave it cached for next time).
+     * One quick retry on transient failures (Render cold start, brief
+     * network blip). Persistent errors fall through to the offline cache.
      */
     private suspend fun trySend(file: File, accountId: String, capturedAtMs: Long): Boolean {
+        repeat(2) { attempt ->
+            val ok = trySendOnce(file, accountId, capturedAtMs)
+            if (ok) return true
+            if (attempt == 0) {
+                delay(2_500)
+            }
+        }
+        return false
+    }
+
+    private suspend fun trySendOnce(file: File, accountId: String, capturedAtMs: Long): Boolean {
+        val t0 = System.currentTimeMillis()
         return try {
             val requestFile = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
-            val body = MultipartBody.Part.createFormData("image", file.name, requestFile)
+            // Explicit filename + content type helps proxies that strip part headers.
+            val body = MultipartBody.Part.createFormData("image", "capture.jpg", requestFile)
             val accountIdBody: RequestBody = accountId.toRequestBody("text/plain".toMediaTypeOrNull())
             val capturedAtBody: RequestBody = capturedAtMs.toString().toRequestBody("text/plain".toMediaTypeOrNull())
 
@@ -297,20 +399,28 @@ class ScreenCaptureService : Service() {
             if (response.isSuccessful) {
                 val result: AnalysisResponse? = response.body()
                 Log.d("AEGIS", "Brain Response: ${result?.signal} - ${result?.confidence}")
-                result?.let { SignalRepository.latestResult.postValue(it) }
-                HealthStatus.recordCaptureSuccess()
+                result?.let {
+                    SignalRepository.latestResult.postValue(it)
+                    SignalRepository.latestSignal.postValue(it.signal)
+                }
+                HealthStatus.recordCaptureSuccess(httpCode = response.code(), latencyMs = System.currentTimeMillis() - t0)
                 val pending = cacheManager.pendingCount()
                 val suffix = if (pending > 0) " ($pending queued)" else ""
                 updateNotification("Last signal: ${result?.signal ?: "HOLD"} @ ${timeNow()}$suffix")
                 true
             } else {
-                Log.e("AEGIS", "Brain Error: ${response.code()}")
-                HealthStatus.recordCaptureFailure()
+                val errBody = try {
+                    response.errorBody()?.string()?.take(500)
+                } catch (_: Exception) {
+                    null
+                }
+                Log.e("AEGIS", "Brain Error: ${response.code()} body=${errBody ?: "(empty)"}")
+                HealthStatus.recordCaptureFailure(httpCode = response.code(), networkError = false, latencyMs = System.currentTimeMillis() - t0)
                 false
             }
         } catch (e: Exception) {
-            Log.e("AEGIS", "Send failed: ${e.message}")
-            HealthStatus.recordCaptureFailure()
+            Log.e("AEGIS", "Send failed: ${e.javaClass.simpleName}: ${e.message}")
+            HealthStatus.recordCaptureFailure(httpCode = null, networkError = true, latencyMs = System.currentTimeMillis() - t0)
             false
         }
     }
@@ -391,17 +501,9 @@ class ScreenCaptureService : Service() {
     }
 
     override fun onDestroy() {
-        super.onDestroy()
-        handler.removeCallbacks(captureRunnable)
-        handler.removeCallbacks(heartbeatRunnable)
-        handler.removeCallbacks(cacheDrainRunnable)
-        handler.removeCallbacks(roiRefreshRunnable)
-        if (wakeLock?.isHeld == true) wakeLock?.release()
-        virtualDisplay?.release()
-        mediaProjection?.stop()
-        imageReader?.close()
-        HealthStatus.mediaProjectionActive.postValue(false)
+        stopCaptureSession()
         scope.cancel()
+        super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

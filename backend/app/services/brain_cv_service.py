@@ -64,10 +64,25 @@ class BrainCVService:
         self.logger.info("BrainCVService loaded config version %s", self.config.get("config_version"))
 
     def _load_config(self) -> dict:
-        if not CONFIG_PATH.exists():
-            raise FileNotFoundError(f"Config not found: {CONFIG_PATH}")
-        with open(CONFIG_PATH, "r") as f:
-            return json.load(f)
+        # Prefer active versioned template when available
+        try:
+            from app.services.template_profile_service import TemplateProfileService
+            return TemplateProfileService().vision_config_for_brain()
+        except Exception:
+            if not CONFIG_PATH.exists():
+                raise FileNotFoundError(f"Config not found: {CONFIG_PATH}")
+            with open(CONFIG_PATH, "r") as f:
+                return json.load(f)
+
+    def reload_config(self) -> str:
+        self.config = self._load_config()
+        self.rule_engine = SignalRuleEngine(
+            divergence_lookback=self.config.get("history", {}).get("divergence_lookback_frames", 12),
+            higher_high_lookback=self.config.get("history", {}).get("higher_high_lookback_frames", 8),
+        )
+        ver = self.config.get("config_version", "?")
+        self.logger.info("BrainCVService reloaded config %s", ver)
+        return ver
 
     # ------------------------------------------------------------
     # Panel cropping

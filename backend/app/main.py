@@ -15,8 +15,9 @@ Purpose : FastAPI application entry point.
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from prometheus_fastapi_instrumentator import Instrumentator
 from slowapi import _rate_limit_exceeded_handler
@@ -43,6 +44,10 @@ from app.api.admin_router import router as admin_router
 from app.api.portal_router import router as portal_router
 from app.api.signal_router import router as signal_router
 from app.api.config_router import router as config_router
+from app.api.template_router import router as template_router
+from app.api.auth_router import router as auth_router
+from app.api.support_router import router as support_router
+from app.api.status_router import router as status_router
 
 logger = configure_logging(__name__)
 
@@ -101,6 +106,10 @@ app.add_middleware(
 # INCLUDE ALL ROUTERS
 # ==========================================================
 
+app.include_router(template_router)
+app.include_router(auth_router)
+app.include_router(support_router)
+app.include_router(status_router)
 app.include_router(base_router)
 app.include_router(upload_router)
 app.include_router(preprocessing_router)
@@ -141,3 +150,35 @@ async def root():
         "status": "online",
         "modules": ["upload", "preprocessing", "chart_detection", "trading", "brain", "subscriptions", "download", "devices", "admin", "portal"],
     }
+
+
+@app.get("/health")
+async def health(request: Request):
+    """
+    Liveness + shallow dependency check for Render / load balancers.
+    Returns 200 when the process is up and Redis responds to PING.
+    Does not require an API key so external pingers can keep free-tier
+    instances warm and so healthCheckPath can be pointed here if desired.
+    """
+    redis_ok = False
+    try:
+        job_queue = getattr(request.app.state, "job_queue", None)
+        if job_queue is not None:
+            client = job_queue.get_redis_client()
+            if client is not None:
+                await client.ping()
+                redis_ok = True
+    except Exception:  # noqa: BLE001
+        redis_ok = False
+
+    status = "ok" if redis_ok else "degraded"
+    code = 200 if redis_ok else 503
+    return JSONResponse(
+        status_code=code,
+        content={
+            "status": status,
+            "redis": redis_ok,
+            "service": "AEGIS API",
+            "version": "3.0.1",
+        },
+    )

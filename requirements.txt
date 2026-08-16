@@ -62,3 +62,4 @@ opentelemetry-instrumentation-httpx
 # same machine. Only install this in the worker-pool image/VM, not in
 # the main API image (see requirements-worker.txt).
 # MetaTrader5
+aiosmtplib>=3.0.0

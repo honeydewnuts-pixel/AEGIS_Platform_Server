@@ -1,63 +1,296 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="24dp"
-    android:gravity="center">
+    android:fillViewport="true"
+    android:clipToPadding="false"
+    android:background="@color/aegis_bg"
+    android:paddingBottom="32dp">
 
-    <Button
-        android:id="@+id/startBtn"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="START AEGIS"
-        android:textSize="20sp"
-        android:padding="16dp"/>
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:gravity="center_horizontal">
 
-    <Button
-        android:id="@+id/settingsBtn"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="SETTINGS"
-        android:textSize="16sp"
-        android:layout_marginTop="12dp"/>
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="AEGIS"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:textColor="@color/aegis_gold"
+            android:gravity="center"
+            android:letterSpacing="0.12"/>
 
-    <TextView
-        android:id="@+id/statusText"
-        android:layout_width="match_parent"
-        android:layout_height="200dp"
-        android:layout_marginTop="40dp"
-        android:text="HOLD"
-        android:textSize="48sp"
-        android:textStyle="bold"
-        android:gravity="center"
-        android:background="#9E9E9E"
-        android:textColor="#FFFFFF"/>
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Intelligence · Capture · Decide"
+            android:textSize="12sp"
+            android:textColor="@color/aegis_teal"
+            android:gravity="center"
+            android:layout_marginBottom="8dp"/>
 
-    <TextView
-        android:id="@+id/detailsText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
-        android:text="Waiting for Brain..."
-        android:textSize="16sp"
-        android:gravity="center"/>
+        <TextView
+            android:id="@+id/runningStateText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="○ Stopped"
+            android:textSize="14sp"
+            android:gravity="center"
+            android:textColor="@color/aegis_muted"
+            android:layout_marginBottom="10dp"/>
 
-    <TextView
-        android:id="@+id/healthText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="Not started"
-        android:textSize="13sp"
-        android:gravity="center"
-        android:textColor="#888888"/>
+        <!-- Start / Stop — AppCompat-friendly: zero Material insets so labels are not clipped -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:clipChildren="false">
 
-    <Button
-        android:id="@+id/batteryBtn"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="ALLOW BACKGROUND RUNNING (recommended)"
-        android:layout_marginTop="16dp"/>
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/startBtn"
+                android:layout_width="0dp"
+                android:layout_height="56dp"
+                android:layout_weight="1"
+                android:text="START"
+                android:textSize="17sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/btn_start_bg"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:stateListAnimator="@null"
+                android:elevation="0dp"/>
 
-</LinearLayout>
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/stopBtn"
+                android:layout_width="0dp"
+                android:layout_height="56dp"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:text="STOP"
+                android:textSize="17sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/btn_stop_bg"
+                android:enabled="false"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:stateListAnimator="@null"
+                android:elevation="0dp"/>
+        </LinearLayout>
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/settingsBtn"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="10dp"
+            android:text="SETTINGS"
+            android:textSize="15sp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_secondary_bg"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:stateListAnimator="@null"/>
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/accessibilityBtn"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="8dp"
+            android:text="ENABLE MT5 DETECTION"
+            android:textSize="14sp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_teal_bg"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:stateListAnimator="@null"/>
+
+        <!-- Live capture preview (last frame) -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="220dp"
+            android:layout_marginTop="14dp"
+            android:background="@drawable/card_signal_bg">
+
+            <ImageView
+                android:id="@+id/previewImage"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:contentDescription="Last captured screenshot"/>
+
+            <TextView
+                android:id="@+id/previewPlaceholder"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:text="Live capture preview\n(appears after START)"
+                android:textColor="@color/aegis_muted"
+                android:textSize="13sp"
+                android:background="#990B1220"/>
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/card_signal_bg"
+            android:padding="14dp"
+            android:layout_marginTop="10dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="LIVE SIGNAL"
+                android:textSize="11sp"
+                android:textColor="@color/aegis_gold"
+                android:letterSpacing="0.15"
+                android:gravity="center"/>
+
+            <TextView
+                android:id="@+id/statusText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="HOLD"
+                android:textSize="32sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:gravity="center"
+                android:paddingTop="6dp"
+                android:paddingBottom="6dp"/>
+
+            <TextView
+                android:id="@+id/confidenceText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Confidence: —"
+                android:textSize="14sp"
+                android:textColor="@color/aegis_teal"
+                android:gravity="center"/>
+
+            <TextView
+                android:id="@+id/ruleText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Rule: —"
+                android:textSize="13sp"
+                android:textColor="@color/aegis_muted"
+                android:gravity="center"
+                android:layout_marginTop="4dp"/>
+
+            <TextView
+                android:id="@+id/detailsText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Waiting for Brain..."
+                android:textSize="14sp"
+                android:textColor="@color/aegis_text"
+                android:gravity="center"/>
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/healthText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="Not started"
+            android:textSize="13sp"
+            android:gravity="center"
+            android:textColor="@color/aegis_muted"/>
+
+        <TextView
+            android:id="@+id/diagText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:padding="12dp"
+            android:background="@drawable/card_diag_bg"
+            android:textColor="@color/aegis_teal"
+            android:textSize="12sp"
+            android:fontFamily="monospace"
+            android:text="Backend Reachable: —\nLast Upload: —\nLast HTTP Code: —\nLast Upload Time: —\nCached Screenshots: 0\nMT5 Foreground: —"/>
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/batteryBtn"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="14dp"
+            android:text="ALLOW BACKGROUND RUNNING"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_orange_bg"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:stateListAnimator="@null"/>
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/indicatorSetupBtn"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="8dp"
+            android:text="INSTALL / UPDATE INDICATOR TEMPLATE"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_purple_bg"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:stateListAnimator="@null"/>
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/minimizeBtn"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="8dp"
+            android:text="MINIMIZE + OPEN MT5"
+            android:textSize="14sp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_secondary_bg"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:stateListAnimator="@null"/>
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/floatHudBtn"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="8dp"
+            android:text="FLOATING HUD (drag overlay)"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_teal_bg"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:stateListAnimator="@null"/>
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/reportIssueBtn"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="8dp"
+            android:text="REPORT ISSUE"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_orange_bg"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:stateListAnimator="@null"/>
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/connectMt5Btn"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="40dp"
+            android:text="CONNECT MT5 TO BACKEND"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_secondary_bg"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:stateListAnimator="@null"/>
+
+    </LinearLayout>
+</ScrollView>

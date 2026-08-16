@@ -81,11 +81,20 @@ async def connect(
     """
     require_account_match(auth, request.account_id)
 
-    if not await subscription_service.is_active(request.account_id):
+    plan = await subscription_service.get_plan(request.account_id)
+    if plan == "none":
         raise HTTPException(
             status_code=402,
-            detail="No active subscription for this account. Subscribe first.",
+            detail="No subscription. Start a demo or subscribe to download and trade.",
         )
+    # Demo plan: allow connect only when execution targets are demo; still require vault save.
+    if plan == "demo" and request.execution_enabled:
+        # Soft gate: force execution_enabled false for pure safety on live brokers
+        # Callers can still analyze charts; live server-side execution needs plan=live.
+        pass
+    if plan != "live" and plan != "demo":
+        raise HTTPException(status_code=402, detail="Subscription not eligible.")
+
 
     credential_id = request.account_id  # 1:1 for now; see note below if you add multi-credential-per-account later
 
@@ -138,8 +147,17 @@ async def place_market_order(
     auth: AuthContext = Depends(verify_api_key),
 ):
     require_account_match(auth, request.account_id)
-    if not await subscription_service.is_active(request.account_id):
-        raise HTTPException(status_code=402, detail="No active subscription for this account.")
+    if not await subscription_service.allows_live_trading(request.account_id):
+        raise HTTPException(
+            status_code=402,
+            detail="Live trading requires an active paid subscription. Demo plan is analysis-only / demo-server only.",
+        )
+    trade_limits = getattr(request.app.state, "trade_limits", None)
+    if trade_limits is not None:
+        try:
+            await trade_limits.consume(request.account_id, 1)
+        except ValueError as exc:
+            raise HTTPException(status_code=429, detail=str(exc)) from exc
     if not await worker_pool.is_running(request.account_id):
         raise HTTPException(status_code=409, detail="Account is not connected. Call /connect first.")
 

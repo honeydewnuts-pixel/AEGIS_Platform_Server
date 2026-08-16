@@ -48,6 +48,30 @@ class SignalHistoryService:
 
         return [
             {
+                "account_id": r.account_id,
+                "signal": r.signal,
+                "confidence": r.confidence,
+                "rule_name": r.rule_name,
+                "details": r.details,
+                "created_at": r.created_at.isoformat(),
+            }
+            for r in rows
+        ]
+
+    async def get_recent(self, limit: int = 50) -> list[dict[str, Any]]:
+        """Fleet-wide recent signals for the admin dashboard."""
+        limit = min(limit, MAX_RESULTS_PER_QUERY)
+        async with async_session_factory() as session:
+            result = await session.execute(
+                select(SignalHistory)
+                .order_by(SignalHistory.created_at.desc())
+                .limit(limit)
+            )
+            rows = result.scalars().all()
+
+        return [
+            {
+                "account_id": r.account_id,
                 "signal": r.signal,
                 "confidence": r.confidence,
                 "rule_name": r.rule_name,

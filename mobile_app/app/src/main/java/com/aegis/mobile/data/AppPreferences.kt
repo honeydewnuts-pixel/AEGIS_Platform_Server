@@ -6,37 +6,35 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 
 // Single shared DataStore instance for the whole app.
-// Must be public (not private) so it can be used from SettingsActivity, RetrofitClient, etc.
 val Context.dataStore by preferencesDataStore(name = "aegis_settings")
 
 object PrefKeys {
 
-    // Renamed from the old "server_ip" (which only ever stored a bare
-    // LAN IP and forced RetrofitClient to hardcode "http://ip:5000/").
-    // Render serves HTTPS on 443 with a real hostname, not an IP:port,
-    // so this now stores a full base URL instead. SERVER_IP is kept as
-    // a fallback read for anyone upgrading from a build that only had
-    // a LAN IP saved - see RetrofitClient.resolveBaseUrl().
+    // Full HTTPS base URL for the AEGIS backend (Render, etc.)
     val SERVER_URL = stringPreferencesKey("server_url")
 
+    // Legacy LAN IP fallback (RetrofitClient.resolveBaseUrl)
     val SERVER_IP = stringPreferencesKey("server_ip")
 
     val ACCOUNT_ID = stringPreferencesKey("account_id")
-
     val API_KEY = stringPreferencesKey("api_key")
 
-    // Safety controls (see MainActivity / Mt5AccessibilityService)
-    val AUTO_EXECUTE =
-        booleanPreferencesKey("auto_execute")
+    // Safety / execution controls
+    val AUTO_EXECUTE = booleanPreferencesKey("auto_execute")
+    val MIN_CONFIDENCE = stringPreferencesKey("min_confidence")
 
-    // default OFF - require manual confirm
-    val MIN_CONFIDENCE =
-        stringPreferencesKey("min_confidence")
+    // MT5 broker credentials (sent to backend /api/trading/connect)
+    val MT5_LOGIN = stringPreferencesKey("mt5_login")
+    val MT5_PASSWORD = stringPreferencesKey("mt5_password")
+    val MT5_SERVER = stringPreferencesKey("mt5_server")
+    val MT5_BROKER_NAME = stringPreferencesKey("mt5_broker_name")
+    val MT5_EXECUTION_ENABLED = booleanPreferencesKey("mt5_execution_enabled")
 }
 
-// Replace with your actual Render URL,
-// e.g. "https://aegis-backend.onrender.com/"
+// Default Render URL when Settings has never been saved.
+// Override in Settings with your real service hostname.
 const val DEFAULT_SERVER_URL =
     "https://aegis-api-0z1p.onrender.com"
 
 const val DEFAULT_MIN_CONFIDENCE = 0.70f
+const val DEFAULT_BROKER_NAME = "MetaTrader5"

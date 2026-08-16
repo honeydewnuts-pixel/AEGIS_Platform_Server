@@ -75,12 +75,37 @@ async def portal_download_url(
     token: str = Query(...),
 ):
     """
-    Returns the gated APK download URL if the subscription is active,
-    rather than streaming the file directly from a subscriber-facing
-    endpoint - keeps the actual file serving on the one existing,
-    already-tested /api/download/apk path.
+    Issues a short-lived single-use download token and returns the absolute
+    APK URL. Aligns with /api/download/apk?token=… gating.
     """
     record = await _authenticate(request, account_id, token)
     if not record["is_active"]:
         raise HTTPException(status_code=402, detail="Subscription is not active.")
-    return {"download_url": f"/api/download/apk?account_id={account_id}"}
+    plan = record.get("plan") or "starter"
+    if plan in ("live",):
+        plan = "starter"
+    bindings = request.app.state.device_bindings
+    dl_token = await bindings.issue_download_token(
+        account_id=account_id, plan=plan, max_uses=1, ttl_hours=24
+    )
+    base = str(request.base_url).rstrip("/")
+    return {
+        "download_url": f"{base}/api/download/apk?token={dl_token}",
+        "token": dl_token,
+        "plan": plan,
+        "expires_hours": 24,
+        "note": "Single-use link. Open on the phone that will run AEGIS.",
+    }
+
+
+@router.get("/trade-quota")
+async def portal_trade_quota(
+    request: Request,
+    account_id: str = Query(...),
+    token: str = Query(...),
+):
+    await _authenticate(request, account_id, token)
+    limits = getattr(request.app.state, "trade_limits", None)
+    if limits is None:
+        return {"account_id": account_id, "available": False}
+    return await limits.status(account_id)

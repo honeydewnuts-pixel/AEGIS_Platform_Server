@@ -49,15 +49,16 @@ the actual problem instead of a guess at one.
    command line / CI.
 2. Install the resulting APK on a device with MT5 installed and logged in.
 3. In AEGIS Settings, set:
-   - **Server IP** - your backend's address
-   - **API Key** - the per-account key shown once when this subscriber's
-     subscription first activated (see `backend/docs/SECURITY.md` -
-     each subscriber gets their own key now, not a shared one; using the
-     wrong subscriber's key will get `403 Forbidden` from every endpoint
-     that takes an `account_id`)
-   - **Account ID** - optional; defaults to the device's Android ID if left blank
+   - **Brain Server URL** - full HTTPS base, e.g. `https://your-service.onrender.com`
+     (not a bare LAN IP; Render terminates TLS on 443)
+   - **API Key** - the admin bootstrap key from first deploy logs, or the
+     per-account key shown once when a subscription activates (see
+     `docs/SECURITY.md`). Wrong key → `401`; key for a different account → `403`
+   - **Account ID** - optional; defaults to this device's Android ID if left blank
 4. Grant screen-capture permission, enable the Accessibility Service, and
    tap "Allow background running" when prompted.
+5. First upload after a Render free-tier sleep can take 30–90s (cold start).
+   The app retries once and queues offline; subsequent captures are fast.
 
 ## What's genuinely unverified here
 

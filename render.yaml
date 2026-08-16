@@ -38,7 +38,8 @@ services:
     plan: free
     dockerfilePath: ./docker/Dockerfile
     dockerContext: .
-    healthCheckPath: /
+    # /health also pings Redis; use / if you prefer a pure process check.
+    healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -76,3 +77,11 @@ services:
 
       - key: DEBUG
         value: "False"
+      # After losing the admin key: set ADMIN_BOOTSTRAP_KEY to a new secret,
+      # set FORCE_ADMIN_KEY_RESET to "true", redeploy once, then set back to "false".
+      - key: FORCE_ADMIN_KEY_RESET
+        value: "false"
+      - key: MAX_CONCURRENT_WORKERS
+        value: "100"
+      - key: SECRET_KEY
+        sync: false

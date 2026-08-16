@@ -28,21 +28,19 @@ image_service = ImageProcessingService()
 async def upload_image(
     file: UploadFile = File(...)
 ):
-
-    if not file.content_type.startswith("image/"):
+    # Guard against None content_type (some clients / proxies omit it).
+    # Real validation is extension + successful write in UploadService.
+    ct = (file.content_type or "").split(";")[0].strip().lower()
+    if ct and not ct.startswith("image/") and ct != "application/octet-stream":
         raise HTTPException(
             status_code=400,
-            detail="Only image files are accepted."
+            detail=f"Only image files are accepted (got content-type={file.content_type!r}).",
         )
 
     try:
-
         metadata = await upload_service.save_image(file)
-
         return metadata.model_dump()
-
     except ValueError as error:
-
         raise HTTPException(
             status_code=400,
             detail=str(error)
@@ -58,7 +56,6 @@ async def image_information(filename: str):
     image_path = f"uploads/{filename}"
 
     try:
-
         image = image_service.load_image(image_path)
 
         information = image_service.image_information(image)
@@ -72,14 +69,12 @@ async def image_information(filename: str):
         )
 
     except FileNotFoundError:
-
         raise HTTPException(
             status_code=404,
             detail="Image not found."
         )
 
     except Exception as error:
-
         raise HTTPException(
             status_code=400,
             detail=str(error)
