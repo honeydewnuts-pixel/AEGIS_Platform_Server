@@ -425,10 +425,18 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
     private suspend fun registerDeviceIfNeeded() {
         try {
             val prefs = applicationContext.dataStore.data.first()
+            // Must match the account_id the API key was issued for — never fall back to ANDROID_ID
             val accountId = prefs[PrefKeys.ACCOUNT_ID]?.takeIf { it.isNotBlank() }
-                ?: android.provider.Settings.Secure.getString(
-                    contentResolver, android.provider.Settings.Secure.ANDROID_ID
-                )
+            if (accountId.isNullOrBlank()) {
+                runOnUiThread {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Set Account ID in Settings (from portal Connect mobile).",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+                return
+            }
             val deviceId = android.provider.Settings.Secure.getString(
                 contentResolver, android.provider.Settings.Secure.ANDROID_ID
             ) ?: return
@@ -439,13 +447,26 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
                 "device_label" to (android.os.Build.MODEL ?: "android")
             )
             val res = api.registerDevice(body)
-            if (res.code() == 403) {
-                runOnUiThread {
+            val errBody = res.errorBody()?.string()?.take(200)
+            when (res.code()) {
+                401 -> runOnUiThread {
                     Toast.makeText(
                         this@MainActivity,
-                        "This subscription is bound to another phone. Contact support to transfer.",
+                        "API key invalid or revoked. Generate a new key in portal → Connect mobile.",
                         Toast.LENGTH_LONG
                     ).show()
+                }
+                403 -> runOnUiThread {
+                    val msg = when {
+                        errBody?.contains("not authorized for this account", ignoreCase = true) == true ->
+                            "Account ID does not match this API key. Copy both from portal Connect mobile."
+                        errBody?.contains("bound to another", ignoreCase = true) == true ||
+                            errBody?.contains("device", ignoreCase = true) == true ->
+                            "This subscription is bound to another phone. Contact support or clear binding."
+                        else ->
+                            "Access denied (403). Check Account ID + API key match the portal."
+                    }
+                    Toast.makeText(this@MainActivity, msg, Toast.LENGTH_LONG).show()
                 }
             }
         } catch (_: Exception) {

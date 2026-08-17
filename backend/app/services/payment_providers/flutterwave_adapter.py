@@ -29,9 +29,12 @@ from app.services.payment_providers.base import (
 
 FLUTTERWAVE_BASE_URL = "https://api.flutterwave.com/v3"
 
-PLAN_AMOUNTS_NGN = {
-    "monthly": 5000,   # adjust to your real pricing
-}
+from app.services.plan_catalog import plan_price_usd
+
+def _fw_amount_usd(plan: str) -> float:
+    usd = plan_price_usd(plan)
+    return float(usd if usd > 0 else 100)
+
 
 
 class FlutterwaveAdapter(PaymentProviderAdapter):
@@ -80,7 +83,7 @@ class FlutterwaveAdapter(PaymentProviderAdapter):
 
     async def create_checkout_session(self, account_id: str, email: str, plan: str, reveal_token: str) -> CheckoutSession:
         tx_ref = f"aegis-{account_id}-{uuid.uuid4().hex[:10]}"
-        amount = PLAN_AMOUNTS_NGN.get(plan, PLAN_AMOUNTS_NGN["monthly"])
+        amount = _fw_amount_usd(plan)
 
         async with httpx.AsyncClient() as client:
             resp = await client.post(
@@ -89,7 +92,7 @@ class FlutterwaveAdapter(PaymentProviderAdapter):
                 json={
                     "tx_ref": tx_ref,
                     "amount": amount,
-                    "currency": "NGN",
+                    "currency": "USD",
                     "redirect_url": f"{settings.PORTAL_BASE_URL}/success.html?account_id={account_id}&reveal_token={reveal_token}",
                     "customer": {"email": email},
                     "meta": {"account_id": account_id, "plan": plan},

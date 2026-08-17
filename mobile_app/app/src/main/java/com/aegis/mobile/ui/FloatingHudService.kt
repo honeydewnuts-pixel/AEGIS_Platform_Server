@@ -83,7 +83,7 @@ class FloatingHudService : Service() {
         windowManager!!.defaultDisplay.getMetrics(metrics)
         panelW = (metrics.widthPixels * 0.42f).toInt().coerceIn(280, 480)
         panelH = (metrics.heightPixels * 0.38f).toInt().coerceIn(320, 560)
-        bubbleSize = (72 * metrics.density).toInt().coerceIn(72, 104)
+        bubbleSize = (64 * metrics.density).toInt().coerceIn(60, 88)
 
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -177,7 +177,7 @@ class FloatingHudService : Service() {
         signalView = TextView(this).apply {
             text = "SIGNAL: HOLD"
             setTextColor(Color.WHITE)
-            textSize = 18f
+            textSize = 15f
             gravity = Gravity.CENTER
             includeFontPadding = false
             setPadding(0, dp(10), 0, dp(4))
@@ -249,7 +249,7 @@ class FloatingHudService : Service() {
             toggleBtn.text = "▲"
             val sigLabel = signalView.text?.toString()?.removePrefix("SIGNAL: ")?.trim() ?: "HOLD"
             titleView.text = sigLabel
-            titleView.textSize = 16f
+            titleView.textSize = 12f
             titleView.gravity = Gravity.CENTER
             titleView.includeFontPadding = false
             titleView.setPadding(0, dp(2), 0, 0) // slight raise so text sits optically centered
@@ -264,7 +264,7 @@ class FloatingHudService : Service() {
             ).apply { gravity = Gravity.CENTER }
             toggleBtn.visibility = View.GONE
             // Balanced padding so BUY/SELL/HOLD is fully visible and centered
-            root?.setPadding(dp(8), dp(14), dp(8), dp(10))
+            root?.setPadding(dp(6), dp(12), dp(6), dp(8))
             root?.gravity = Gravity.CENTER
             params.width = bubbleSize
             params.height = bubbleSize

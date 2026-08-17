@@ -102,6 +102,27 @@ class DeviceBindingService:
             ).scalar_one()
 
             if count >= max_dev:
+                # Single-device plans: allow transfer to this phone (common after reinstall / new handset)
+                if max_dev == 1:
+                    await session.execute(
+                        delete(DeviceBinding).where(DeviceBinding.account_id == account_id)
+                    )
+                    session.add(
+                        DeviceBinding(
+                            account_id=account_id,
+                            device_id=device_id,
+                            device_label=device_label,
+                            bound_at=now,
+                            last_seen_at=now,
+                        )
+                    )
+                    await session.commit()
+                    return {
+                        "status": "transferred",
+                        "account_id": account_id,
+                        "device_id": device_id,
+                        "max_devices": max_dev,
+                    }
                 return {
                     "status": "rejected",
                     "reason": "device_limit_reached",

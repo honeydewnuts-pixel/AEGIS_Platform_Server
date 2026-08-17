@@ -37,10 +37,14 @@ EVENT_MAP = {
     "subscription.disable": PaymentEventType.SUBSCRIPTION_CANCELED,
 }
 
-# plan -> (amount in Kobo, i.e. Naira * 100)
-PLAN_AMOUNTS_KOBO = {
-    "monthly": 500000,   # NGN 5,000.00 - adjust to your real pricing
-}
+# Global USD pricing (Paystack amount = cents when currency=USD)
+from app.services.plan_catalog import plan_price_usd
+
+def _paystack_amount_cents(plan: str) -> int:
+    usd = plan_price_usd(plan)
+    if usd <= 0:
+        usd = 100.0  # fallback starter
+    return int(round(usd * 100))
 
 
 class PaystackAdapter(PaymentProviderAdapter):
@@ -81,7 +85,7 @@ class PaystackAdapter(PaymentProviderAdapter):
 
     async def create_checkout_session(self, account_id: str, email: str, plan: str, reveal_token: str) -> CheckoutSession:
         reference = f"aegis-{account_id}-{uuid.uuid4().hex[:10]}"
-        amount = PLAN_AMOUNTS_KOBO.get(plan, PLAN_AMOUNTS_KOBO["monthly"])
+        amount = _paystack_amount_cents(plan)
 
         async with httpx.AsyncClient() as client:
             resp = await client.post(
@@ -90,6 +94,7 @@ class PaystackAdapter(PaymentProviderAdapter):
                 json={
                     "email": email,
                     "amount": amount,
+                    "currency": "USD",
                     "reference": reference,
                     "callback_url": f"{settings.PORTAL_BASE_URL}/success.html?account_id={account_id}&reveal_token={reveal_token}",
                     "metadata": {"account_id": account_id, "plan": plan},
