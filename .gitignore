@@ -24,6 +24,7 @@ mobile_app/*.iml
 mobile_app/.idea/
 mobile_app/captures/
 *.apk
+!release/aegis-mobile.apk
 *.aab
 
 # (gradle-wrapper.jar is now committed for real - see mobile_app/README.md

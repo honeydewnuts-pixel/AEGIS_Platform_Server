@@ -33,11 +33,26 @@ async def download_apk(
             detail="Invalid, expired, revoked, or already-used download token. Subscribe or request a new link.",
         )
 
-    apk_path = Path(settings.APK_FILE_PATH)
-    if not apk_path.exists():
+    # Resolve APK relative to common deploy roots (repo root, backend/, cwd)
+    candidates = []
+    raw = Path(settings.APK_FILE_PATH)
+    candidates.append(raw)
+    if not raw.is_absolute():
+        here = Path(__file__).resolve()
+        # backend/app/api -> repo root is parents[3]
+        for root in (
+            Path.cwd(),
+            here.parents[3] if len(here.parents) > 3 else Path.cwd(),
+            here.parents[2] if len(here.parents) > 2 else Path.cwd(),
+            Path("/opt/render/project/src"),
+        ):
+            candidates.append(root / raw)
+            candidates.append(root / "release" / "aegis-mobile.apk")
+    apk_path = next((c for c in candidates if c.exists() and c.is_file()), None)
+    if apk_path is None:
         raise HTTPException(
             status_code=500,
-            detail="APK file not found on server — build and place it at APK_FILE_PATH.",
+            detail="APK file not found on server — build and place it at APK_FILE_PATH (release/aegis-mobile.apk).",
         )
 
     audit = getattr(request.app.state, "audit_service", None)
