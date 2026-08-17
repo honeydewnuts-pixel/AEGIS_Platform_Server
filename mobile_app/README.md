@@ -70,3 +70,8 @@ the actual problem instead of a guess at one.
 - The offline screenshot cache (`ScreenshotCacheManager`) has never been
   tested against a real network outage - verify it drains in order and
   respects the file cap on a real device before relying on it.
+
+## Signed release
+
+See [docs/RELEASE_SIGNING.md](docs/RELEASE_SIGNING.md).
+

@@ -1,0 +1,30 @@
+# Append or merge into .github/workflows/mobile-ci.yml after secrets are set.
+# Requires a PAT with "workflow" scope to push workflow file changes via API.
+
+      - name: Decode release keystore (if secrets present)
+        id: keystore
+        env:
+          AEGIS_KEYSTORE_BASE64: ${{ secrets.AEGIS_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "${AEGIS_KEYSTORE_BASE64}" ]; then
+            echo "$AEGIS_KEYSTORE_BASE64" | base64 -d > /tmp/aegis-release.jks
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Assemble signed release APK
+        if: steps.keystore.outputs.present == 'true'
+        env:
+          AEGIS_KEYSTORE_PATH: /tmp/aegis-release.jks
+          AEGIS_KEYSTORE_PASSWORD: ${{ secrets.AEGIS_KEYSTORE_PASSWORD }}
+          AEGIS_KEY_ALIAS: ${{ secrets.AEGIS_KEY_ALIAS }}
+          AEGIS_KEY_PASSWORD: ${{ secrets.AEGIS_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease
+
+      - name: Upload release APK
+        if: steps.keystore.outputs.present == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: aegis-mobile-release
+          path: mobile_app/app/build/outputs/apk/release/*.apk

@@ -42,3 +42,10 @@ Thumbs.db
 
 # Build artifacts
 docker/prometheus_data/
+
+# Android release signing (never commit)
+mobile_app/keystore.properties
+mobile_app/**/*.jks
+mobile_app/**/*.keystore
+**/aegis-release.jks
+secrets/
