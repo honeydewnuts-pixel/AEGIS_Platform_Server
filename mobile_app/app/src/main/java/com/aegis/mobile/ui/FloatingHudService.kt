@@ -83,7 +83,7 @@ class FloatingHudService : Service() {
         windowManager!!.defaultDisplay.getMetrics(metrics)
         panelW = (metrics.widthPixels * 0.42f).toInt().coerceIn(280, 480)
         panelH = (metrics.heightPixels * 0.38f).toInt().coerceIn(320, 560)
-        bubbleSize = (56 * metrics.density).toInt().coerceIn(56, 88)
+        bubbleSize = (72 * metrics.density).toInt().coerceIn(72, 104)
 
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -175,10 +175,12 @@ class FloatingHudService : Service() {
         previewFrame.addView(preview)
 
         signalView = TextView(this).apply {
-            text = "SIGNAL: —"
+            text = "SIGNAL: HOLD"
             setTextColor(Color.WHITE)
-            textSize = 17f
-            setPadding(0, dp(8), 0, dp(2))
+            textSize = 18f
+            gravity = Gravity.CENTER
+            includeFontPadding = false
+            setPadding(0, dp(10), 0, dp(4))
         }
         statusView = TextView(this).apply {
             text = "Drag · MIN hides · tap bubble to restore"
@@ -245,15 +247,27 @@ class FloatingHudService : Service() {
         if (collapse) {
             body.visibility = View.GONE
             toggleBtn.text = "▲"
-            titleView.text = signalView.text?.toString()?.removePrefix("SIGNAL: ")?.trim() ?: "AEGIS"
-            titleView.textSize = 14f
+            val sigLabel = signalView.text?.toString()?.removePrefix("SIGNAL: ")?.trim() ?: "HOLD"
+            titleView.text = sigLabel
+            titleView.textSize = 16f
             titleView.gravity = Gravity.CENTER
+            titleView.includeFontPadding = false
+            titleView.setPadding(0, dp(2), 0, 0) // slight raise so text sits optically centered
             headerRow.gravity = Gravity.CENTER
+            headerRow.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
+            titleView.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT
+            ).apply { gravity = Gravity.CENTER }
             toggleBtn.visibility = View.GONE
-            root?.setPadding(dp(10), dp(10), dp(10), dp(10))
+            // Balanced padding so BUY/SELL/HOLD is fully visible and centered
+            root?.setPadding(dp(8), dp(14), dp(8), dp(10))
+            root?.gravity = Gravity.CENTER
             params.width = bubbleSize
             params.height = bubbleSize
-            // Compact round bubble
             root?.background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(Color.parseColor("#F015653C"))
@@ -267,7 +281,15 @@ class FloatingHudService : Service() {
                 "AEGIS · capturing" else "AEGIS · idle"
             titleView.textSize = 13f
             titleView.gravity = Gravity.START
+            titleView.includeFontPadding = true
+            titleView.setPadding(0, 0, 0, 0)
+            titleView.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            headerRow.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
             headerRow.gravity = Gravity.CENTER_VERTICAL
+            root?.gravity = Gravity.TOP
             root?.setPadding(dp(12), dp(10), dp(12), dp(10))
             params.width = panelW
             params.height = panelH
@@ -308,7 +330,7 @@ class FloatingHudService : Service() {
             }
             else -> {
                 signalView.setTextColor(Color.WHITE)
-                if (collapsed) titleView.text = sig ?: "AEGIS"
+                if (collapsed) titleView.text = (sig ?: "HOLD").ifBlank { "HOLD" }
             }
         }
     }
