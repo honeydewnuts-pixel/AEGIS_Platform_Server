@@ -28,6 +28,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend ./backend
+COPY release ./release
 COPY admin_dashboard ./admin_dashboard
 COPY client_portal ./client_portal
 COPY docker/entrypoint.sh ./entrypoint.sh
@@ -40,6 +41,8 @@ RUN useradd --create-home --uid 1000 aegis \
     && mkdir -p backend/data backend/uploads \
     && chown -R aegis:aegis /app
 USER aegis
+
+ENV APK_FILE_PATH=/app/release/aegis-mobile.apk
 
 WORKDIR /app/backend
 
