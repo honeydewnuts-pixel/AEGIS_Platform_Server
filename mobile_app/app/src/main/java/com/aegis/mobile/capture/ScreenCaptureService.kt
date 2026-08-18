@@ -515,8 +515,20 @@ class ScreenCaptureService : Service() {
         }
     }
 
+    private fun stopFloatingHud() {
+        try {
+            val hide = Intent(this, com.aegis.mobile.ui.FloatingHudService::class.java).apply {
+                action = com.aegis.mobile.ui.FloatingHudService.ACTION_HIDE
+            }
+            startService(hide)
+            stopService(Intent(this, com.aegis.mobile.ui.FloatingHudService::class.java))
+        } catch (_: Exception) {
+        }
+    }
+
     override fun onDestroy() {
         stopCaptureSession()
+        stopFloatingHud()
         scope.cancel()
         super.onDestroy()
     }
