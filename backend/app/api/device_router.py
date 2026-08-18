@@ -18,6 +18,21 @@ def get_device_health_service(request: Request):
     return request.app.state.device_health
 
 
+
+
+@router.get("/me")
+async def device_me(auth: AuthContext = Depends(verify_api_key)):
+    """
+    Resolve which account_id this API key is bound to.
+    Mobile app should call this after saving the key and auto-fill Account ID.
+    """
+    return {
+        "account_id": auth.account_id,
+        "is_admin": auth.is_admin,
+        "label": auth.label,
+        "key_id": auth.key_id,
+    }
+
 @router.post("/heartbeat")
 async def receive_heartbeat(
     heartbeat: HeartbeatRequest,

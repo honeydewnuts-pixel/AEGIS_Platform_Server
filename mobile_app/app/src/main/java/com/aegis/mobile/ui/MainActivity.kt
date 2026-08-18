@@ -25,6 +25,7 @@ import com.aegis.mobile.capture.ScreenCaptureService
 import com.aegis.mobile.data.DEFAULT_BROKER_NAME
 import com.aegis.mobile.data.DEFAULT_MIN_CONFIDENCE
 import com.aegis.mobile.data.HealthStatus
+import androidx.datastore.preferences.core.edit
 import com.aegis.mobile.data.PrefKeys
 import com.aegis.mobile.data.dataStore
 import com.aegis.mobile.models.Mt5ConnectRequest
@@ -424,30 +425,54 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
 
     private suspend fun registerDeviceIfNeeded() {
         try {
+            val api = RetrofitClient.getApiService(this@MainActivity)
+            // Resolve account_id from API key (source of truth)
+            var accountId: String? = null
+            try {
+                val me = api.deviceMe()
+                if (me.isSuccessful) {
+                    accountId = me.body()?.get("account_id")?.toString()?.trim()
+                    if (!accountId.isNullOrBlank()) {
+                        applicationContext.dataStore.edit { it[PrefKeys.ACCOUNT_ID] = accountId!! }
+                    }
+                } else if (me.code() == 401) {
+                    runOnUiThread {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "API key invalid. Portal → Connect mobile → generate key, then paste in Settings.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                    return
+                }
+            } catch (_: Exception) {
+            }
+
             val prefs = applicationContext.dataStore.data.first()
-            // Must match the account_id the API key was issued for — never fall back to ANDROID_ID
-            val accountId = prefs[PrefKeys.ACCOUNT_ID]?.takeIf { it.isNotBlank() }
+            if (accountId.isNullOrBlank()) {
+                accountId = prefs[PrefKeys.ACCOUNT_ID]?.takeIf { it.isNotBlank() }
+            }
             if (accountId.isNullOrBlank()) {
                 runOnUiThread {
                     Toast.makeText(
                         this@MainActivity,
-                        "Set Account ID in Settings (from portal Connect mobile).",
+                        "Set API key in Settings (Account ID is filled automatically from the key).",
                         Toast.LENGTH_LONG
                     ).show()
                 }
                 return
             }
+
             val deviceId = android.provider.Settings.Secure.getString(
                 contentResolver, android.provider.Settings.Secure.ANDROID_ID
             ) ?: return
-            val api = RetrofitClient.getApiService(this@MainActivity)
             val body = mapOf(
                 "account_id" to accountId,
                 "device_id" to deviceId,
                 "device_label" to (android.os.Build.MODEL ?: "android")
             )
             val res = api.registerDevice(body)
-            val errBody = res.errorBody()?.string()?.take(200)
+            val errBody = res.errorBody()?.string()?.take(300)
             when (res.code()) {
                 401 -> runOnUiThread {
                     Toast.makeText(
@@ -457,23 +482,16 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
                     ).show()
                 }
                 403 -> runOnUiThread {
-                    val msg = when {
-                        errBody?.contains("not authorized for this account", ignoreCase = true) == true ->
-                            "Account ID does not match this API key. Copy both from portal Connect mobile."
-                        errBody?.contains("bound to another", ignoreCase = true) == true ||
-                            errBody?.contains("device", ignoreCase = true) == true ->
-                            "This subscription is bound to another phone. Contact support or clear binding."
-                        else ->
-                            "Access denied (403). Check Account ID + API key match the portal."
-                    }
-                    Toast.makeText(this@MainActivity, msg, Toast.LENGTH_LONG).show()
+                    Toast.makeText(
+                        this@MainActivity,
+                        errBody ?: "Access denied (403). Check Account ID matches the API key.",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             }
         } catch (_: Exception) {
-            // offline / not configured yet
         }
     }
-
 
     override fun onResume() {
         super.onResume()

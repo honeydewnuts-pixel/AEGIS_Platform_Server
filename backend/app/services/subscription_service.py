@@ -309,15 +309,43 @@ class SubscriptionService:
                     updated_at=now,
                 ))
             await session.commit()
-        mobile_api_key = await issue_api_key(
-            account_id=account_id,
-            is_admin=False,
-            label=f"demo mobile key for {account_id}",
-            issued_by="demo_signup",
-        )
+        # Do NOT mint a new mobile key on every demo click — that caused
+        # portal/mobile mismatch (user keeps old key or wrong Account ID).
+        # Fresh key only when none exist; portal "Connect mobile" rotates explicitly.
+        from app.db.models import ApiKey
+        from sqlalchemy import select
+
+        existing_key = False
+        async with async_session_factory() as session:
+            row = (
+                await session.execute(
+                    select(ApiKey).where(
+                        ApiKey.account_id == account_id,
+                        ApiKey.is_admin == False,  # noqa: E712
+                        ApiKey.revoked == False,  # noqa: E712
+                    )
+                )
+            ).scalars().first()
+            existing_key = row is not None
+
+        mobile_api_key = None
+        if not existing_key:
+            mobile_api_key = await issue_api_key(
+                account_id=account_id,
+                is_admin=False,
+                label=f"demo mobile key for {account_id}",
+                issued_by="demo_signup",
+            )
         return {
             "account_id": account_id,
             "portal_token": portal_token,
-            "mobile_api_key": mobile_api_key,
+            "mobile_api_key": mobile_api_key,  # null if key already exists — use Connect mobile to rotate
             "plan": "demo",
+            "key_reused": existing_key,
+            "note": (
+                "Mobile API key already exists for this account. "
+                "Use portal Connect mobile to reveal a new key if needed."
+                if existing_key
+                else "Copy mobile_api_key into the app with this account_id."
+            ),
         }

@@ -92,10 +92,16 @@ async def verify_api_key(x_api_key: str | None = Header(default=None)) -> AuthCo
 def require_account_match(auth: AuthContext, requested_account_id: str) -> None:
     if auth.is_admin:
         return
-    if auth.account_id != requested_account_id:
+    req = (requested_account_id or "").strip()
+    key_acct = (auth.account_id or "").strip()
+    if key_acct and req and key_acct != req:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="This API key is not authorized for this account.",
+            detail=(
+                f"This API key belongs to account '{key_acct}', not '{req}'. "
+                "In the mobile app Settings, set Account ID to exactly the same value "
+                "shown next to the key in the portal (Connect mobile)."
+            ),
         )
 
 

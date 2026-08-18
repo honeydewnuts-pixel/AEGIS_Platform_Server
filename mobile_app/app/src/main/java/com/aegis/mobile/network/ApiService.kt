@@ -49,6 +49,9 @@ interface ApiService {
     @POST("/api/devices/register")
     suspend fun registerDevice(@Body body: Map<String, @JvmSuppressWildcards Any>): Response<Map<String, Any>>
 
+    @GET("/api/devices/me")
+    suspend fun deviceMe(): Response<Map<String, @JvmSuppressWildcards Any>>
+
     @GET("/api/templates/active")
     suspend fun getActiveTemplates(): Response<Map<String, @JvmSuppressWildcards Any>>
 

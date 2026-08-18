@@ -90,10 +90,14 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private suspend fun persistSettings() {
+        val apiKey = etApiKey.text.toString().trim()
+        val serverUrl = etUrl.text.toString().trim()
+        var accountId = etAccountId.text.toString().trim()
+
         applicationContext.dataStore.edit { settings ->
-            settings[PrefKeys.SERVER_URL] = etUrl.text.toString().trim()
-            settings[PrefKeys.API_KEY] = etApiKey.text.toString().trim()
-            settings[PrefKeys.ACCOUNT_ID] = etAccountId.text.toString().trim()
+            settings[PrefKeys.SERVER_URL] = serverUrl
+            settings[PrefKeys.API_KEY] = apiKey
+            settings[PrefKeys.ACCOUNT_ID] = accountId
             settings[PrefKeys.MT5_BROKER_NAME] =
                 etMt5Broker.text.toString().trim().ifBlank { DEFAULT_BROKER_NAME }
             settings[PrefKeys.MT5_SERVER] = etMt5Server.text.toString().trim()
@@ -105,6 +109,42 @@ class SettingsActivity : AppCompatActivity() {
                 etMinConfidence.text.toString().trim().ifBlank {
                     DEFAULT_MIN_CONFIDENCE.toString()
                 }
+        }
+
+        // Account ID must match the key — resolve from server to prevent 403
+        if (apiKey.isNotBlank() && serverUrl.isNotBlank()) {
+            try {
+                val api = RetrofitClient.getApiService(this)
+                val me = api.deviceMe()
+                if (me.isSuccessful) {
+                    val resolved = me.body()?.get("account_id")?.toString()?.trim().orEmpty()
+                    if (resolved.isNotEmpty() && resolved != accountId) {
+                        accountId = resolved
+                        applicationContext.dataStore.edit { it[PrefKeys.ACCOUNT_ID] = resolved }
+                        runOnUiThread {
+                            etAccountId.setText(resolved)
+                            Toast.makeText(
+                                this,
+                                "Account ID corrected to match API key: $resolved",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    } else if (resolved.isNotEmpty()) {
+                        runOnUiThread {
+                            Toast.makeText(this, "Credentials OK for $resolved", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } else if (me.code() == 401) {
+                    runOnUiThread {
+                        Toast.makeText(
+                            this,
+                            "API key rejected. Use portal → Connect mobile to generate a new key.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            } catch (_: Exception) {
+            }
         }
     }
 
@@ -123,10 +163,10 @@ class SettingsActivity : AppCompatActivity() {
 
         val prefs = applicationContext.dataStore.data.first()
         val accountId = prefs[PrefKeys.ACCOUNT_ID]?.takeIf { it.isNotBlank() }
-            ?: android.provider.Settings.Secure.getString(
-                contentResolver,
-                android.provider.Settings.Secure.ANDROID_ID
-            )
+        if (accountId.isNullOrBlank()) {
+            Toast.makeText(this, "Save settings first so Account ID is resolved from the API key.", Toast.LENGTH_LONG).show()
+            return false
+        }
         val broker = etMt5Broker.text.toString().trim().ifBlank { DEFAULT_BROKER_NAME }
 
         return try {
