@@ -49,7 +49,7 @@ class IndicatorHistoryService:
         self._redis = redis_client
         history_cfg = config.get("history", {})
         self.max_frames = history_cfg.get("max_frames_kept", 60)
-        self.ttl_seconds = history_cfg.get("ttl_seconds", 600)
+        self.ttl_seconds = history_cfg.get("ttl_seconds", 3600)
 
     def _key(self, account_id: str) -> str:
         return f"indicator_history:{account_id}"

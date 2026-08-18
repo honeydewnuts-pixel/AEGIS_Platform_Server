@@ -152,17 +152,48 @@ class SignalRuleEngine:
         self.higher_high_lookback = higher_high_lookback
 
     def evaluate(self, history: list[dict[str, Any]]) -> RuleResult:
-        if len(history) < 2:
-            return RuleResult(False, None, "insufficient_history", "Need at least 2 frames.")
+        n = len(history)
+        if n < 1:
+            return RuleResult(False, "HOLD", "warming_up", "No frames yet — keep capture running.")
+        if n < 2:
+            return RuleResult(
+                False,
+                "HOLD",
+                "warming_up",
+                f"Collecting frames ({n}/2). Next capture will enable full rules.",
+            )
 
         prev, cur = history[-2], history[-1]
 
+        # Indicators not visible in the crop → soft HOLD (not a server error)
+        if not self._bands_ok(prev, cur):
+            return RuleResult(
+                False,
+                "HOLD",
+                "indicators_not_detected",
+                "Could not read band indicators from the chart crop. Ensure MT5 is full-screen with the AEGIS indicator template.",
+            )
+
         for rule_fn in self._rules():
-            result = rule_fn(prev, cur, history)
+            try:
+                result = rule_fn(prev, cur, history)
+            except Exception:
+                continue
             if result is not None and result.fired:
                 return result
 
-        return RuleResult(False, None, "no_rule_matched", "No condition set fully matched this frame.")
+        return RuleResult(False, "HOLD", "no_rule_matched", "No condition set fully matched this frame.")
+
+    @staticmethod
+    def _bands_ok(prev: dict, cur: dict) -> bool:
+        for fr in (prev, cur):
+            b1, b2 = fr.get("band1"), fr.get("band2")
+            if not isinstance(b1, dict) or not isinstance(b2, dict):
+                return False
+            for k in ("U", "M", "L"):
+                if b1.get(k) is None or b2.get(k) is None:
+                    return False
+        return True
 
     # --------------------------------------------------------------
     # Encoded rules

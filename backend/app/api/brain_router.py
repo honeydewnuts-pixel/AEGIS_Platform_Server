@@ -34,7 +34,7 @@ _IMAGE_CONTENT_TYPES = (
 async def analyze_screenshot(
     request: Request,
     image: UploadFile = File(...),
-    account_id: str = Form(...),
+    account_id: str = Form(""),
     captured_at_ms: int | None = Form(None),
     auth: AuthContext = Depends(verify_api_key),
 ):

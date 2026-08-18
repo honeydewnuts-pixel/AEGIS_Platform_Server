@@ -208,9 +208,11 @@ class BrainCVService:
     def evaluate(self, history: list[dict[str, Any]]) -> dict[str, Any]:
         """Run the rule engine over an already-built history (current frame last)."""
         result = self.rule_engine.evaluate(history)
+        conf = 0.85 if result.fired else (0.15 if result.rule_name == "warming_up" else 0.0)
         return {
             "signal": result.signal or "HOLD",
-            "confidence": 0.85 if result.fired else 0.0,
+            "confidence": conf,
             "rule_name": result.rule_name,
             "details": f"{result.rule_name}: {result.reason}",
+            "frames_in_history": len(history),
         }
