@@ -171,7 +171,7 @@ class SignalRuleEngine:
                 False,
                 "HOLD",
                 "indicators_not_detected",
-                "Could not read band indicators from the chart crop. Ensure MT5 is full-screen with the AEGIS indicator template.",
+                "Could not read band indicators. Use dark MT5 theme; Bands34 white + Bands17 green on lower pane; full-screen chart; hide HUD during capture.",
             )
 
         for rule_fn in self._rules():

@@ -49,7 +49,7 @@ CONFIG_PATH = Path(__file__).resolve().parent.parent / "colors_config.json"
 DEFAULT_BULLISH_RGB = [0, 200, 0]
 DEFAULT_BEARISH_RGB = [220, 30, 30]
 
-RIGHT_EDGE_WINDOW_PX = 6  # how many columns from the right edge count as "current"
+RIGHT_EDGE_WINDOW_PX = 18  # how many columns from the right edge count as "current"
 
 
 class BrainCVService:
@@ -100,17 +100,59 @@ class BrainCVService:
     # ------------------------------------------------------------
 
     def _find_color_points(self, hsv_image: np.ndarray, rgb: list[int], tolerance: dict) -> list[list[int]]:
-        hue_tol = tolerance.get("hue", 10)
-        hsv_color = cv2.cvtColor(np.uint8([[rgb]]), cv2.COLOR_RGB2HSV)[0][0]
-        lower = np.array([max(0, int(hsv_color[0]) - hue_tol), 50, 50])
-        upper = np.array([min(180, int(hsv_color[0]) + hue_tol), 255, 255])
-        mask = cv2.inRange(hsv_image, lower, upper)
+        """
+        Locate indicator pixels. White/gray lines need low-saturation ranges;
+        saturated colours use hue windows. Both paths are more tolerant of
+        phone brightness and JPEG compression than the original fixed S>=50 mask
+        (which eliminated white Bollinger bands entirely).
+        """
+        hue_tol = int(tolerance.get("hue", 14))
+        sat_tol = int(tolerance.get("saturation", 55))
+        val_tol = int(tolerance.get("value", 50))
+        hsv_color = cv2.cvtColor(np.uint8([[list(rgb)]]), cv2.COLOR_RGB2HSV)[0][0]
+        h0, s0, v0 = int(hsv_color[0]), int(hsv_color[1]), int(hsv_color[2])
+
+        # Near-white / gray (Bands #1 etc.): match on value, ignore hue
+        if s0 < 40 or (rgb[0] > 200 and rgb[1] > 200 and rgb[2] > 200):
+            lower = np.array([0, 0, max(0, v0 - max(val_tol, 60))])
+            upper = np.array([180, max(40, s0 + 40), 255])
+        else:
+            lower = np.array([
+                max(0, h0 - hue_tol),
+                max(0, s0 - sat_tol),
+                max(0, v0 - val_tol),
+            ])
+            upper = np.array([
+                min(180, h0 + hue_tol),
+                255,
+                255,
+            ])
+            # Hue wrap-around (reds near 0/180)
+            if h0 - hue_tol < 0 or h0 + hue_tol > 180:
+                lower1 = np.array([0, lower[1], lower[2]])
+                upper1 = np.array([min(180, h0 + hue_tol), 255, 255])
+                lower2 = np.array([max(0, h0 - hue_tol + 180) % 180, lower[1], lower[2]])
+                upper2 = np.array([180, 255, 255])
+                mask = cv2.bitwise_or(
+                    cv2.inRange(hsv_image, lower1, upper1),
+                    cv2.inRange(hsv_image, lower2, upper2),
+                )
+            else:
+                mask = cv2.inRange(hsv_image, lower, upper)
+
+        if s0 < 40 or (rgb[0] > 200 and rgb[1] > 200 and rgb[2] > 200):
+            mask = cv2.inRange(hsv_image, lower, upper)
+
+        # Light morphological open to drop speckles without killing thin lines
+        kernel = np.ones((2, 2), np.uint8)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         points = []
-        min_area = self.config.get("noise_filter", {}).get("minimum_contour_area", 12)
+        min_area = self.config.get("noise_filter", {}).get("minimum_contour_area", 4)
         for cnt in contours:
-            if cv2.contourArea(cnt) > min_area:
+            if cv2.contourArea(cnt) >= min_area:
                 m = cv2.moments(cnt)
                 if m["m00"] != 0:
                     cx = int(m["m10"] / m["m00"])
@@ -132,14 +174,17 @@ class BrainCVService:
         return float(np.mean(ys))
 
     def _band_ulm(self, points: list[list[int]], panel_width: int) -> dict[str, float] | None:
-        """Cluster the rightmost points of a 3-line band indicator into U/M/L by Y order."""
+        """Cluster rightmost points of a 3-line band into U/M/L by Y order."""
         ys = sorted(self._rightmost_y_values(points, panel_width))
-        if len(ys) < 3:
+        if not ys:
             return None
-        # Collapse to 3 representative values even if more than 3 points were found
-        # (thick/anti-aliased lines can produce multiple contours per band line).
+        if len(ys) == 1:
+            y = float(ys[0])
+            return {"U": y - 4.0, "M": y, "L": y + 4.0}
+        if len(ys) == 2:
+            return {"U": float(ys[0]), "M": float(sum(ys) / 2), "L": float(ys[1])}
         thirds = np.array_split(ys, 3)
-        u, m, l = [float(np.mean(t)) for t in thirds]
+        u, m, l = [float(np.mean(part)) for part in thirds]
         return {"U": u, "M": m, "L": l}
 
     # ------------------------------------------------------------
