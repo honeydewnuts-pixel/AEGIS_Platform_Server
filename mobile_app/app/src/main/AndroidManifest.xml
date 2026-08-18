@@ -47,6 +47,7 @@
         <!-- Settings UI -->
         <activity android:name=".ui.SettingsActivity" />
         <activity android:name=".ui.IndicatorSetupActivity" />
+        <activity android:name=".ui.CopierActivity" />
 
         <!-- Phase 1: Screen Capture Service -->
         <service

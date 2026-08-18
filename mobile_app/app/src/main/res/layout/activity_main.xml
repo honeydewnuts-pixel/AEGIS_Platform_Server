@@ -380,6 +380,24 @@
                 android:stateListAnimator="@null"/>
 
             <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/copierBtn"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:text="COPIER"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/btn_purple_bg"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minHeight="0dp"
+                android:gravity="center"
+                android:stateListAnimator="@null"/>
+
+            <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/connectMt5Btn"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"

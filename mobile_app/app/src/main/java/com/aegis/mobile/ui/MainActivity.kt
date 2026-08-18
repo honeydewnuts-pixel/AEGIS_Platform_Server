@@ -49,6 +49,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var batteryBtn: Button
     private lateinit var accessibilityBtn: Button
     private lateinit var connectMt5Btn: Button
+    private lateinit var copierBtn: Button
     private lateinit var floatHudBtn: Button
     private lateinit var minimizeBtn: Button
     private lateinit var reportIssueBtn: Button
@@ -102,6 +103,7 @@ class MainActivity : AppCompatActivity() {
         batteryBtn = findViewById(R.id.batteryBtn)
         accessibilityBtn = findViewById(R.id.accessibilityBtn)
         connectMt5Btn = findViewById(R.id.connectMt5Btn)
+        copierBtn = findViewById(R.id.copierBtn)
         floatHudBtn = findViewById(R.id.floatHudBtn)
         minimizeBtn = findViewById(R.id.minimizeBtn)
         reportIssueBtn = findViewById(R.id.reportIssueBtn)
@@ -257,6 +259,9 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
         }
         batteryBtn.setOnClickListener { requestBatteryExemption() }
         accessibilityBtn.setOnClickListener { openAccessibilitySettings() }
+        copierBtn.setOnClickListener {
+            startActivity(android.content.Intent(this, CopierActivity::class.java))
+        }
         connectMt5Btn.setOnClickListener { connectMt5FromPrefs() }
         floatHudBtn.setOnClickListener { toggleFloatingHud() }
         minimizeBtn.setOnClickListener { minimizeApp() }

@@ -58,4 +58,24 @@ interface ApiService {
     @POST("/api/support/report")
     suspend fun reportIssue(@Body body: Map<String, @JvmSuppressWildcards Any?>): Response<Map<String, Any>>
 
+    @GET("/api/copier/catalog")
+    suspend fun copierCatalog(): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @GET("/api/copier/status/{accountId}")
+    suspend fun copierStatus(@Path("accountId") accountId: String): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @POST("/api/copier/activate")
+    suspend fun copierActivate(@Body body: Map<String, @JvmSuppressWildcards Any>): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @POST("/api/copier/slaves")
+    suspend fun copierAddSlave(@Body body: Map<String, @JvmSuppressWildcards Any>): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @POST("/api/copier/slaves/toggle")
+    suspend fun copierToggleSlave(@Body body: Map<String, @JvmSuppressWildcards Any>): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @retrofit2.http.DELETE("/api/copier/slaves/{slaveId}")
+    suspend fun copierRemoveSlave(
+        @Path("slaveId") slaveId: Int,
+        @Query("account_id") accountId: String
+    ): Response<Map<String, @JvmSuppressWildcards Any>>
 }
