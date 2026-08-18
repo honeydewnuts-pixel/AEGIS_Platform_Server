@@ -89,6 +89,7 @@ class ScreenCaptureService : Service() {
         if (intent?.action == ACTION_STOP) {
             Log.i("AEGIS", "Stop capture requested")
             stopCaptureSession()
+            stopFloatingHud()
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY

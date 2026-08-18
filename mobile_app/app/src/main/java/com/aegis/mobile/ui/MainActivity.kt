@@ -513,8 +513,7 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
     }
 
     private fun stopCapture() {
-        // Explicit ACTION_STOP so the service cleans up MediaProjection and does not
-        // get auto-restarted without a token (which looked like "Start again by itself").
+        // Explicit ACTION_STOP: release MediaProjection (camera icon) and tear down HUD bubble.
         val stopIntent = Intent(this, ScreenCaptureService::class.java).apply {
             action = ScreenCaptureService.ACTION_STOP
         }
@@ -526,9 +525,17 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
             stopService(Intent(this, ScreenCaptureService::class.java))
         } catch (_: Exception) {
         }
+        try {
+            val hideHud = Intent(this, FloatingHudService::class.java).apply {
+                action = FloatingHudService.ACTION_HIDE
+            }
+            startService(hideHud)
+            stopService(Intent(this, FloatingHudService::class.java))
+        } catch (_: Exception) {
+        }
         HealthStatus.mediaProjectionActive.postValue(false)
         setCaptureRunning(false)
-        Toast.makeText(this, "AEGIS Stopped", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "AEGIS stopped — capture & HUD closed", Toast.LENGTH_SHORT).show()
         healthText.text = "Stopped by user"
     }
 

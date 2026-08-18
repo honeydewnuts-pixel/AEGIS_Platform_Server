@@ -39,6 +39,7 @@ class FloatingHudService : Service() {
     private lateinit var toggleBtn: TextView
     private lateinit var signalView: TextView
     private lateinit var statusView: TextView
+    private lateinit var detailView: TextView
     private lateinit var preview: ImageView
     private lateinit var previewFrame: FrameLayout
     private lateinit var body: LinearLayout
@@ -187,9 +188,16 @@ class FloatingHudService : Service() {
             setTextColor(Color.parseColor("#5EEAD4"))
             textSize = 11f
         }
+        detailView = TextView(this).apply {
+            text = ""
+            setTextColor(Color.parseColor("#94A3B8"))
+            textSize = 10f
+            maxLines = 2
+        }
 
         body.addView(previewFrame)
         body.addView(signalView)
+        body.addView(detailView)
         body.addView(statusView)
 
         root!!.addView(headerRow)
@@ -236,6 +244,7 @@ class FloatingHudService : Service() {
         mainHandler.post {
             HealthStatus.lastPreviewBitmap.observeForever(previewObserver)
             SignalRepository.latestSignal.observeForever(signalObserver)
+            SignalRepository.latestResult.observeForever(resultObserver)
             HealthStatus.lastUploadStatus.observeForever(statusObserver)
             HealthStatus.mediaProjectionActive.observeForever(runningObserver)
         }
@@ -245,57 +254,63 @@ class FloatingHudService : Service() {
         collapsed = collapse
         isCollapsed = collapse
         if (collapse) {
-            body.visibility = View.GONE
-            toggleBtn.text = "▲"
-            val sigLabel = signalView.text?.toString()?.removePrefix("SIGNAL: ")?.trim() ?: "HOLD"
-            titleView.text = sigLabel
-            titleView.textSize = 12f
-            titleView.gravity = Gravity.CENTER
-            titleView.includeFontPadding = false
-            titleView.setPadding(0, dp(2), 0, 0) // slight raise so text sits optically centered
-            headerRow.gravity = Gravity.CENTER
-            headerRow.layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.MATCH_PARENT
-            )
-            titleView.layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.MATCH_PARENT
-            ).apply { gravity = Gravity.CENTER }
+            // Compact draggable chip: SIGNAL + short analysis (not a blank oval)
+            body.visibility = View.VISIBLE
+            previewFrame.visibility = View.GONE
             toggleBtn.visibility = View.GONE
-            // Balanced padding so BUY/SELL/HOLD is fully visible and centered
-            root?.setPadding(dp(6), dp(12), dp(6), dp(8))
+            headerRow.visibility = View.GONE
+            signalView.textSize = 14f
+            signalView.gravity = Gravity.CENTER
+            signalView.setPadding(0, dp(2), 0, 0)
+            detailView.visibility = View.VISIBLE
+            detailView.textSize = 9f
+            detailView.gravity = Gravity.CENTER
+            detailView.maxLines = 2
+            statusView.visibility = View.GONE
+            root?.setPadding(dp(10), dp(8), dp(10), dp(8))
             root?.gravity = Gravity.CENTER
-            params.width = bubbleSize
-            params.height = bubbleSize
+            params.width = (180 * resources.displayMetrics.density).toInt()
+            params.height = WindowManager.LayoutParams.WRAP_CONTENT
             root?.background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(Color.parseColor("#F015653C"))
+                cornerRadius = 12f * resources.displayMetrics.density
+                setColor(Color.parseColor("#F0111828"))
                 setStroke(dp(2), Color.parseColor("#F0D78C"))
             }
+            // Refresh labels from latest analysis
+            val sig = SignalRepository.latestSignal.value ?: "HOLD"
+            signalView.text = sig
+            when (sig) {
+                "BUY" -> signalView.setTextColor(Color.parseColor("#4ADE80"))
+                "SELL" -> signalView.setTextColor(Color.parseColor("#F87171"))
+                else -> signalView.setTextColor(Color.WHITE)
+            }
+            val res = SignalRepository.latestResult.value
+            detailView.text = res?.let {
+                val conf = (it.confidence * 100f).toInt()
+                val rule = it.rule_name ?: ""
+                "$rule · ${conf}%"
+            } ?: "Waiting…"
         } else {
             body.visibility = View.VISIBLE
+            previewFrame.visibility = View.VISIBLE
+            headerRow.visibility = View.VISIBLE
             toggleBtn.visibility = View.VISIBLE
             toggleBtn.text = "MIN"
+            statusView.visibility = View.VISIBLE
+            detailView.visibility = View.VISIBLE
             titleView.text = if (HealthStatus.mediaProjectionActive.value == true)
                 "AEGIS · capturing" else "AEGIS · idle"
             titleView.textSize = 13f
             titleView.gravity = Gravity.START
-            titleView.includeFontPadding = true
-            titleView.setPadding(0, 0, 0, 0)
-            titleView.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            headerRow.layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            headerRow.gravity = Gravity.CENTER_VERTICAL
-            root?.gravity = Gravity.TOP
+            signalView.textSize = 15f
+            signalView.gravity = Gravity.CENTER
             root?.setPadding(dp(12), dp(10), dp(12), dp(10))
+            root?.gravity = Gravity.TOP
             params.width = panelW
             params.height = panelH
             root?.background = GradientDrawable().apply {
                 setColor(Color.parseColor("#E6111828"))
-                cornerRadius = 18f * resources.displayMetrics.density
+                cornerRadius = 14f * resources.displayMetrics.density
                 setStroke(dp(1), Color.parseColor("#44D4AF37"))
             }
         }
@@ -318,20 +333,26 @@ class FloatingHudService : Service() {
         if (bmp != null) preview.setImageBitmap(bmp)
     }
     private val signalObserver = androidx.lifecycle.Observer<String> { sig ->
-        signalView.text = "SIGNAL: ${sig ?: "—"}"
-        when (sig) {
-            "BUY" -> {
-                signalView.setTextColor(Color.parseColor("#4ADE80"))
-                if (collapsed) titleView.text = "BUY"
-            }
-            "SELL" -> {
-                signalView.setTextColor(Color.parseColor("#F87171"))
-                if (collapsed) titleView.text = "SELL"
-            }
-            else -> {
-                signalView.setTextColor(Color.WHITE)
-                if (collapsed) titleView.text = (sig ?: "HOLD").ifBlank { "HOLD" }
-            }
+        val label = (sig ?: "HOLD").ifBlank { "HOLD" }
+        signalView.text = if (collapsed) label else "SIGNAL: $label"
+        when (label) {
+            "BUY" -> signalView.setTextColor(Color.parseColor("#4ADE80"))
+            "SELL" -> signalView.setTextColor(Color.parseColor("#F87171"))
+            else -> signalView.setTextColor(Color.WHITE)
+        }
+        if (collapsed) {
+            titleView.text = label
+        }
+    }
+    private val resultObserver = androidx.lifecycle.Observer<com.aegis.mobile.models.AnalysisResponse?> { res ->
+        if (res == null) return@Observer
+        val conf = (res.confidence * 100f).toInt()
+        val rule = res.rule_name ?: ""
+        val line = "$rule · ${conf}%"
+        if (collapsed) {
+            detailView.text = line
+        } else {
+            detailView.text = (res.details ?: line).take(90)
         }
     }
     private val statusObserver = androidx.lifecycle.Observer<String> { st ->
@@ -349,6 +370,7 @@ class FloatingHudService : Service() {
         try {
             HealthStatus.lastPreviewBitmap.removeObserver(previewObserver)
             SignalRepository.latestSignal.removeObserver(signalObserver)
+            try { SignalRepository.latestResult.removeObserver(resultObserver) } catch (_: Exception) {}
             HealthStatus.lastUploadStatus.removeObserver(statusObserver)
             HealthStatus.mediaProjectionActive.removeObserver(runningObserver)
         } catch (_: Exception) {
