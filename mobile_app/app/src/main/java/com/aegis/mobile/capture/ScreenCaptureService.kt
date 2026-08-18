@@ -428,7 +428,7 @@ class ScreenCaptureService : Service() {
     private suspend fun resolveAccountId(): String {
         val storedAccountId = applicationContext.dataStore.data.first()[PrefKeys.ACCOUNT_ID]
         // Never fall back to ANDROID_ID — that caused 403 (key belongs to ACC-…, not device id)
-        return storedAccountId?.takeIf { it.isNotBlank() }
+        return storedAccountId?.takeIf { it.isNotBlank() } ?: ""
     }
 
     private suspend fun sendHeartbeat() {
