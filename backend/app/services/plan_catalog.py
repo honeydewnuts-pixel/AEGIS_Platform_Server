@@ -65,3 +65,36 @@ def resolve_plan(plan_code: str) -> dict[str, Any]:
 
 def plan_price_usd(plan_code: str) -> float:
     return float(resolve_plan(plan_code).get("price_usd") or 0)
+
+
+# Trade Copier add-ons (require an active paid AEGIS plan: starter+)
+ADDON_CATALOG: dict[str, dict[str, Any]] = {
+    "copier_3": {
+        "label": "Trade Copier — 3 slaves",
+        "max_slaves": 3,
+        "price_usd": 49,
+        "price_hint": "$49 / month · mirror master to up to 3 accounts",
+    },
+    "copier_10": {
+        "label": "Trade Copier — 10 slaves",
+        "max_slaves": 10,
+        "price_usd": 129,
+        "price_hint": "$129 / month · up to 10 slave accounts",
+    },
+    "copier_25": {
+        "label": "Trade Copier — 25 slaves",
+        "max_slaves": 25,
+        "price_usd": 249,
+        "price_hint": "$249 / month · up to 25 slave accounts",
+    },
+}
+
+
+def resolve_addon(code: str) -> dict[str, Any]:
+    c = (code or "copier_3").lower().strip()
+    base = ADDON_CATALOG.get(c, ADDON_CATALOG["copier_3"])
+    return {**base, "code": c if c in ADDON_CATALOG else "copier_3"}
+
+
+def addon_price_usd(code: str) -> float:
+    return float(resolve_addon(code).get("price_usd") or 0)

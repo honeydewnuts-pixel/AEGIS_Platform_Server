@@ -251,3 +251,31 @@ class SupportTicket(Base):
     app_version: Mapped[str | None] = mapped_column(String, nullable=True)
     android_version: Mapped[str | None] = mapped_column(String, nullable=True)
     status: Mapped[str] = mapped_column(String, nullable=False, default="open")
+
+
+class TradeCopierAddon(Base):
+    """Optional master→slave trade mirroring add-on (Duplikium-style)."""
+    __tablename__ = "trade_copier_addons"
+
+    account_id: Mapped[str] = mapped_column(String, primary_key=True)  # master AEGIS account
+    tier: Mapped[str] = mapped_column(String, nullable=False, default="copier_3")  # catalog code
+    status: Mapped[str] = mapped_column(String, nullable=False, default="active")  # active|canceled
+    max_slaves: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class TradeCopierSlave(Base):
+    """Slave MT5 target under a master account."""
+    __tablename__ = "trade_copier_slaves"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    master_account_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    label: Mapped[str] = mapped_column(String, nullable=False, default="Slave")
+    broker_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    server: Mapped[str] = mapped_column(String, nullable=False)
+    login: Mapped[str] = mapped_column(String, nullable=False)
+    # Trading password stored via credential vault path preferred; optional encrypted field later
+    risk_mode: Mapped[str] = mapped_column(String, nullable=False, default="multiplier")  # multiplier | fixed_lot
+    risk_value: Mapped[float] = mapped_column(nullable=False, default=1.0)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

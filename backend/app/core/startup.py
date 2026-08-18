@@ -27,6 +27,7 @@ from app.services.subscription_service import SubscriptionService
 from app.services.device_health_service import DeviceHealthService
 from app.services.credential_reveal_service import CredentialRevealService
 from app.services.signal_history_service import SignalHistoryService
+from app.services.trade_copier_service import TradeCopierService
 from app.services.audit_service import AuditService
 from app.services.upload_diagnostic_service import UploadDiagnosticService
 from app.services.alert_service import AlertService
@@ -88,6 +89,7 @@ async def on_startup(app: FastAPI) -> None:
     app.state.device_health = DeviceHealthService(app.state.job_queue.get_redis_client())
     app.state.credential_reveal = CredentialRevealService(app.state.job_queue.get_redis_client())
     app.state.signal_history = SignalHistoryService()
+    app.state.trade_copier = TradeCopierService()
     app.state.audit_service = AuditService()
     app.state.upload_diagnostics = UploadDiagnosticService()
     app.state.alert_service = AlertService()

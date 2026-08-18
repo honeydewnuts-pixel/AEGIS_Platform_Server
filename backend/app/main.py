@@ -42,6 +42,7 @@ from app.api.download_router import router as download_router
 from app.api.device_router import router as device_router
 from app.api.admin_router import router as admin_router
 from app.api.portal_router import router as portal_router
+from app.api.copier_router import router as copier_router
 from app.api.signal_router import router as signal_router
 from app.api.config_router import router as config_router
 from app.api.template_router import router as template_router
@@ -121,6 +122,7 @@ app.include_router(download_router)
 app.include_router(device_router)
 app.include_router(admin_router)
 app.include_router(portal_router)
+app.include_router(copier_router)
 app.include_router(signal_router)
 app.include_router(config_router)
 

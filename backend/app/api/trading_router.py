@@ -141,6 +141,7 @@ async def disconnect(
 @router.post("/market-order", response_model=TradeExecutionResponse)
 async def place_market_order(
     request: MarketOrderRequest,
+    http_request: Request,
     worker_pool=Depends(get_worker_pool),
     job_queue=Depends(get_job_queue),
     subscription_service=Depends(get_subscription_service),
@@ -152,7 +153,7 @@ async def place_market_order(
             status_code=402,
             detail="Live trading requires an active paid subscription. Demo plan is analysis-only / demo-server only.",
         )
-    trade_limits = getattr(request.app.state, "trade_limits", None)
+    trade_limits = getattr(http_request.app.state, "trade_limits", None)
     if trade_limits is not None:
         try:
             await trade_limits.consume(request.account_id, 1)
@@ -168,6 +169,25 @@ async def place_market_order(
         raise HTTPException(status_code=504, detail="Worker did not respond in time.")
     if not result.get("success"):
         raise HTTPException(status_code=400, detail=result.get("message", "Order failed."))
+    # Mirror to Trade Copier slaves (best-effort)
+    try:
+        copier = getattr(http_request.app.state, "trade_copier", None)
+        if copier:
+            payload = request.model_dump(mode="json")
+            copies = await copier.mirror_market_order(
+                request.account_id,
+                symbol=str(payload.get("symbol") or ""),
+                side=str(payload.get("side") or payload.get("type") or ""),
+                volume=float(payload.get("volume") or payload.get("lots") or 0.01),
+                job_queue=job_queue,
+                worker_pool=worker_pool,
+            )
+            out = result["result"] if isinstance(result.get("result"), dict) else {"result": result.get("result")}
+            if isinstance(out, dict):
+                out = {**out, "copier": copies}
+                return out
+    except Exception:
+        pass
     return result["result"]
 
 
