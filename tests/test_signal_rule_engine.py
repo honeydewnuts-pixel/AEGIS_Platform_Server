@@ -116,7 +116,11 @@ class TestBaseRules:
         engine = SignalRuleEngine()
         result = engine.evaluate([])
         assert result.fired is False
-        assert result.rule_name == "insufficient_history"
+        # Empty / short history is soft HOLD warmup (not a hard failure name)
+        assert result.rule_name == "warming_up"
+        assert (result.signal or "HOLD") == "HOLD"
+        result1 = engine.evaluate([{"band1": {"U": 1, "M": 2, "L": 3}, "band2": {"U": 1, "M": 2, "L": 3}}])
+        assert result1.rule_name == "warming_up"
 
     def test_evaluate_never_raises_on_missing_optional_fields(self):
         """price_band7/8 are optional - the price-filter rules must not crash when absent."""
