@@ -53,6 +53,7 @@
             android:insetTop="0dp"
             android:insetBottom="0dp"
             android:minHeight="0dp"
+            android:gravity="center"
             android:stateListAnimator="@null"/>
 
         <androidx.appcompat.widget.AppCompatButton
@@ -69,17 +70,16 @@
             android:insetTop="0dp"
             android:insetBottom="0dp"
             android:minHeight="0dp"
+            android:gravity="center"
             android:stateListAnimator="@null"/>
     </LinearLayout>
 
-    <!-- Preview takes remaining vertical space -->
+    <!-- Compact capture strip — keep data + buttons fully visible -->
     <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:layout_marginTop="8dp"
-        android:background="@drawable/card_signal_bg"
-        android:minHeight="72dp">
+        android:layout_height="72dp"
+        android:layout_marginTop="6dp"
+        android:background="@drawable/card_signal_bg">
 
         <ImageView
             android:id="@+id/previewImage"
@@ -116,7 +116,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:maxLines="1"
+        android:maxLines="2"
         android:ellipsize="end"
         android:textColor="@color/aegis_text"
         android:textSize="11sp"
@@ -168,7 +168,7 @@
         android:textSize="9sp"
         android:textColor="@color/aegis_muted"
         android:fontFamily="monospace"
-        android:maxLines="3"
+        android:maxLines="5"
         android:ellipsize="end"
         android:text="Diagnostics…"/>
 
@@ -194,6 +194,7 @@
             android:insetTop="0dp"
             android:insetBottom="0dp"
             android:minHeight="0dp"
+            android:gravity="center"
             android:stateListAnimator="@null"/>
 
         <androidx.appcompat.widget.AppCompatButton
@@ -210,6 +211,7 @@
             android:insetTop="0dp"
             android:insetBottom="0dp"
             android:minHeight="0dp"
+            android:gravity="center"
             android:stateListAnimator="@null"/>
     </LinearLayout>
 
@@ -234,6 +236,7 @@
             android:insetTop="0dp"
             android:insetBottom="0dp"
             android:minHeight="0dp"
+            android:gravity="center"
             android:stateListAnimator="@null"/>
 
         <androidx.appcompat.widget.AppCompatButton
@@ -250,6 +253,7 @@
             android:insetTop="0dp"
             android:insetBottom="0dp"
             android:minHeight="0dp"
+            android:gravity="center"
             android:stateListAnimator="@null"/>
     </LinearLayout>
 
@@ -274,6 +278,7 @@
             android:insetTop="0dp"
             android:insetBottom="0dp"
             android:minHeight="0dp"
+            android:gravity="center"
             android:stateListAnimator="@null"/>
 
         <androidx.appcompat.widget.AppCompatButton
@@ -290,6 +295,7 @@
             android:insetTop="0dp"
             android:insetBottom="0dp"
             android:minHeight="0dp"
+            android:gravity="center"
             android:stateListAnimator="@null"/>
     </LinearLayout>
 
@@ -314,6 +320,7 @@
             android:insetTop="0dp"
             android:insetBottom="0dp"
             android:minHeight="0dp"
+            android:gravity="center"
             android:stateListAnimator="@null"/>
 
         <androidx.appcompat.widget.AppCompatButton
@@ -330,6 +337,7 @@
             android:insetTop="0dp"
             android:insetBottom="0dp"
             android:minHeight="0dp"
+            android:gravity="center"
             android:stateListAnimator="@null"/>
     </LinearLayout>
 </LinearLayout>

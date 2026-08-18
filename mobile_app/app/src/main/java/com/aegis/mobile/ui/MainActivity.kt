@@ -609,9 +609,9 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
 
     private fun updateBatteryButtonLabel() {
         batteryBtn.text = if (isIgnoringBatteryOptimizations()) {
-            "BACKGROUND RUNNING: ALLOWED ✓"
+            "BATTERY ✓"
         } else {
-            "ALLOW BACKGROUND RUNNING (recommended)"
+            "BATTERY"
         }
     }
 
