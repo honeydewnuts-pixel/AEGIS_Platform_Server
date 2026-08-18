@@ -131,7 +131,7 @@ class ScreenCaptureService : Service() {
         handler.removeCallbacks(heartbeatRunnable)
         handler.removeCallbacks(cacheDrainRunnable)
         handler.removeCallbacks(roiRefreshRunnable)
-        handler.postDelayed(captureRunnable, CAPTURE_INTERVAL)
+        handler.post(captureRunnable) // first frame immediately, then interval
         handler.postDelayed(heartbeatRunnable, HEARTBEAT_INTERVAL)
         handler.postDelayed(cacheDrainRunnable, CACHE_DRAIN_INTERVAL)
         handler.postDelayed(roiRefreshRunnable, ROI_REFRESH_INTERVAL)

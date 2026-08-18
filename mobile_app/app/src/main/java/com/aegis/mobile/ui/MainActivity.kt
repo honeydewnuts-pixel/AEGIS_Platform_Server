@@ -503,6 +503,11 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
         updateBatteryButtonLabel()
         val projectionOk = HealthStatus.mediaProjectionActive.value == true
         setCaptureRunning(projectionOk)
+        // Preview only updates while this activity is visible; restore last frame when returning
+        HealthStatus.lastPreviewBitmap.value?.let { bmp ->
+            previewImage.setImageBitmap(bmp)
+            previewPlaceholder.visibility = android.view.View.GONE
+        }
     }
 
     private fun setCaptureRunning(running: Boolean) {
