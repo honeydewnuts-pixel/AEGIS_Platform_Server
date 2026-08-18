@@ -38,7 +38,17 @@ async def analyze_screenshot(
     captured_at_ms: int | None = Form(None),
     auth: AuthContext = Depends(verify_api_key),
 ):
-    require_account_match(auth, account_id)
+    # Client mobile keys: account is defined by the key, not the form field.
+    # This prevents 403 when Account ID in the app is mistyped or stale.
+    if not auth.is_admin:
+        if not auth.account_id:
+            raise HTTPException(
+                status_code=403,
+                detail="This API key is not bound to an account. Use a mobile key from portal Connect mobile.",
+            )
+        account_id = auth.account_id
+    else:
+        require_account_match(auth, account_id)
     await enforce_account_rate_limit(request, account_id)
 
     brain = request.app.state.brain_cv_service

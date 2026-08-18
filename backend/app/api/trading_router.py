@@ -85,7 +85,7 @@ async def connect(
     if plan == "none":
         raise HTTPException(
             status_code=402,
-            detail="No subscription. Start a demo or subscribe to download and trade.",
+            detail="No subscription for this account. Use the mobile API key from portal (not the admin bootstrap key). Start Free demo or subscribe first.",
         )
     # Demo plan: allow connect only when execution targets are demo; still require vault save.
     if plan == "demo" and request.execution_enabled:

@@ -24,6 +24,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.aegis.mobile.R
 import com.aegis.mobile.data.HealthStatus
+import androidx.datastore.preferences.core.edit
 import com.aegis.mobile.data.PrefKeys
 import com.aegis.mobile.data.SignalRepository
 import com.aegis.mobile.data.dataStore
@@ -426,9 +427,22 @@ class ScreenCaptureService : Service() {
     }
 
     private suspend fun resolveAccountId(): String {
-        val storedAccountId = applicationContext.dataStore.data.first()[PrefKeys.ACCOUNT_ID]
-        // Never fall back to ANDROID_ID — that caused 403 (key belongs to ACC-…, not device id)
-        return storedAccountId?.takeIf { it.isNotBlank() } ?: ""
+        var stored = applicationContext.dataStore.data.first()[PrefKeys.ACCOUNT_ID]?.takeIf { it.isNotBlank() }
+        if (!stored.isNullOrBlank()) return stored
+        // Ask the API which account this key belongs to
+        try {
+            val api = RetrofitClient.getApiService(applicationContext)
+            val me = api.deviceMe()
+            if (me.isSuccessful) {
+                val id = me.body()?.get("account_id")?.toString()?.trim().orEmpty()
+                if (id.isNotEmpty()) {
+                    applicationContext.dataStore.edit { it[PrefKeys.ACCOUNT_ID] = id }
+                    return id
+                }
+            }
+        } catch (_: Exception) {
+        }
+        return ""
     }
 
     private suspend fun sendHeartbeat() {

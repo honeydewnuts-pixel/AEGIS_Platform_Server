@@ -39,8 +39,14 @@ async def receive_heartbeat(
     device_health=Depends(get_device_health_service),
     auth: AuthContext = Depends(verify_api_key),
 ):
-    require_account_match(auth, heartbeat.account_id)
-    await device_health.record_heartbeat(heartbeat.account_id, heartbeat.model_dump(by_alias=False))
+    acct = auth.account_id if (not auth.is_admin and auth.account_id) else heartbeat.account_id
+    if not auth.is_admin and auth.account_id:
+        pass  # key wins
+    else:
+        require_account_match(auth, heartbeat.account_id)
+    data = heartbeat.model_dump(by_alias=False)
+    data["account_id"] = acct
+    await device_health.record_heartbeat(acct, data)
     return {"status": "recorded"}
 
 
@@ -87,16 +93,26 @@ async def register_device(
     Bind this install to one phone. First successful call wins.
     Another phone using the same account_id + API key is rejected.
     """
-    require_account_match(auth, body.account_id)
+    account_id = auth.account_id if not auth.is_admin else body.account_id
+    if not auth.is_admin:
+        if not auth.account_id:
+            raise HTTPException(
+                status_code=403,
+                detail="This API key is not bound to a client account. Do not use the admin bootstrap key on the mobile app.",
+            )
+        account_id = auth.account_id
+    else:
+        require_account_match(auth, body.account_id)
+        account_id = body.account_id
     result = await request.app.state.device_bindings.register(
-        body.account_id, body.device_id, body.device_label
+        account_id, body.device_id, body.device_label
     )
     if result.get("status") == "rejected":
         await request.app.state.audit_service.record(
             action="device.bind_rejected",
             actor_type="account_key",
             actor_id=str(auth.key_id) if auth.key_id else None,
-            account_id=body.account_id,
+            account_id=account_id,
             detail=result.get("reason"),
             success=False,
             ip=request.client.host if request.client else None,
@@ -110,7 +126,7 @@ async def register_device(
             action="device.bind",
             actor_type="account_key",
             actor_id=str(auth.key_id) if auth.key_id else None,
-            account_id=body.account_id,
+            account_id=account_id,
             target_type="device",
             target_id=body.device_id[-6:],
             ip=request.client.host if request.client else None,
