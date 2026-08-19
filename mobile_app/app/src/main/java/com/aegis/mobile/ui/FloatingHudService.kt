@@ -268,11 +268,17 @@ class FloatingHudService : Service() {
             detailView.visibility = View.VISIBLE
             detailView.textSize = 9f
             detailView.gravity = Gravity.CENTER
-            detailView.maxLines = 2
-            statusView.visibility = View.GONE
-            root?.setPadding(dp(10), dp(8), dp(10), dp(8))
+            detailView.maxLines = 1
+            // Frame counter always visible on chip while MT5 is full-screen
+            statusView.visibility = View.VISIBLE
+            statusView.textSize = 11f
+            statusView.gravity = Gravity.CENTER
+            statusView.setTextColor(Color.parseColor("#F0D78C"))
+            statusView.setPadding(0, dp(2), 0, 0)
+            refreshChipCounts()
+            root?.setPadding(dp(10), dp(6), dp(10), dp(6))
             root?.gravity = Gravity.CENTER
-            params.width = (180 * resources.displayMetrics.density).toInt()
+            params.width = (200 * resources.displayMetrics.density).toInt()
             params.height = WindowManager.LayoutParams.WRAP_CONTENT
             root?.background = GradientDrawable().apply {
                 cornerRadius = 12f * resources.displayMetrics.density
@@ -323,7 +329,20 @@ class FloatingHudService : Service() {
         }
     }
 
+    private fun refreshChipCounts() {
+        val frames = HealthStatus.localFrameCount.value ?: 0L
+        val ups = HealthStatus.captureCount.value ?: 0L
+        val line = "F $frames · U $ups"
+        if (collapsed) {
+            statusView.text = line
+            statusView.visibility = View.VISIBLE
+        } else {
+            statusView.text = "Frames: $frames · uploads: $ups"
+        }
+    }
+
     private fun setRootVisible(visible: Boolean) {
+
         mainHandler.post {
             // During capture hide: stay invisible even if expanded
             root?.visibility = if (visible) View.VISIBLE else View.INVISIBLE
@@ -354,35 +373,20 @@ class FloatingHudService : Service() {
         val line = "$rule · ${conf}%"
         if (collapsed) {
             detailView.text = line
+            refreshChipCounts()
         } else {
             detailView.text = (res.details ?: line).take(90)
+            refreshChipCounts()
         }
     }
     private val statusObserver = androidx.lifecycle.Observer<String> { st ->
         statusView.text = "Upload: ${st ?: "—"}  ·  MIN to hide"
     }
-    private val frameCountObserver = androidx.lifecycle.Observer<Long> { n ->
-        if (collapsed) {
-            val ups = HealthStatus.captureCount.value ?: 0L
-            statusView.visibility = android.view.View.GONE
-            // keep detail as rule; put counts on signal subtitle via detail if empty
-            val base = detailView.text?.toString().orEmpty()
-            if (!base.contains("frames")) {
-                // updated below with result observer primarily
-            }
-        }
-        if (!collapsed) {
-            statusView.text = "Frames: $n · uploads: ${HealthStatus.captureCount.value ?: 0}"
-        }
+    private val frameCountObserver = androidx.lifecycle.Observer<Long> { _ ->
+        mainHandler.post { refreshChipCounts() }
     }
-    private val uploadCountObserver = androidx.lifecycle.Observer<Long> { u ->
-        val n = HealthStatus.localFrameCount.value ?: 0L
-        if (!collapsed) {
-            statusView.text = "Frames: $n · uploads: $u"
-        } else {
-            val rule = SignalRepository.latestResult.value?.rule_name ?: "…"
-            detailView.text = "$rule · frames $n · up $u"
-        }
+    private val uploadCountObserver = androidx.lifecycle.Observer<Long> { _ ->
+        mainHandler.post { refreshChipCounts() }
     }
     private val runningObserver = androidx.lifecycle.Observer<Boolean> { on ->
         if (!collapsed) {

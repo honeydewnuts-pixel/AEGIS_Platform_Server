@@ -247,6 +247,18 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
         HealthStatus.mediaProjectionActive.observe(this) { active ->
             setCaptureRunning(active == true)
             refreshHealth()
+            // Ensure floating chip is visible over MT5 with live F/U counters
+            if (active == true) {
+                try {
+                    startService(Intent(this, FloatingHudService::class.java).apply {
+                        action = FloatingHudService.ACTION_SHOW
+                    })
+                    startService(Intent(this, FloatingHudService::class.java).apply {
+                        action = FloatingHudService.ACTION_COLLAPSE
+                    })
+                } catch (_: Exception) {
+                }
+            }
         }
         HealthStatus.pendingCacheCount.observe(this) { refreshHealth() }
         HealthStatus.backendReachable.observe(this) { refreshHealth() }
