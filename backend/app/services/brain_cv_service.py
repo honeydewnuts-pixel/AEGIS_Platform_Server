@@ -41,6 +41,7 @@ import numpy as np
 
 from app.core.logging import configure_logging
 from app.services.signal_rule_engine import SignalRuleEngine
+from app.services.neural_service import NeuralAssistService
 
 CONFIG_PATH = Path(__file__).resolve().parent.parent / "colors_config.json"
 
@@ -61,6 +62,7 @@ class BrainCVService:
             divergence_lookback=self.config.get("history", {}).get("divergence_lookback_frames", 12),
             higher_high_lookback=self.config.get("history", {}).get("higher_high_lookback_frames", 8),
         )
+        self.neural = NeuralAssistService()
         self.logger.info("BrainCVService loaded config version %s", self.config.get("config_version"))
 
     def _load_config(self) -> dict:
@@ -80,6 +82,7 @@ class BrainCVService:
             divergence_lookback=self.config.get("history", {}).get("divergence_lookback_frames", 12),
             higher_high_lookback=self.config.get("history", {}).get("higher_high_lookback_frames", 8),
         )
+        self.neural = NeuralAssistService()
         ver = self.config.get("config_version", "?")
         self.logger.info("BrainCVService reloaded config %s", ver)
         return ver
@@ -251,13 +254,19 @@ class BrainCVService:
         return image
 
     def evaluate(self, history: list[dict[str, Any]]) -> dict[str, Any]:
-        """Run the rule engine over an already-built history (current frame last)."""
+        """Rule engine first, then Phase A/B neural assist (confidence / veto)."""
         result = self.rule_engine.evaluate(history)
         conf = 0.85 if result.fired else (0.15 if result.rule_name == "warming_up" else 0.0)
-        return {
+        base = {
             "signal": result.signal or "HOLD",
             "confidence": conf,
             "rule_name": result.rule_name,
             "details": f"{result.rule_name}: {result.reason}",
             "frames_in_history": len(history),
         }
+        try:
+            return self.neural.apply(history, base)
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning("Neural assist skipped: %s", exc)
+            base["neural_applied"] = False
+            return base

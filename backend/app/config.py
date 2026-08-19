@@ -93,6 +93,14 @@ class Settings(BaseSettings):
     TRACING_ENABLED: bool = False
     OTLP_ENDPOINT: str = "tempo:4317"
 
+    # Neural assist layer (Phase A/B). off | confidence | filter | hybrid
+    # confidence = blend NN score into confidence
+    # filter = veto weak rule fires → HOLD
+    # hybrid = both
+    NEURAL_MODE: str = "hybrid"
+    NEURAL_VETO_THRESHOLD: float = 0.35
+    NEURAL_MIN_BLEND: float = 0.15
+
 
 settings = Settings()
 
