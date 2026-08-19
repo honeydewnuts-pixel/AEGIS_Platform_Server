@@ -4,6 +4,11 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.*
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
+import android.net.wifi.WifiManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -53,6 +58,10 @@ class ScreenCaptureService : Service() {
     private lateinit var powerManager: PowerManager
     private var screenWakeLock: PowerManager.WakeLock? = null
     private var briefCpuWakeLock: PowerManager.WakeLock? = null
+    private var wifiLock: WifiManager.WifiLock? = null
+    private var connectivityManager: ConnectivityManager? = null
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    @Volatile private var keepNetworkAlive: Boolean = true
     @Volatile private var captureIntervalMs: Long = DEFAULT_CAPTURE_INTERVAL_MS
     private lateinit var cacheManager: ScreenshotCacheManager
 
@@ -71,7 +80,7 @@ class ScreenCaptureService : Service() {
         private const val NOTIF_ID = 1001
         private const val DEFAULT_CAPTURE_INTERVAL_MS = 5000L
         private const val HEARTBEAT_INTERVAL = 60000L   // 1 minute - independent of the capture loop
-        private const val CACHE_DRAIN_INTERVAL = 15000L // how often we try to flush the offline backlog
+        private const val CACHE_DRAIN_INTERVAL = 8000L // how often we try to flush the offline backlog
         private const val MAX_DRAIN_PER_CYCLE = 5        // catch up gradually, not in one burst, after reconnecting
         private const val ROI_REFRESH_INTERVAL = 6 * 60 * 60 * 1000L  // 6 hours - config rarely changes
         private const val WAKELOCK_TIMEOUT_MS = 10000L  // safety cap so a stuck capture can't hold the lock forever
@@ -140,6 +149,7 @@ class ScreenCaptureService : Service() {
         handler.postDelayed(roiRefreshRunnable, ROI_REFRESH_INTERVAL)
         updateNotification("Capturing MT5 chart region")
         acquireServiceWakeLock()
+        scope.launch { prepareNetworkKeepAlive() }
         // NOT sticky: prevents auto-restart without a valid projection token (which
         // made Stop appear to "restart" capture and left the UI inconsistent).
         return START_NOT_STICKY
@@ -179,6 +189,7 @@ class ScreenCaptureService : Service() {
             try { screenWakeLock?.release() } catch (_: Exception) {}
         }
         screenWakeLock = null
+        releaseNetworkKeepAlive()
         if (briefCpuWakeLock?.isHeld == true) {
             try { briefCpuWakeLock?.release() } catch (_: Exception) {}
         }
@@ -450,6 +461,67 @@ class ScreenCaptureService : Service() {
             HealthStatus.recordCaptureFailure(httpCode = null, networkError = true, latencyMs = System.currentTimeMillis() - t0)
             false
         }
+    }
+
+    private suspend fun prepareNetworkKeepAlive() {
+        try {
+            keepNetworkAlive = applicationContext.dataStore.data.first()[PrefKeys.KEEP_NETWORK_ALIVE] ?: true
+        } catch (_: Exception) {
+            keepNetworkAlive = true
+        }
+        if (!keepNetworkAlive) return
+        try {
+            val wifi = applicationContext.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            @Suppress("DEPRECATION")
+            if (wifiLock == null) {
+                wifiLock = wifi.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "AEGIS::WifiKeepAlive")
+                wifiLock?.setReferenceCounted(false)
+            }
+            if (wifiLock?.isHeld != true) {
+                wifiLock?.acquire()
+                Log.i("AEGIS", "Wi‑Fi high-perf lock acquired")
+            }
+        } catch (e: Exception) {
+            Log.w("AEGIS", "Wi‑Fi lock unavailable: ${e.message}")
+        }
+        try {
+            connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val request = NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+            val cb = object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    Log.i("AEGIS", "Network available — drain offline queue")
+                    HealthStatus.backendReachable.postValue(true)
+                    // Kick drain sooner than the normal interval
+                    handler.removeCallbacks(cacheDrainRunnable)
+                    handler.post(cacheDrainRunnable)
+                }
+                override fun onLost(network: Network) {
+                    Log.w("AEGIS", "Network lost — will queue captures offline")
+                    HealthStatus.backendReachable.postValue(false)
+                }
+            }
+            networkCallback = cb
+            connectivityManager?.registerNetworkCallback(request, cb)
+        } catch (e: Exception) {
+            Log.w("AEGIS", "Network callback failed: ${e.message}")
+        }
+    }
+
+    private fun releaseNetworkKeepAlive() {
+        try {
+            networkCallback?.let { cb ->
+                connectivityManager?.unregisterNetworkCallback(cb)
+            }
+        } catch (_: Exception) {
+        }
+        networkCallback = null
+        try {
+            if (wifiLock?.isHeld == true) wifiLock?.release()
+        } catch (_: Exception) {
+        }
+        wifiLock = null
     }
 
     private suspend fun loadCaptureInterval() {

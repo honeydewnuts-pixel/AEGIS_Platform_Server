@@ -26,6 +26,8 @@ object PrefKeys {
 
     // Seconds between screenshot captures (matches trader timeframe preference)
     val CAPTURE_INTERVAL_SEC = intPreferencesKey("capture_interval_sec")
+    /** Hold Wi‑Fi lock + aggressive reconnect while capturing (weak networks). */
+    val KEEP_NETWORK_ALIVE = booleanPreferencesKey("keep_network_alive")
 
     // MT5 broker credentials (sent to backend /api/trading/connect)
     val MT5_LOGIN = stringPreferencesKey("mt5_login")

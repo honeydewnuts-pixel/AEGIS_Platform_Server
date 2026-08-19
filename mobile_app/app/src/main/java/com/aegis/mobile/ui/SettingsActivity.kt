@@ -46,6 +46,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var etMt5Password: EditText
     private lateinit var cbMt5Execution: CheckBox
     private lateinit var cbAutoExecute: CheckBox
+    private lateinit var cbKeepNetwork: CheckBox
     private lateinit var etMinConfidence: EditText
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,6 +70,7 @@ class SettingsActivity : AppCompatActivity() {
         etMt5Password = findViewById(R.id.etMt5Password)
         cbMt5Execution = findViewById(R.id.cbMt5Execution)
         cbAutoExecute = findViewById(R.id.cbAutoExecute)
+        cbKeepNetwork = findViewById(R.id.cbKeepNetwork)
         etMinConfidence = findViewById(R.id.etMinConfidence)
         val btnSave = findViewById<Button>(R.id.btnSave)
         val btnSaveAndConnect = findViewById<Button>(R.id.btnSaveAndConnect)
@@ -88,6 +90,7 @@ class SettingsActivity : AppCompatActivity() {
             etMt5Password.setText(prefs[PrefKeys.MT5_PASSWORD] ?: "")
             cbMt5Execution.isChecked = prefs[PrefKeys.MT5_EXECUTION_ENABLED] ?: true
             cbAutoExecute.isChecked = prefs[PrefKeys.AUTO_EXECUTE] ?: false
+            cbKeepNetwork.isChecked = prefs[PrefKeys.KEEP_NETWORK_ALIVE] ?: true
             etMinConfidence.setText(
                 prefs[PrefKeys.MIN_CONFIDENCE] ?: DEFAULT_MIN_CONFIDENCE.toString()
             )
@@ -133,6 +136,7 @@ class SettingsActivity : AppCompatActivity() {
             settings[PrefKeys.MT5_PASSWORD] = etMt5Password.text.toString()
             settings[PrefKeys.MT5_EXECUTION_ENABLED] = cbMt5Execution.isChecked
             settings[PrefKeys.AUTO_EXECUTE] = cbAutoExecute.isChecked
+            settings[PrefKeys.KEEP_NETWORK_ALIVE] = cbKeepNetwork.isChecked
             val i = spinnerInterval.selectedItemPosition.coerceIn(0, INTERVAL_OPTIONS.lastIndex)
             settings[PrefKeys.CAPTURE_INTERVAL_SEC] = INTERVAL_OPTIONS[i].second
 

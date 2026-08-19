@@ -104,6 +104,15 @@
             android:background="#1E293B"
             android:popupBackground="#1E293B"/>
 
+        <CheckBox
+            android:id="@+id/cbKeepNetwork"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="Keep network &amp; phone awake while capturing (recommended on weak internet)"
+            android:textColor="#E8EEF8"
+            android:checked="true"/>
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

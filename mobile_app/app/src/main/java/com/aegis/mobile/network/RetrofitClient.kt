@@ -67,11 +67,13 @@ object RetrofitClient {
         val client = OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
             .addInterceptor(logging)
-            .connectTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(45, TimeUnit.SECONDS)
             .readTimeout(90, TimeUnit.SECONDS)
-            .writeTimeout(60, TimeUnit.SECONDS)
-            .callTimeout(120, TimeUnit.SECONDS)
+            .writeTimeout(90, TimeUnit.SECONDS)
+            .callTimeout(150, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
+            // Keep connections ready on flaky mobile networks
+            .pingInterval(15, TimeUnit.SECONDS)
             .build()
 
         val gson = GsonBuilder()
