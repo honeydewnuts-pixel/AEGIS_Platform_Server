@@ -4,6 +4,8 @@ import android.os.Bundle
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
+import android.widget.ArrayAdapter
+import android.widget.Spinner
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.datastore.preferences.core.edit
@@ -21,9 +23,23 @@ import kotlinx.coroutines.launch
 
 class SettingsActivity : AppCompatActivity() {
 
+    companion object {
+        /** Display label → seconds */
+        val INTERVAL_OPTIONS = listOf(
+            "2 seconds (scalp / M1)" to 2,
+            "3 seconds" to 3,
+            "5 seconds (default)" to 5,
+            "10 seconds (M5)" to 10,
+            "15 seconds" to 15,
+            "30 seconds (M15)" to 30,
+            "60 seconds (H1+)" to 60,
+        )
+    }
+
     private lateinit var etUrl: EditText
     private lateinit var etApiKey: EditText
     private lateinit var etAccountId: EditText
+    private lateinit var spinnerInterval: Spinner
     private lateinit var etMt5Broker: EditText
     private lateinit var etMt5Server: EditText
     private lateinit var etMt5Login: EditText
@@ -39,6 +55,14 @@ class SettingsActivity : AppCompatActivity() {
         etUrl = findViewById(R.id.etServerIp)
         etApiKey = findViewById(R.id.etApiKey)
         etAccountId = findViewById(R.id.etAccountId)
+        spinnerInterval = findViewById(R.id.spinnerCaptureInterval)
+        val labels = INTERVAL_OPTIONS.map { it.first }
+        spinnerInterval.adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_dropdown_item,
+            labels
+        )
+
         etMt5Broker = findViewById(R.id.etMt5Broker)
         etMt5Server = findViewById(R.id.etMt5Server)
         etMt5Login = findViewById(R.id.etMt5Login)
@@ -54,6 +78,10 @@ class SettingsActivity : AppCompatActivity() {
             etUrl.setText(prefs[PrefKeys.SERVER_URL] ?: DEFAULT_SERVER_URL)
             etApiKey.setText(prefs[PrefKeys.API_KEY] ?: "")
             etAccountId.setText(prefs[PrefKeys.ACCOUNT_ID] ?: "")
+            val sec = prefs[PrefKeys.CAPTURE_INTERVAL_SEC] ?: com.aegis.mobile.data.DEFAULT_CAPTURE_INTERVAL_SEC
+            val idx = INTERVAL_OPTIONS.indexOfFirst { it.second == sec }.let { if (it < 0) 2 else it }
+            spinnerInterval.setSelection(idx)
+
             etMt5Broker.setText(prefs[PrefKeys.MT5_BROKER_NAME] ?: DEFAULT_BROKER_NAME)
             etMt5Server.setText(prefs[PrefKeys.MT5_SERVER] ?: "")
             etMt5Login.setText(prefs[PrefKeys.MT5_LOGIN] ?: "")
@@ -105,6 +133,9 @@ class SettingsActivity : AppCompatActivity() {
             settings[PrefKeys.MT5_PASSWORD] = etMt5Password.text.toString()
             settings[PrefKeys.MT5_EXECUTION_ENABLED] = cbMt5Execution.isChecked
             settings[PrefKeys.AUTO_EXECUTE] = cbAutoExecute.isChecked
+            val i = spinnerInterval.selectedItemPosition.coerceIn(0, INTERVAL_OPTIONS.lastIndex)
+            settings[PrefKeys.CAPTURE_INTERVAL_SEC] = INTERVAL_OPTIONS[i].second
+
             settings[PrefKeys.MIN_CONFIDENCE] =
                 etMinConfidence.text.toString().trim().ifBlank {
                     DEFAULT_MIN_CONFIDENCE.toString()

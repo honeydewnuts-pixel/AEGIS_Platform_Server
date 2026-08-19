@@ -2,6 +2,7 @@ package com.aegis.mobile.data
 
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 
@@ -23,6 +24,9 @@ object PrefKeys {
     val AUTO_EXECUTE = booleanPreferencesKey("auto_execute")
     val MIN_CONFIDENCE = stringPreferencesKey("min_confidence")
 
+    // Seconds between screenshot captures (matches trader timeframe preference)
+    val CAPTURE_INTERVAL_SEC = intPreferencesKey("capture_interval_sec")
+
     // MT5 broker credentials (sent to backend /api/trading/connect)
     val MT5_LOGIN = stringPreferencesKey("mt5_login")
     val MT5_PASSWORD = stringPreferencesKey("mt5_password")
@@ -37,4 +41,5 @@ const val DEFAULT_SERVER_URL =
     "https://aegis-api-0z1p.onrender.com"
 
 const val DEFAULT_MIN_CONFIDENCE = 0.70f
+const val DEFAULT_CAPTURE_INTERVAL_SEC = 5
 const val DEFAULT_BROKER_NAME = "MetaTrader5"

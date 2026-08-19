@@ -82,6 +82,31 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:text="Capture interval"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#F0D78C"
+            android:layout_marginTop="22dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="How often to screenshot the chart. Use longer intervals for higher timeframes (H1/H4) to save battery; shorter for M1/M5."
+            android:textSize="12sp"
+            android:textColor="#C5D0E0"
+            android:layout_marginTop="4dp"/>
+
+        <Spinner
+            android:id="@+id/spinnerCaptureInterval"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="8dp"
+            android:background="#1E293B"
+            android:popupBackground="#1E293B"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:text="MT5 Broker"
             android:textSize="16sp"
             android:textStyle="bold"

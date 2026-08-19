@@ -53,6 +53,7 @@ class ScreenCaptureService : Service() {
     private lateinit var powerManager: PowerManager
     private var screenWakeLock: PowerManager.WakeLock? = null
     private var briefCpuWakeLock: PowerManager.WakeLock? = null
+    @Volatile private var captureIntervalMs: Long = DEFAULT_CAPTURE_INTERVAL_MS
     private lateinit var cacheManager: ScreenshotCacheManager
 
     // Defaults to "no crop" (send the full frame) until a real ROI is
@@ -68,7 +69,7 @@ class ScreenCaptureService : Service() {
         const val ACTION_STOP = "com.aegis.mobile.STOP_CAPTURE"
         const val ACTION_START = "com.aegis.mobile.START_CAPTURE"
         private const val NOTIF_ID = 1001
-        private const val CAPTURE_INTERVAL = 3000L      // 3 seconds
+        private const val DEFAULT_CAPTURE_INTERVAL_MS = 5000L
         private const val HEARTBEAT_INTERVAL = 60000L   // 1 minute - independent of the capture loop
         private const val CACHE_DRAIN_INTERVAL = 15000L // how often we try to flush the offline backlog
         private const val MAX_DRAIN_PER_CYCLE = 5        // catch up gradually, not in one burst, after reconnecting
@@ -132,6 +133,7 @@ class ScreenCaptureService : Service() {
         handler.removeCallbacks(heartbeatRunnable)
         handler.removeCallbacks(cacheDrainRunnable)
         handler.removeCallbacks(roiRefreshRunnable)
+        scope.launch { loadCaptureInterval() }
         handler.post(captureRunnable) // first frame immediately, then interval
         handler.postDelayed(heartbeatRunnable, HEARTBEAT_INTERVAL)
         handler.postDelayed(cacheDrainRunnable, CACHE_DRAIN_INTERVAL)
@@ -200,7 +202,7 @@ class ScreenCaptureService : Service() {
     private val captureRunnable = object : Runnable {
         override fun run() {
             captureAndSend()
-            handler.postDelayed(this, CAPTURE_INTERVAL)
+            handler.postDelayed(this, captureIntervalMs)
         }
     }
 
@@ -447,6 +449,17 @@ class ScreenCaptureService : Service() {
             Log.e("AEGIS", "Send failed: ${e.javaClass.simpleName}: ${e.message}")
             HealthStatus.recordCaptureFailure(httpCode = null, networkError = true, latencyMs = System.currentTimeMillis() - t0)
             false
+        }
+    }
+
+    private suspend fun loadCaptureInterval() {
+        try {
+            val sec = applicationContext.dataStore.data.first()[PrefKeys.CAPTURE_INTERVAL_SEC]
+                ?: com.aegis.mobile.data.DEFAULT_CAPTURE_INTERVAL_SEC
+            captureIntervalMs = (sec.coerceIn(2, 120) * 1000L)
+            Log.i("AEGIS", "Capture interval = ${captureIntervalMs}ms")
+        } catch (e: Exception) {
+            captureIntervalMs = DEFAULT_CAPTURE_INTERVAL_MS
         }
     }
 
