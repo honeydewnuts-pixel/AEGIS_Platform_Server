@@ -1,34 +1,32 @@
 {
-  "config_version": "AEGIS_VISION_1.0",
-  "description": "Color configuration for the AEGIS Mobile MT5 Indicator Rulebook Brain. Generated from the standardized 10-image Mobile MT5 template. All colors are stored in RGB with HSV tolerances to accommodate device brightness, compression artifacts, and minor rendering differences.",
+  "config_version": "AEGIS_VISION_1.1",
+  "description": "Corrected AEGIS Mobile MT5 indicator template (dark theme). Install order and colors must match indicator_stack_v2.",
   "image_profile": {
-    "source": "AEGIS Standard Mobile MT5 Template",
-    "validated_images": 10,
-    "timeframe": "M1",
+    "source": "AEGIS Corrected Mobile MT5 Template",
     "theme": "Dark",
     "roi_layout": "Fixed",
-    "template": "AEGIS Mobile MT5 Standard Indicator Template"
+    "template": "AEGIS Mobile MT5 Indicator Template v2"
   },
   "color_space": "HSV",
   "global_tolerance": {
-    "hue": 10,
-    "saturation": 45,
-    "value": 45
+    "hue": 12,
+    "saturation": 50,
+    "value": 50
   },
   "roi": {
     "price_panel": {
       "top_percent": 0.0,
-      "bottom_percent": 0.55
+      "bottom_percent": 0.58
     },
     "indicator_panel": {
-      "top_percent": 0.5,
+      "top_percent": 0.52,
       "bottom_percent": 1.0
     }
   },
   "indicators": {
     "#1": {
       "name": "Bands34",
-      "description": "Stationary Bollinger Bands (Period 34, Deviation 1.618)",
+      "description": "Stationary Bollinger (Period 34, Deviation 1.618) on previous indicator data",
       "color_name": "White",
       "rgb": [
         245,
@@ -37,13 +35,14 @@
       ],
       "hsv_tolerance": {
         "hue": 12,
-        "saturation": 35,
-        "value": 40
-      }
+        "saturation": 40,
+        "value": 50
+      },
+      "panel": "indicator"
     },
     "#2": {
       "name": "Bands17",
-      "description": "Motional Bollinger Bands (Period 17, Deviation 2.618)",
+      "description": "Motional Bollinger (Period 17, Deviation 2.618) on previous indicator data",
       "color_name": "BrightGreen",
       "rgb": [
         0,
@@ -51,29 +50,31 @@
         0
       ],
       "hsv_tolerance": {
-        "hue": 15,
-        "saturation": 50,
-        "value": 45
-      }
+        "hue": 16,
+        "saturation": 55,
+        "value": 50
+      },
+      "panel": "indicator"
     },
     "#3": {
       "name": "WilliamsR60",
-      "description": "Williams %R (60)",
-      "color_name": "Orange",
+      "description": "Williams %R (Period 60) \u2014 Brown (visible)",
+      "color_name": "Brown",
       "rgb": [
-        255,
-        165,
-        0
+        160,
+        82,
+        45
       ],
       "hsv_tolerance": {
-        "hue": 15,
+        "hue": 14,
         "saturation": 55,
-        "value": 45
-      }
+        "value": 50
+      },
+      "panel": "indicator"
     },
     "#4": {
       "name": "MA7",
-      "description": "Moving Average 7",
+      "description": "SMA 7 on previous indicator data \u2014 Magenta",
       "color_name": "Magenta",
       "rgb": [
         220,
@@ -82,13 +83,14 @@
       ],
       "hsv_tolerance": {
         "hue": 14,
-        "saturation": 50,
-        "value": 45
-      }
+        "saturation": 55,
+        "value": 50
+      },
+      "panel": "indicator"
     },
     "#5": {
       "name": "CCI6",
-      "description": "Commodity Channel Index (6)",
+      "description": "CCI Period 6 \u2014 Red line only",
       "color_name": "Red",
       "rgb": [
         255,
@@ -98,13 +100,14 @@
       "hsv_tolerance": {
         "hue": 12,
         "saturation": 55,
-        "value": 45
-      }
+        "value": 50
+      },
+      "panel": "indicator"
     },
     "#6": {
       "name": "RSI9",
-      "description": "Relative Strength Index (9)",
-      "color_name": "Cyan",
+      "description": "RSI Period 9 \u2014 Cyan/Cobalt",
+      "color_name": "CyanCobalt",
       "rgb": [
         70,
         220,
@@ -113,14 +116,15 @@
       "hsv_tolerance": {
         "hue": 15,
         "saturation": 50,
-        "value": 45
-      }
+        "value": 50
+      },
+      "panel": "indicator"
     }
   },
   "price_panel_indicators": {
     "#7": {
       "name": "MainBB30",
-      "description": "Main chart Bollinger Bands (Period 30, Deviation 1.000) - fixed reference, mirrors #1's role in the price panel",
+      "description": "Main chart BB Period=30 Deviation=1.0 Close \u2014 White",
       "color_name": "White",
       "rgb": [
         245,
@@ -129,109 +133,52 @@
       ],
       "hsv_tolerance": {
         "hue": 12,
-        "saturation": 35,
-        "value": 40
+        "saturation": 40,
+        "value": 50
       }
     },
     "#8": {
       "name": "MainBB20",
-      "description": "Main chart Bollinger Bands (Period 20, Deviation 1.000)",
-      "color_name": "CobaltBlue",
+      "description": "Main chart BB Period=20 Deviation=1.0 Close \u2014 Cyan/Cobalt",
+      "color_name": "CyanCobalt",
       "rgb": [
-        77,
-        236,
-        253
+        0,
+        200,
+        220
       ],
       "hsv_tolerance": {
-        "hue": 10,
-        "saturation": 40,
-        "value": 40
+        "hue": 14,
+        "saturation": 50,
+        "value": 50
       }
-    },
+    }
+  },
+  "hidden_indicators": {
     "#9": {
-      "name": "MA2_Typical",
-      "description": "Moving Average (Period 2, LWMA, Typical Price HLC/3) - tightly tracks price",
-      "color_name": "Blue",
-      "rgb": [
-        0,
-        0,
-        255
-      ],
-      "hsv_tolerance": {
-        "hue": 8,
-        "saturation": 40,
-        "value": 40
-      }
-    },
-    "#10": {
-      "name": "MA60_chained",
-      "description": "Moving Average (Period 60, LWMA, applied to previous indicator data)",
+      "name": "WilliamsR10",
+      "description": "Williams %R (Period 10) \u2014 Yellow \u2014 HIDDEN (not used for CV)",
       "color_name": "Yellow",
       "rgb": [
         255,
-        235,
-        59
-      ],
-      "hsv_tolerance": {
-        "hue": 10,
-        "saturation": 40,
-        "value": 40
-      }
-    },
-    "#11": {
-      "name": "MA80_chained",
-      "description": "Moving Average (Period 80, LWMA, applied to previous indicator data) - documented as Brown, renders orange on screen",
-      "color_name": "Brown/Orange",
-      "rgb": [
-        255,
-        152,
+        220,
         0
       ],
-      "hsv_tolerance": {
-        "hue": 10,
-        "saturation": 40,
-        "value": 40
-      }
-    },
-    "#12": {
-      "name": "Unidentified_Purple",
-      "description": "Documented as Purple - renders as magenta/hot-pink on screen. Exact source indicator (possibly the Envelope, documented as hidden) not fully confirmed, but color is now precisely sampled. Not required for trade execution per the rulebook.",
-      "color_name": "Purple/Magenta",
-      "rgb": [
-        242,
-        17,
-        192
-      ],
-      "hsv_tolerance": {
-        "hue": 8,
-        "saturation": 40,
-        "value": 40
-      }
-    },
-    "_pending_clarification": "#12's exact source indicator is still unconfirmed (color is confirmed). Not required for trade execution, so left as-is."
+      "visible": false
+    }
   },
   "candle_colors": {
     "bullish_rgb": [
       0,
-      255,
+      200,
       0
     ],
     "bearish_rgb": [
-      255,
-      0,
-      0
+      220,
+      30,
+      30
     ]
   },
-  "cross_detection": {
-    "primary_signal": "#2(2M)",
-    "reference_upper": "#1(1U)",
-    "reference_middle": "#1(1M)",
-    "reference_lower": "#1(1L)",
-    "signals": [
-      "#2(2M)_CROSSED_ABOVE_#1(1U)",
-      "#2(2M)_CROSSED_BELOW_#1(1L)"
-    ],
-    "minimum_cross_pixels": 3,
+  "decision": {
     "minimum_confirmation_candles": 2,
     "maximum_gap_pixels": 2
   },
@@ -239,7 +186,7 @@
     "max_frames_kept": 60,
     "divergence_lookback_frames": 12,
     "higher_high_lookback_frames": 8,
-    "ttl_seconds": 600
+    "ttl_seconds": 3600
   },
   "noise_filter": {
     "median_filter": 3,

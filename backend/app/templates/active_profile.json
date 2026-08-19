@@ -1,5 +1,6 @@
 {
-  "indicator_stack_version": "v1",
+  "indicator_stack_version": "v2",
   "rulebook_version": "v1",
-  "updated_at": "2026-08-13T00:00:00Z"
+  "activated_at": "2026-08-19T13:52:29.490366+00:00",
+  "notes": "Corrected indicator template v2 \u2014 dark theme, exact install order"
 }

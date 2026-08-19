@@ -1,0 +1,299 @@
+{
+  "version": "v2",
+  "status": "active",
+  "title": "AEGIS Mobile MT5 Indicator Template v2 (corrected)",
+  "description": "Dark theme only. Install in numbered order with no deviation. Applies to previous indicator data where noted.",
+  "theme": "Dark",
+  "timeframe": "Any (chart TF as traded)",
+  "install_order": [
+    {
+      "slot": 1,
+      "panel": "price",
+      "mt5_name": "Bollinger Bands",
+      "display_name": "Main BB White (#7)",
+      "params": {
+        "Period": 30,
+        "Shift": 0,
+        "Deviation": 1.0,
+        "Apply to": "Close"
+      },
+      "color": "White",
+      "notes": "On main price chart (upper panel)."
+    },
+    {
+      "slot": 2,
+      "panel": "price",
+      "mt5_name": "Bollinger Bands",
+      "display_name": "Main BB Cobalt (#8)",
+      "params": {
+        "Period": 20,
+        "Shift": 0,
+        "Deviation": 1.0,
+        "Apply to": "Close"
+      },
+      "color": "Cyan / Cobalt",
+      "notes": "On main price chart (upper panel)."
+    },
+    {
+      "slot": 3,
+      "panel": "indicator",
+      "mt5_name": "Relative Strength Index",
+      "display_name": "RSI9 (#6 Cobalt)",
+      "params": {
+        "Period": 9
+      },
+      "color": "Cyan / Cobalt",
+      "notes": "First indicator in lower panel."
+    },
+    {
+      "slot": 4,
+      "panel": "indicator",
+      "mt5_name": "Moving Average",
+      "display_name": "MA7 (#4 Magenta)",
+      "params": {
+        "Period": 7,
+        "Method": "SMA",
+        "Shift": 0,
+        "Apply to": "Previous Indicator's data"
+      },
+      "color": "Magenta",
+      "notes": "Must render magenta for CV detection."
+    },
+    {
+      "slot": 5,
+      "panel": "indicator",
+      "mt5_name": "Bollinger Bands",
+      "display_name": "Bands34 (#1 White)",
+      "params": {
+        "Period": 34,
+        "Deviation": 1.618,
+        "Shift": 0,
+        "Apply to": "Previous Indicator's data"
+      },
+      "color": "White",
+      "notes": "Stationary reference bands."
+    },
+    {
+      "slot": 6,
+      "panel": "indicator",
+      "mt5_name": "Williams' Percent Range",
+      "display_name": "Williams %R10 (#9 Yellow) \u2014 HIDDEN",
+      "params": {
+        "Period": 10
+      },
+      "color": "Yellow",
+      "notes": "Install but keep hidden / not relied on by vision."
+    },
+    {
+      "slot": 7,
+      "panel": "indicator",
+      "mt5_name": "Williams' Percent Range",
+      "display_name": "Williams %R60 (#3 Brown)",
+      "params": {
+        "Period": 60
+      },
+      "color": "Brown",
+      "notes": "Visible brown line (not orange)."
+    },
+    {
+      "slot": 8,
+      "panel": "indicator",
+      "mt5_name": "Bollinger Bands",
+      "display_name": "Bands17 (#2 Bright Green)",
+      "params": {
+        "Period": 17,
+        "Deviation": 2.618,
+        "Shift": 0,
+        "Apply to": "Previous Indicator's data"
+      },
+      "color": "Lime / Bright Green",
+      "notes": "Motional bands."
+    },
+    {
+      "slot": 9,
+      "panel": "indicator",
+      "mt5_name": "Commodity Channel Index",
+      "display_name": "CCI6 (#5 Red)",
+      "params": {
+        "Period": 6
+      },
+      "color": "Red",
+      "notes": "Red line only. (CV slot #5; not #6.)"
+    }
+  ],
+  "vision_slots": {
+    "#1": "Bands34 White (indicator)",
+    "#2": "Bands17 Green (indicator)",
+    "#3": "WilliamsR60 Brown (indicator)",
+    "#4": "MA7 Magenta (indicator)",
+    "#5": "CCI6 Red (indicator)",
+    "#6": "RSI9 Cyan (indicator)",
+    "#7": "MainBB30 White (price)",
+    "#8": "MainBB20 Cobalt (price)",
+    "#9": "WilliamsR10 Yellow (hidden)"
+  },
+  "client_checklist": {
+    "must_match_colors": true,
+    "must_match_order": true,
+    "theme": "Dark",
+    "note": "No deviation from order or colors. Remove any other indicators from the chart."
+  },
+  "indicators": {
+    "#1": {
+      "name": "Bands34",
+      "description": "Stationary Bollinger (Period 34, Deviation 1.618) on previous indicator data",
+      "color_name": "White",
+      "rgb": [
+        245,
+        245,
+        245
+      ],
+      "hsv_tolerance": {
+        "hue": 12,
+        "saturation": 40,
+        "value": 50
+      },
+      "panel": "indicator"
+    },
+    "#2": {
+      "name": "Bands17",
+      "description": "Motional Bollinger (Period 17, Deviation 2.618) on previous indicator data",
+      "color_name": "BrightGreen",
+      "rgb": [
+        0,
+        255,
+        0
+      ],
+      "hsv_tolerance": {
+        "hue": 16,
+        "saturation": 55,
+        "value": 50
+      },
+      "panel": "indicator"
+    },
+    "#3": {
+      "name": "WilliamsR60",
+      "description": "Williams %R (Period 60) \u2014 Brown (visible)",
+      "color_name": "Brown",
+      "rgb": [
+        160,
+        82,
+        45
+      ],
+      "hsv_tolerance": {
+        "hue": 14,
+        "saturation": 55,
+        "value": 50
+      },
+      "panel": "indicator"
+    },
+    "#4": {
+      "name": "MA7",
+      "description": "SMA 7 on previous indicator data \u2014 Magenta",
+      "color_name": "Magenta",
+      "rgb": [
+        220,
+        0,
+        255
+      ],
+      "hsv_tolerance": {
+        "hue": 14,
+        "saturation": 55,
+        "value": 50
+      },
+      "panel": "indicator"
+    },
+    "#5": {
+      "name": "CCI6",
+      "description": "CCI Period 6 \u2014 Red line only",
+      "color_name": "Red",
+      "rgb": [
+        255,
+        0,
+        0
+      ],
+      "hsv_tolerance": {
+        "hue": 12,
+        "saturation": 55,
+        "value": 50
+      },
+      "panel": "indicator"
+    },
+    "#6": {
+      "name": "RSI9",
+      "description": "RSI Period 9 \u2014 Cyan/Cobalt",
+      "color_name": "CyanCobalt",
+      "rgb": [
+        70,
+        220,
+        255
+      ],
+      "hsv_tolerance": {
+        "hue": 15,
+        "saturation": 50,
+        "value": 50
+      },
+      "panel": "indicator"
+    }
+  },
+  "price_panel_indicators": {
+    "#7": {
+      "name": "MainBB30",
+      "description": "Main chart BB Period=30 Deviation=1.0 Close \u2014 White",
+      "color_name": "White",
+      "rgb": [
+        245,
+        245,
+        245
+      ],
+      "hsv_tolerance": {
+        "hue": 12,
+        "saturation": 40,
+        "value": 50
+      }
+    },
+    "#8": {
+      "name": "MainBB20",
+      "description": "Main chart BB Period=20 Deviation=1.0 Close \u2014 Cyan/Cobalt",
+      "color_name": "CyanCobalt",
+      "rgb": [
+        0,
+        200,
+        220
+      ],
+      "hsv_tolerance": {
+        "hue": 14,
+        "saturation": 50,
+        "value": 50
+      }
+    }
+  },
+  "roi": {
+    "price_panel": {
+      "top_percent": 0.0,
+      "bottom_percent": 0.58
+    },
+    "indicator_panel": {
+      "top_percent": 0.52,
+      "bottom_percent": 1.0
+    }
+  },
+  "color_space": "HSV",
+  "global_tolerance": {
+    "hue": 12,
+    "saturation": 50,
+    "value": 50
+  },
+  "noise_filter": {
+    "median_filter": 3,
+    "gaussian_kernel": 5,
+    "minimum_line_length": 20,
+    "minimum_contour_area": 3
+  },
+  "history": {
+    "max_frames_kept": 60,
+    "divergence_lookback_frames": 12,
+    "higher_high_lookback_frames": 8,
+    "ttl_seconds": 3600
+  }
+}
