@@ -218,7 +218,11 @@ class MainActivity : AppCompatActivity() {
             val failRate = HealthStatus.failureRateLast(20)
             val avgLat = HealthStatus.avgLatencyLast(20)
             val histN = HealthStatus.historySnapshot().size
+            val frames = HealthStatus.localFrameCount.value ?: 0L
+            val uploadsOk = HealthStatus.captureCount.value ?: 0L
             diagText.text = """
+Frames captured: $frames
+Uploads OK: $uploadsOk
 Backend Reachable: $reachStr
 Last Upload: $uploadStatus
 Last HTTP Code: $httpStr

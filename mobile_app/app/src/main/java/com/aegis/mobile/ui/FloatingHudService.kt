@@ -98,7 +98,8 @@ class FloatingHudService : Service() {
             type,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
             PixelFormat.TRANSLUCENT
         )
         params.gravity = Gravity.TOP or Gravity.START
@@ -247,6 +248,8 @@ class FloatingHudService : Service() {
             SignalRepository.latestResult.observeForever(resultObserver)
             HealthStatus.lastUploadStatus.observeForever(statusObserver)
             HealthStatus.mediaProjectionActive.observeForever(runningObserver)
+            HealthStatus.localFrameCount.observeForever(frameCountObserver)
+            HealthStatus.captureCount.observeForever(uploadCountObserver)
         }
     }
 
@@ -358,6 +361,29 @@ class FloatingHudService : Service() {
     private val statusObserver = androidx.lifecycle.Observer<String> { st ->
         statusView.text = "Upload: ${st ?: "—"}  ·  MIN to hide"
     }
+    private val frameCountObserver = androidx.lifecycle.Observer<Long> { n ->
+        if (collapsed) {
+            val ups = HealthStatus.captureCount.value ?: 0L
+            statusView.visibility = android.view.View.GONE
+            // keep detail as rule; put counts on signal subtitle via detail if empty
+            val base = detailView.text?.toString().orEmpty()
+            if (!base.contains("frames")) {
+                // updated below with result observer primarily
+            }
+        }
+        if (!collapsed) {
+            statusView.text = "Frames: $n · uploads: ${HealthStatus.captureCount.value ?: 0}"
+        }
+    }
+    private val uploadCountObserver = androidx.lifecycle.Observer<Long> { u ->
+        val n = HealthStatus.localFrameCount.value ?: 0L
+        if (!collapsed) {
+            statusView.text = "Frames: $n · uploads: $u"
+        } else {
+            val rule = SignalRepository.latestResult.value?.rule_name ?: "…"
+            detailView.text = "$rule · frames $n · up $u"
+        }
+    }
     private val runningObserver = androidx.lifecycle.Observer<Boolean> { on ->
         if (!collapsed) {
             titleView.text = if (on == true) "AEGIS · capturing" else "AEGIS · idle"
@@ -373,6 +399,8 @@ class FloatingHudService : Service() {
             try { SignalRepository.latestResult.removeObserver(resultObserver) } catch (_: Exception) {}
             HealthStatus.lastUploadStatus.removeObserver(statusObserver)
             HealthStatus.mediaProjectionActive.removeObserver(runningObserver)
+            try { HealthStatus.localFrameCount.removeObserver(frameCountObserver) } catch (_: Exception) {}
+            try { HealthStatus.captureCount.removeObserver(uploadCountObserver) } catch (_: Exception) {}
         } catch (_: Exception) {
         }
         try {

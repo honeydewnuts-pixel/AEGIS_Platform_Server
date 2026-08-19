@@ -144,11 +144,14 @@ class ScreenCaptureService : Service() {
 
     private fun acquireServiceWakeLock() {
         try {
+            // SCREEN_BRIGHT keeps display on so MediaProjection + MT5 stay meaningful
             if (wakeLock == null) {
+                @Suppress("DEPRECATION")
                 wakeLock = powerManager.newWakeLock(
-                    PowerManager.PARTIAL_WAKE_LOCK,
-                    "AEGIS::ServiceAlive"
+                    PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                    "AEGIS::ScreenOnCapture"
                 )
+                wakeLock?.setReferenceCounted(false)
             }
             if (wakeLock?.isHeld != true) {
                 @Suppress("DEPRECATION")
@@ -289,9 +292,11 @@ class ScreenCaptureService : Service() {
     private fun captureAndSend() {
         val mt5Fg = com.aegis.mobile.automation.Mt5AccessibilityService.isMt5Foreground
         HealthStatus.mt5Foreground.postValue(mt5Fg)
+        val frames = HealthStatus.localFrameCount.value ?: 0L
+        val ups = HealthStatus.captureCount.value ?: 0L
         updateNotification(
-            if (mt5Fg) "Capturing MT5 chart region"
-            else "Capturing chart ROI — keep MT5 visible under HUD"
+            if (mt5Fg) "Capturing MT5 · frames $frames · uploads $ups"
+            else "Capturing · frames $frames · uploads $ups — keep MT5 visible"
         )
 
         // Hide operator overlay so it is not painted into the frame sent to the brain.

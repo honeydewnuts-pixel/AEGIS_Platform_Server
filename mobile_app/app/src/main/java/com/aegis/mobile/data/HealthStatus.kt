@@ -12,6 +12,8 @@ object HealthStatus {
     val lastCaptureSucceeded = MutableLiveData<Boolean>(true)
     val consecutiveFailures = MutableLiveData<Int>(0)
     val captureCount = MutableLiveData<Long>(0L)
+    /** Every successful screen grab (even before upload). */
+    val localFrameCount = MutableLiveData<Long>(0L)
     val mediaProjectionActive = MutableLiveData<Boolean>(false)
     val pendingCacheCount = MutableLiveData<Int>(0)
 
@@ -107,6 +109,7 @@ object HealthStatus {
             val copy = Bitmap.createScaledBitmap(source, w, h, true)
             lastPreviewBitmap.postValue(copy)
             lastPreviewTimeMs.postValue(System.currentTimeMillis())
+            localFrameCount.postValue((localFrameCount.value ?: 0L) + 1)
         } catch (_: Exception) {
         }
     }
