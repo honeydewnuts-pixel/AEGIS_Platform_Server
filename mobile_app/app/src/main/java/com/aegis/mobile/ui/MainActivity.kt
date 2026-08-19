@@ -9,6 +9,7 @@ import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import android.os.PowerManager
 import android.provider.Settings
 import android.widget.Button
@@ -528,6 +529,11 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
 
     private fun setCaptureRunning(running: Boolean) {
         captureRunning = running
+        if (running) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
         startBtn.isEnabled = !running
         stopBtn.isEnabled = running
         startBtn.alpha = if (running) 0.45f else 1f

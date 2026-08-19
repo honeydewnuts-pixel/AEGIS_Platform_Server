@@ -51,7 +51,8 @@ class ScreenCaptureService : Service() {
     private val scope = CoroutineScope(Dispatchers.IO)
     private lateinit var apiService: com.aegis.mobile.network.ApiService
     private lateinit var powerManager: PowerManager
-    private var wakeLock: PowerManager.WakeLock? = null
+    private var screenWakeLock: PowerManager.WakeLock? = null
+    private var briefCpuWakeLock: PowerManager.WakeLock? = null
     private lateinit var cacheManager: ScreenshotCacheManager
 
     // Defaults to "no crop" (send the full frame) until a real ROI is
@@ -144,18 +145,18 @@ class ScreenCaptureService : Service() {
 
     private fun acquireServiceWakeLock() {
         try {
-            // SCREEN_BRIGHT keeps display on so MediaProjection + MT5 stay meaningful
-            if (wakeLock == null) {
+            // Held for the whole capture session — do NOT release per frame
+            if (screenWakeLock == null) {
                 @Suppress("DEPRECATION")
-                wakeLock = powerManager.newWakeLock(
+                screenWakeLock = powerManager.newWakeLock(
                     PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
                     "AEGIS::ScreenOnCapture"
                 )
-                wakeLock?.setReferenceCounted(false)
+                screenWakeLock?.setReferenceCounted(false)
             }
-            if (wakeLock?.isHeld != true) {
+            if (screenWakeLock?.isHeld != true) {
                 @Suppress("DEPRECATION")
-                wakeLock?.acquire()
+                screenWakeLock?.acquire()
             }
         } catch (_: Exception) {
         }
@@ -172,9 +173,14 @@ class ScreenCaptureService : Service() {
         mediaProjection = null
         try { imageReader?.close() } catch (_: Exception) {}
         imageReader = null
-        if (wakeLock?.isHeld == true) {
-            try { wakeLock?.release() } catch (_: Exception) {}
+        if (screenWakeLock?.isHeld == true) {
+            try { screenWakeLock?.release() } catch (_: Exception) {}
         }
+        screenWakeLock = null
+        if (briefCpuWakeLock?.isHeld == true) {
+            try { briefCpuWakeLock?.release() } catch (_: Exception) {}
+        }
+        briefCpuWakeLock = null
         HealthStatus.mediaProjectionActive.postValue(false)
         Log.i("AEGIS", "Capture session cleaned up")
     }
@@ -278,14 +284,26 @@ class ScreenCaptureService : Service() {
      * defeat the point of a wakelock and drain the battery for no benefit.
      */
     private fun withBriefWakeLock(block: () -> Unit) {
-        if (wakeLock == null) {
-            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AEGIS::CaptureLock")
+        // Separate from screenWakeLock so per-frame release cannot turn the screen off
+        if (briefCpuWakeLock == null) {
+            briefCpuWakeLock = powerManager.newWakeLock(
+                PowerManager.PARTIAL_WAKE_LOCK,
+                "AEGIS::CaptureCpu"
+            )
+            briefCpuWakeLock?.setReferenceCounted(false)
         }
         try {
-            wakeLock?.acquire(WAKELOCK_TIMEOUT_MS)
+            if (briefCpuWakeLock?.isHeld != true) {
+                briefCpuWakeLock?.acquire(WAKELOCK_TIMEOUT_MS)
+            }
+            // Re-assert screen lock each cycle in case OEM dropped it
+            acquireServiceWakeLock()
             block()
         } finally {
-            if (wakeLock?.isHeld == true) wakeLock?.release()
+            try {
+                if (briefCpuWakeLock?.isHeld == true) briefCpuWakeLock?.release()
+            } catch (_: Exception) {
+            }
         }
     }
 
