@@ -77,6 +77,20 @@ async def register(body: RegisterBody, request: Request):
             pass
     except Exception:
         pass
+    # Ensure demo subscription so portal status works after first login
+    try:
+        sub = getattr(request.app.state, "subscription_service", None)
+        aid = result.get("account_id")
+        if sub and aid:
+            st = await sub.get_status(aid)
+            if st is None:
+                await sub.activate_demo(aid)
+                st = await sub.get_status(aid)
+            if st:
+                result["portal_token"] = st.get("portal_token")
+                result["plan"] = st.get("plan") or "demo"
+    except Exception:
+        pass
     return result
 
 
@@ -91,7 +105,7 @@ async def verify_email(token: str):
 @router.post("/login")
 async def login(body: LoginBody, request: Request):
     try:
-        return await _auth.login(
+        result = await _auth.login(
             email=str(body.email),
             password=body.password,
             totp_code=body.totp_code,
@@ -101,6 +115,22 @@ async def login(body: LoginBody, request: Request):
         )
     except ValueError as e:
         raise HTTPException(401, str(e)) from e
+    # Attach subscription portal_token so website portal can load without "Not found"
+    try:
+        sub = request.app.state.subscription_service
+        account_id = result.get("account_id")
+        if account_id and sub:
+            status = await sub.get_status(account_id)
+            if status is None:
+                await sub.activate_demo(account_id)
+                status = await sub.get_status(account_id)
+            if status:
+                result["plan"] = status.get("plan") or result.get("plan")
+                result["portal_token"] = status.get("portal_token")
+                result["subscription_status"] = status.get("status")
+    except Exception:
+        pass
+    return result
 
 
 @router.post("/logout")
