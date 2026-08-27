@@ -15,7 +15,7 @@ Purpose : FastAPI application entry point.
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -37,6 +37,7 @@ from app.api.chart_detection_router import router as chart_detection_router
 from app.api.router import router as base_router
 from app.api.trading_router import router as trading_router
 from app.api.brain_router import router as brain_router
+from app.api.telemetry_router import router as telemetry_router
 from app.api.subscription_router import router as subscription_router
 from app.api.download_router import router as download_router
 from app.api.device_router import router as device_router
@@ -107,6 +108,7 @@ app.add_middleware(
 # INCLUDE ALL ROUTERS
 # ==========================================================
 
+app.include_router(telemetry_router)
 app.include_router(template_router)
 app.include_router(auth_router)
 app.include_router(support_router)

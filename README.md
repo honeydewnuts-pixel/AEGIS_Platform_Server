@@ -118,3 +118,20 @@ remaining step before launch, not optional.
   (CloudWatch, Loki, etc.) once you have more than one worker machine.
 - Regulatory/compliance review, as flagged before, is unchanged and
   still outstanding.
+
+
+---
+
+## Monorepo layout (`v1.0.0-monorepo`)
+
+| Folder | Platform |
+|--------|----------|
+| `backend/` / `server` role | AEGIS Brain (FastAPI on Render) |
+| `mobile_app/` / `android-app/` | Android AEGIS client |
+| `windows-desktop/` | `AEGIS_Capture` (Python→EXE) + `AEGIS_Executor.mq5` |
+| `macos-desktop/` | Mac capture client (Python) |
+| `ios-ipad/` | iOS/iPad starter (ReplayKit + TradeBridge) |
+| `shared/` | Cross-platform JSON protocol |
+
+Desktop capture locks a **screen rectangle** over the MT5 chart and posts PNG frames to `/aegis/analyze` with the same API key as mobile.
+
