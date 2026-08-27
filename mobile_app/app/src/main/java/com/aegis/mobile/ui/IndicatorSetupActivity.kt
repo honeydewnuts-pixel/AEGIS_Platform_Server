@@ -51,6 +51,12 @@ class IndicatorSetupActivity : AppCompatActivity() {
         root.addView(body)
         root.addView(refresh)
         root.addView(markDone)
+        val guideNote = TextView(this).apply {
+            text = "COLOR MATCH GUIDE: open MT5 → Indicators with White #7/#1, Cyan #8/#6, Magenta #4, Brown #3, Lime #2, Red #5. Full picture is on leveragefx.co/docs/color-guide and in app assets."
+            textSize = 12f
+            setPadding(0, 24, 0, 8)
+        }
+        root.addView(guideNote)
 
         fun load() {
             lifecycleScope.launch {
@@ -71,7 +77,8 @@ class IndicatorSetupActivity : AppCompatActivity() {
                     val order = stack?.get("install_order") as? List<*>
                     val sb = StringBuilder()
                     sb.append("Install on MetaTrader 5 (mobile) in this exact order.\n")
-                    sb.append("Theme: Dark · Match colors exactly.\n\n")
+                    sb.append("Theme: Dark · Match colors EXACTLY (see Color Match Guide).\n")
+                    sb.append("Line width 1 · Style Solid · RGB from AEGIS Color Match Guide.\n\n")
                     order?.forEachIndexed { i, step ->
                         val m = step as? Map<*, *> ?: return@forEachIndexed
                         sb.append("${i + 1}. ${m["display_name"]}\n")

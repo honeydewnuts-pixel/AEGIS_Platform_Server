@@ -1,0 +1,30 @@
+{
+  "version": "v2",
+  "status": "active",
+  "title": "AEGIS Rulebook v2 \u2014 NEW RULEBOOK (template v2)",
+  "engine": "signal_rule_engine.SignalRuleEngine",
+  "indicator_stack_version": "v2",
+  "description": "Trade logic from AEGIS-NEW-RULEBOOK: #2/#1 crosses, #5 divergence, #8/#7 price filter, #4 final filter. #3 Williams and #6 RSI are template-only (not execution drivers).",
+  "source_document": "AEGIS-NEW-RULEBOOK.pdf",
+  "changelog": [
+    "v2: Replace v1 base rules with NEW RULEBOOK semantics",
+    "#3 and #6 excluded from execution conditions",
+    "#4 Magenta final filter within #7 bands",
+    "#8/#7 recross blocking filters"
+  ],
+  "roles": {
+    "#1": "Stationary white Bands34 (lower panel)",
+    "#2": "Motional green Bands17 \u2014 cross detector vs #1",
+    "#3": "Williams %R60 brown \u2014 template only, not execution",
+    "#4": "MA7 magenta \u2014 final confirmation filter",
+    "#5": "CCI6 red \u2014 divergence / higher-low lower-high",
+    "#6": "RSI9 cyan \u2014 template only, not execution",
+    "#7": "Main BB30 white (price panel)",
+    "#8": "Main BB20 cyan/cobalt (price panel) \u2014 direction vs #7"
+  },
+  "rules_summary": [
+    "SELL (uptrend / price higher-high): any #2 band crosses above any #1 band; #5 makes higher-low (bearish div); #8U above #7U; #4 higher-low within #7 bands; block if #8L still above #7M without recross",
+    "BUY (downtrend / price lower-low): mirror \u2014 #2 below #1; #5 lower-high; #8L below #7L; #4 lower-high within #7; block if #8U still below #7M without recross"
+  ],
+  "activated_at": "2026-08-27T15:19:15.048689+00:00"
+}

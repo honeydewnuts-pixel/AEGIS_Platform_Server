@@ -200,7 +200,10 @@ class SignalRuleEngine:
     # --------------------------------------------------------------
 
     def _rules(self):
+        # Rulebook v2 (AEGIS-NEW-RULEBOOK): primary execution rules first
         return [
+            self._rule_v2_sell,
+            self._rule_v2_buy,
             self._rule_base_sell,
             self._rule_base_buy,
             self._rule_uptrend_2u_sell,
@@ -208,6 +211,152 @@ class SignalRuleEngine:
             self._rule_price_filter_sell,
             self._rule_price_filter_buy,
         ]
+
+    def _any_band2_cross_band1(self, prev, cur, direction: str) -> bool:
+        """True if any of #2 U/M/L just crossed any of #1 U/M/L in the given direction."""
+        b1, b2 = cur["band1"], cur["band2"]
+        pb1, pb2 = prev["band1"], prev["band2"]
+        for k2 in ("U", "M", "L"):
+            for k1 in ("U", "M", "L"):
+                if crossed(pb2[k2], pb1[k1], b2[k2], b1[k1]) == direction:
+                    return True
+        return False
+
+    def _cci_higher_low(self, history) -> bool:
+        """#5 makes higher-low while we look for price higher-high context (Y: smaller=higher)."""
+        vals = [f.get("cci5") for f in history[-self.higher_high_lookback:] if f.get("cci5") is not None]
+        if len(vals) < 4:
+            return False
+        mid = len(vals) // 2
+        early, late = vals[:mid], vals[mid:]
+        # higher-low in price-sense: late low is higher than early low → late max Y is smaller than early max Y
+        return max(late) < max(early)
+
+    def _cci_lower_high(self, history) -> bool:
+        vals = [f.get("cci5") for f in history[-self.higher_high_lookback:] if f.get("cci5") is not None]
+        if len(vals) < 4:
+            return False
+        mid = len(vals) // 2
+        early, late = vals[:mid], vals[mid:]
+        # lower-high: late high is lower → late min Y is larger than early min Y
+        return min(late) > min(early)
+
+    def _price_higher_high(self, history) -> bool:
+        prices = [f.get("price_close") for f in history[-self.higher_high_lookback:] if f.get("price_close") is not None]
+        if len(prices) < 4:
+            # fall back to band2 mid as proxy for motion
+            prices = [f["band2"]["M"] for f in history[-self.higher_high_lookback:] if isinstance(f.get("band2"), dict)]
+        if len(prices) < 4:
+            return False
+        mid = len(prices) // 2
+        return min(prices[mid:]) < min(prices[:mid])
+
+    def _price_lower_low(self, history) -> bool:
+        prices = [f.get("price_close") for f in history[-self.higher_high_lookback:] if f.get("price_close") is not None]
+        if len(prices) < 4:
+            prices = [f["band2"]["M"] for f in history[-self.higher_high_lookback:] if isinstance(f.get("band2"), dict)]
+        if len(prices) < 4:
+            return False
+        mid = len(prices) // 2
+        return max(prices[mid:]) > max(prices[:mid])
+
+    def _block_sell_on_8l_7m(self, prev, cur) -> bool:
+        """If #8L crossed above #7M going up, block SELL until #8L recrosses below #7M."""
+        p7, p8 = cur.get("price_band7"), cur.get("price_band8")
+        pp7, pp8 = prev.get("price_band7"), prev.get("price_band8")
+        if not all(isinstance(x, dict) for x in (p7, p8, pp7, pp8)):
+            return False
+        # currently #8L still above #7M (blocked state)
+        if side_of(p8["L"], p7["M"]) == "above":
+            return True
+        return False
+
+    def _block_buy_on_8u_7m(self, prev, cur) -> bool:
+        p7, p8 = cur.get("price_band7"), cur.get("price_band8")
+        if not all(isinstance(x, dict) for x in (p7, p8)):
+            return False
+        if side_of(p8["U"], p7["M"]) == "below":
+            return True
+        return False
+
+    def _rule_v2_sell(self, prev, cur, history) -> RuleResult | None:
+        """
+        NEW RULEBOOK SELL (price making higher/high / uptrend context):
+        1) Any #2 band crosses any #1 band going up
+        2) #5 makes higher-low
+        3) Price making higher-high
+        4) #8U above #7U (cobalt above white upper)
+        5) Final: #4 higher-low / within #7 bands when price panels present
+        6) Block if #8L still above #7M
+        #3 and #6 are NOT used for execution.
+        """
+        if not self._any_band2_cross_band1(prev, cur, "above"):
+            return None
+        if self._block_sell_on_8l_7m(prev, cur):
+            return RuleResult(False, "HOLD", "v2_sell_blocked_8l_7m",
+                              "#8L still above #7M — wait for recross down before SELL")
+
+        cond5 = self._cci_higher_low(history)
+        cond_price = self._price_higher_high(history)
+
+        p7, p8 = cur.get("price_band7"), cur.get("price_band8")
+        cond8 = False
+        if isinstance(p7, dict) and isinstance(p8, dict):
+            cond8 = side_of(p8["U"], p7["U"]) == "above"
+        else:
+            cond8 = True  # price panel optional soft-pass if not detected
+
+        # #4 final filter: MA higher-low relative to recent and preferably inside #7
+        ma_vals = [f.get("ma4") for f in history[-self.higher_high_lookback:] if f.get("ma4") is not None]
+        cond4 = False
+        if len(ma_vals) >= 4:
+            mid = len(ma_vals) // 2
+            cond4 = max(ma_vals[mid:]) < max(ma_vals[:mid])  # higher-low
+        if isinstance(p7, dict) and cur.get("ma4") is not None:
+            # within #7 bands preferred
+            inside = is_between(cur["ma4"], p7["U"], p7["L"])
+            cond4 = cond4 or inside
+
+        fired = cond5 and cond_price and cond8 and (cond4 or len(ma_vals) < 4)
+        reason = (
+            f"v2_sell: cross2>1=True, cci_HL={cond5}, price_HH={cond_price}, "
+            f"8U>7U={cond8}, ma4_filter={cond4}"
+        )
+        return RuleResult(fired, "SELL" if fired else None, "v2_sell_new_rulebook", reason)
+
+    def _rule_v2_buy(self, prev, cur, history) -> RuleResult | None:
+        """Mirror of v2_sell for downtrend / price lower-low → BUY."""
+        if not self._any_band2_cross_band1(prev, cur, "below"):
+            return None
+        if self._block_buy_on_8u_7m(prev, cur):
+            return RuleResult(False, "HOLD", "v2_buy_blocked_8u_7m",
+                              "#8U still below #7M — wait for recross up before BUY")
+
+        cond5 = self._cci_lower_high(history)
+        cond_price = self._price_lower_low(history)
+
+        p7, p8 = cur.get("price_band7"), cur.get("price_band8")
+        cond8 = False
+        if isinstance(p7, dict) and isinstance(p8, dict):
+            cond8 = side_of(p8["L"], p7["L"]) == "below"
+        else:
+            cond8 = True
+
+        ma_vals = [f.get("ma4") for f in history[-self.higher_high_lookback:] if f.get("ma4") is not None]
+        cond4 = False
+        if len(ma_vals) >= 4:
+            mid = len(ma_vals) // 2
+            cond4 = min(ma_vals[mid:]) > min(ma_vals[:mid])  # lower-high
+        if isinstance(p7, dict) and cur.get("ma4") is not None:
+            inside = is_between(cur["ma4"], p7["U"], p7["L"])
+            cond4 = cond4 or inside
+
+        fired = cond5 and cond_price and cond8 and (cond4 or len(ma_vals) < 4)
+        reason = (
+            f"v2_buy: cross2<1=True, cci_LH={cond5}, price_LL={cond_price}, "
+            f"8L<7L={cond8}, ma4_filter={cond4}"
+        )
+        return RuleResult(fired, "BUY" if fired else None, "v2_buy_new_rulebook", reason)
 
     def _rule_base_sell(self, prev, cur, history) -> RuleResult | None:
         """

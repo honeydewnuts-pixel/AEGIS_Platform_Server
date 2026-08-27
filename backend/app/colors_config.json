@@ -1,11 +1,9 @@
 {
-  "config_version": "AEGIS_VISION_1.1",
-  "description": "Corrected AEGIS Mobile MT5 indicator template (dark theme). Install order and colors must match indicator_stack_v2.",
+  "config_version": "AEGIS_VISION_2.0",
+  "description": "Aligned to AEGIS MT5 COLOR MATCH GUIDE + rulebook v2",
   "image_profile": {
-    "source": "AEGIS Corrected Mobile MT5 Template",
     "theme": "Dark",
-    "roi_layout": "Fixed",
-    "template": "AEGIS Mobile MT5 Indicator Template v2"
+    "template": "Color Match Guide v2"
   },
   "color_space": "HSV",
   "global_tolerance": {
@@ -26,7 +24,6 @@
   "indicators": {
     "#1": {
       "name": "Bands34",
-      "description": "Stationary Bollinger (Period 34, Deviation 1.618) on previous indicator data",
       "color_name": "White",
       "rgb": [
         245,
@@ -42,8 +39,7 @@
     },
     "#2": {
       "name": "Bands17",
-      "description": "Motional Bollinger (Period 17, Deviation 2.618) on previous indicator data",
-      "color_name": "BrightGreen",
+      "color_name": "LimeGreen",
       "rgb": [
         0,
         255,
@@ -58,8 +54,7 @@
     },
     "#3": {
       "name": "WilliamsR60",
-      "description": "Williams %R (Period 60) \u2014 Brown (visible)",
-      "color_name": "Brown",
+      "color_name": "SaddleBrown",
       "rgb": [
         160,
         82,
@@ -74,7 +69,6 @@
     },
     "#4": {
       "name": "MA7",
-      "description": "SMA 7 on previous indicator data \u2014 Magenta",
       "color_name": "Magenta",
       "rgb": [
         220,
@@ -90,7 +84,6 @@
     },
     "#5": {
       "name": "CCI6",
-      "description": "CCI Period 6 \u2014 Red line only",
       "color_name": "Red",
       "rgb": [
         255,
@@ -106,8 +99,7 @@
     },
     "#6": {
       "name": "RSI9",
-      "description": "RSI Period 9 \u2014 Cyan/Cobalt",
-      "color_name": "CyanCobalt",
+      "color_name": "CyanLightSky",
       "rgb": [
         70,
         220,
@@ -124,7 +116,6 @@
   "price_panel_indicators": {
     "#7": {
       "name": "MainBB30",
-      "description": "Main chart BB Period=30 Deviation=1.0 Close \u2014 White",
       "color_name": "White",
       "rgb": [
         245,
@@ -139,8 +130,7 @@
     },
     "#8": {
       "name": "MainBB20",
-      "description": "Main chart BB Period=20 Deviation=1.0 Close \u2014 Cyan/Cobalt",
-      "color_name": "CyanCobalt",
+      "color_name": "Cyan",
       "rgb": [
         0,
         200,
@@ -155,12 +145,10 @@
   },
   "hidden_indicators": {
     "#9": {
-      "name": "WilliamsR10",
-      "description": "Williams %R (Period 10) \u2014 Yellow \u2014 HIDDEN (not used for CV)",
-      "color_name": "Yellow",
+      "name": "HiddenYellow",
       "rgb": [
         255,
-        220,
+        255,
         0
       ],
       "visible": false

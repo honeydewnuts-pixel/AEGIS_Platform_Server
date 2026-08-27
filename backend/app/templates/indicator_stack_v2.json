@@ -1,16 +1,32 @@
 {
   "version": "v2",
   "status": "active",
-  "title": "AEGIS Mobile MT5 Indicator Template v2 (corrected)",
-  "description": "Dark theme only. Install in numbered order with no deviation. Applies to previous indicator data where noted.",
+  "title": "AEGIS Mobile MT5 Indicator Template v2 \u2014 Color Match Guide",
+  "description": "Dark theme. Install order and RGB from official AEGIS MT5 COLOR MATCH GUIDE. No deviation.",
   "theme": "Dark",
-  "timeframe": "Any (chart TF as traded)",
+  "timeframe": "Any",
+  "color_space": "HSV",
+  "global_tolerance": {
+    "hue": 12,
+    "saturation": 50,
+    "value": 50
+  },
+  "roi": {
+    "price_panel": {
+      "top_percent": 0.0,
+      "bottom_percent": 0.58
+    },
+    "indicator_panel": {
+      "top_percent": 0.52,
+      "bottom_percent": 1.0
+    }
+  },
   "install_order": [
     {
       "slot": 1,
       "panel": "price",
       "mt5_name": "Bollinger Bands",
-      "display_name": "Main BB White (#7)",
+      "display_name": "MainBB30 (#7 White)",
       "params": {
         "Period": 30,
         "Shift": 0,
@@ -18,32 +34,46 @@
         "Apply to": "Close"
       },
       "color": "White",
-      "notes": "On main price chart (upper panel)."
+      "rgb": [
+        245,
+        245,
+        245
+      ],
+      "notes": "Price window first"
     },
     {
       "slot": 2,
       "panel": "price",
       "mt5_name": "Bollinger Bands",
-      "display_name": "Main BB Cobalt (#8)",
+      "display_name": "MainBB20 (#8 Cyan)",
       "params": {
         "Period": 20,
         "Shift": 0,
         "Deviation": 1.0,
         "Apply to": "Close"
       },
-      "color": "Cyan / Cobalt",
-      "notes": "On main price chart (upper panel)."
+      "color": "Cyan",
+      "rgb": [
+        0,
+        200,
+        220
+      ],
+      "notes": "Price window second \u2014 Period 20 per rulebook"
     },
     {
       "slot": 3,
       "panel": "indicator",
       "mt5_name": "Relative Strength Index",
-      "display_name": "RSI9 (#6 Cobalt)",
+      "display_name": "RSI9 (#6 Cyan)",
       "params": {
         "Period": 9
       },
-      "color": "Cyan / Cobalt",
-      "notes": "First indicator in lower panel."
+      "color": "Cyan / Light Sky Blue",
+      "rgb": [
+        70,
+        220,
+        255
+      ]
     },
     {
       "slot": 4,
@@ -57,7 +87,11 @@
         "Apply to": "Previous Indicator's data"
       },
       "color": "Magenta",
-      "notes": "Must render magenta for CV detection."
+      "rgb": [
+        220,
+        0,
+        255
+      ]
     },
     {
       "slot": 5,
@@ -71,43 +105,61 @@
         "Apply to": "Previous Indicator's data"
       },
       "color": "White",
-      "notes": "Stationary reference bands."
+      "rgb": [
+        245,
+        245,
+        245
+      ],
+      "notes": "Stationary reference"
     },
     {
       "slot": 6,
       "panel": "indicator",
       "mt5_name": "Williams' Percent Range",
-      "display_name": "Williams %R10 (#9 Yellow) \u2014 HIDDEN",
+      "display_name": "Williams R60 (#3 Brown)",
       "params": {
-        "Period": 10
+        "Period": 60
       },
-      "color": "Yellow",
-      "notes": "Install but keep hidden / not relied on by vision."
+      "color": "Saddle Brown",
+      "rgb": [
+        160,
+        82,
+        45
+      ]
     },
     {
       "slot": 7,
       "panel": "indicator",
       "mt5_name": "Williams' Percent Range",
-      "display_name": "Williams %R60 (#3 Brown)",
+      "display_name": "Hidden (#9 Yellow)",
       "params": {
-        "Period": 60
+        "Period": 10
       },
-      "color": "Brown",
-      "notes": "Visible brown line (not orange)."
+      "color": "Yellow",
+      "rgb": [
+        255,
+        255,
+        0
+      ],
+      "notes": "Hidden \u2014 not used by vision"
     },
     {
       "slot": 8,
       "panel": "indicator",
       "mt5_name": "Bollinger Bands",
-      "display_name": "Bands17 (#2 Bright Green)",
+      "display_name": "Bands17 (#2 Lime Green)",
       "params": {
         "Period": 17,
         "Deviation": 2.618,
         "Shift": 0,
         "Apply to": "Previous Indicator's data"
       },
-      "color": "Lime / Bright Green",
-      "notes": "Motional bands."
+      "color": "Lime Green",
+      "rgb": [
+        0,
+        255,
+        0
+      ]
     },
     {
       "slot": 9,
@@ -118,30 +170,16 @@
         "Period": 6
       },
       "color": "Red",
-      "notes": "Red line only. (CV slot #5; not #6.)"
+      "rgb": [
+        255,
+        0,
+        0
+      ]
     }
   ],
-  "vision_slots": {
-    "#1": "Bands34 White (indicator)",
-    "#2": "Bands17 Green (indicator)",
-    "#3": "WilliamsR60 Brown (indicator)",
-    "#4": "MA7 Magenta (indicator)",
-    "#5": "CCI6 Red (indicator)",
-    "#6": "RSI9 Cyan (indicator)",
-    "#7": "MainBB30 White (price)",
-    "#8": "MainBB20 Cobalt (price)",
-    "#9": "WilliamsR10 Yellow (hidden)"
-  },
-  "client_checklist": {
-    "must_match_colors": true,
-    "must_match_order": true,
-    "theme": "Dark",
-    "note": "No deviation from order or colors. Remove any other indicators from the chart."
-  },
   "indicators": {
     "#1": {
       "name": "Bands34",
-      "description": "Stationary Bollinger (Period 34, Deviation 1.618) on previous indicator data",
       "color_name": "White",
       "rgb": [
         245,
@@ -157,8 +195,7 @@
     },
     "#2": {
       "name": "Bands17",
-      "description": "Motional Bollinger (Period 17, Deviation 2.618) on previous indicator data",
-      "color_name": "BrightGreen",
+      "color_name": "LimeGreen",
       "rgb": [
         0,
         255,
@@ -173,8 +210,7 @@
     },
     "#3": {
       "name": "WilliamsR60",
-      "description": "Williams %R (Period 60) \u2014 Brown (visible)",
-      "color_name": "Brown",
+      "color_name": "SaddleBrown",
       "rgb": [
         160,
         82,
@@ -189,7 +225,6 @@
     },
     "#4": {
       "name": "MA7",
-      "description": "SMA 7 on previous indicator data \u2014 Magenta",
       "color_name": "Magenta",
       "rgb": [
         220,
@@ -205,7 +240,6 @@
     },
     "#5": {
       "name": "CCI6",
-      "description": "CCI Period 6 \u2014 Red line only",
       "color_name": "Red",
       "rgb": [
         255,
@@ -221,8 +255,7 @@
     },
     "#6": {
       "name": "RSI9",
-      "description": "RSI Period 9 \u2014 Cyan/Cobalt",
-      "color_name": "CyanCobalt",
+      "color_name": "CyanLightSky",
       "rgb": [
         70,
         220,
@@ -239,7 +272,6 @@
   "price_panel_indicators": {
     "#7": {
       "name": "MainBB30",
-      "description": "Main chart BB Period=30 Deviation=1.0 Close \u2014 White",
       "color_name": "White",
       "rgb": [
         245,
@@ -254,8 +286,7 @@
     },
     "#8": {
       "name": "MainBB20",
-      "description": "Main chart BB Period=20 Deviation=1.0 Close \u2014 Cyan/Cobalt",
-      "color_name": "CyanCobalt",
+      "color_name": "Cyan",
       "rgb": [
         0,
         200,
@@ -268,32 +299,40 @@
       }
     }
   },
-  "roi": {
-    "price_panel": {
-      "top_percent": 0.0,
-      "bottom_percent": 0.58
-    },
-    "indicator_panel": {
-      "top_percent": 0.52,
-      "bottom_percent": 1.0
+  "hidden_indicators": {
+    "#9": {
+      "name": "HiddenYellow",
+      "rgb": [
+        255,
+        255,
+        0
+      ],
+      "visible": false
     }
   },
-  "color_space": "HSV",
-  "global_tolerance": {
-    "hue": 12,
-    "saturation": 50,
-    "value": 50
+  "matching_rules": {
+    "exact_rgb": true,
+    "line_width": 1,
+    "style": "Solid",
+    "windows": "PRICE and INDICATOR as listed",
+    "order": "Must match install_order exactly"
   },
-  "noise_filter": {
-    "median_filter": 3,
-    "gaussian_kernel": 5,
-    "minimum_line_length": 20,
-    "minimum_contour_area": 3
+  "client_checklist": {
+    "must_match_colors": true,
+    "must_match_order": true,
+    "theme": "Dark",
+    "guide_image": "mt5_color_match_guide.jpg"
   },
   "history": {
     "max_frames_kept": 60,
     "divergence_lookback_frames": 12,
     "higher_high_lookback_frames": 8,
     "ttl_seconds": 3600
+  },
+  "noise_filter": {
+    "median_filter": 3,
+    "gaussian_kernel": 5,
+    "minimum_line_length": 20,
+    "minimum_contour_area": 3
   }
 }

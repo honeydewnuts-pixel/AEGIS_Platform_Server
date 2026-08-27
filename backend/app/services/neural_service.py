@@ -19,6 +19,7 @@ from typing import Any
 
 from app.config import settings
 from app.core.logging import configure_logging
+from pathlib import Path
 from app.services.neural_features import FEATURE_DIM, extract_feature_vector
 
 
@@ -67,11 +68,39 @@ class NeuralAssistService:
         ]
         assert len(self.weights) == FEATURE_DIM
         self.bias = -0.85
+        self._load_trained_weights()
         self.logger.info(
             "NeuralAssistService ready mode=%s veto=%.2f",
             getattr(settings, "NEURAL_MODE", "hybrid"),
             getattr(settings, "NEURAL_VETO_THRESHOLD", 0.35),
         )
+
+
+    def _load_trained_weights(self) -> None:
+        """Load Phase-B weights calibrated on training screenshots if present."""
+        candidates = [
+            Path(__file__).resolve().parent.parent / "models_data" / "neural_weights_v2.json",
+            Path(__file__).resolve().parent.parent / "models_data" / "neural_weights.json",
+        ]
+        for path in candidates:
+            if not path.exists():
+                continue
+            try:
+                import json
+                data = json.loads(path.read_text())
+                w = data.get("weights")
+                if isinstance(w, list) and len(w) == FEATURE_DIM:
+                    self.weights = [float(x) for x in w]
+                    self.bias = float(data.get("bias", self.bias))
+                    self.logger.info(
+                        "Loaded trained neural weights from %s (n=%s acc=%s)",
+                        path.name,
+                        data.get("trained_on_screenshots"),
+                        data.get("accuracy_proxy"),
+                    )
+                    return
+            except Exception as exc:
+                self.logger.warning("Could not load %s: %s", path, exc)
 
     def score(self, vector: list[float]) -> float:
         if len(vector) != FEATURE_DIM:

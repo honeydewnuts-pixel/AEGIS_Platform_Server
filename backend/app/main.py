@@ -142,6 +142,9 @@ if admin_dir.exists():
     app.mount("/admin", StaticFiles(directory=str(admin_dir), html=True), name="admin_dashboard")
 if portal_dir.exists():
     app.mount("/portal", StaticFiles(directory=str(portal_dir), html=True), name="client_portal")
+    guides_dir = Path(__file__).resolve().parent / "static" / "guides"
+    guides_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/guides", StaticFiles(directory=str(guides_dir)), name="guides")
 
 
 @app.get("/")
