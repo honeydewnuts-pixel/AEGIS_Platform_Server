@@ -2,59 +2,35 @@ from app.services.neural_features import extract_feature_vector, FEATURE_DIM
 from app.services.neural_service import NeuralAssistService
 
 
-def test_feature_vector_length():
-    history = [
-        {
-            "band1": {"U": 10, "M": 20, "L": 30},
-            "band2": {"U": 12, "M": 22, "L": 32},
-            "ma4": 18,
-            "cci5": 25,
-            "rsi6": 15,
-            "williams3": 28,
-        },
-        {
-            "band1": {"U": 11, "M": 21, "L": 31},
-            "band2": {"U": 10, "M": 19, "L": 29},
-            "ma4": 17,
-            "cci5": 24,
-            "rsi6": 14,
-            "williams3": 27,
-        },
-    ]
-    feats = extract_feature_vector(history)
-    assert len(feats["vector"]) == FEATURE_DIM
-    assert feats["bands_ok"] is True
-    assert feats["completeness"] > 0.5
+def _frame(i=0):
+    return {
+        "band1": {"U": 40+i, "M": 80+i, "L": 120+i},
+        "band2": {"U": 45+i, "M": 85+i, "L": 125+i},
+        "ma4": 95+i,
+        "cci5": 100+i,
+        "rsi6": 90+i,
+        "williams3": 110+i,
+        "price_close": 100-i,
+        "price_band7": {"U": 50+i, "M": 100+i, "L": 150+i},
+        "price_band8": {"U": 45+i, "M": 95+i, "L": 145+i},
+    }
 
 
-def test_neural_apply_confidence():
+def test_feature_vector_length_v2():
+    feats = extract_feature_vector([_frame(i) for i in range(12)])
+    assert len(feats["vector"]) == FEATURE_DIM == 68
+    assert len(feats["names"]) == 68
+
+
+def test_neural_v2_inference():
     svc = NeuralAssistService()
-    history = [
-        {
-            "band1": {"U": 10, "M": 20, "L": 30},
-            "band2": {"U": 12, "M": 22, "L": 32},
-            "ma4": 18,
-            "cci5": 25,
-            "rsi6": 15,
-            "williams3": 28,
-        },
-        {
-            "band1": {"U": 11, "M": 21, "L": 31},
-            "band2": {"U": 10, "M": 19, "L": 29},
-            "ma4": 17,
-            "cci5": 24,
-            "rsi6": 14,
-            "williams3": 27,
-        },
-    ]
-    base = {
+    history = [_frame(i) for i in range(12)]
+    out = svc.apply(history, {
         "signal": "BUY",
         "confidence": 0.85,
-        "rule_name": "base_buy",
+        "rule_name": "v2_test",
         "details": "test",
-        "frames_in_history": 2,
-    }
-    out = svc.apply(history, base)
-    assert "neural_score" in out
+    })
+    assert out["neural_model_version"] == "AEGIS_NEURAL_V2"
     assert 0.0 <= out["neural_score"] <= 1.0
-    assert out.get("neural_mode")
+    assert set(out["neural_probabilities"]) == {"HOLD", "SELL", "BUY"}

@@ -1,0 +1,11 @@
+{
+  "training_samples": 139,
+  "teacher_distribution": {
+    "HOLD": 4,
+    "SELL": 63,
+    "BUY": 72
+  },
+  "holdout_mse": 0.0027743394020944834,
+  "holdout_direction_agreement": 0.7142857142857143,
+  "notes": "No explicit BUY/SELL labels were embedded in the 139 screenshots; labels are rulebook-derived teacher probabilities, not claimed human ground truth. Screenshot colors were calibrated from supplied captures; live template remains exact color guard."
+}

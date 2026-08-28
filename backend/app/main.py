@@ -38,6 +38,7 @@ from app.api.router import router as base_router
 from app.api.trading_router import router as trading_router
 from app.api.brain_router import router as brain_router
 from app.api.telemetry_router import router as telemetry_router
+from app.api.neural_router import router as neural_router
 from app.api.subscription_router import router as subscription_router
 from app.api.download_router import router as download_router
 from app.api.device_router import router as device_router
@@ -119,6 +120,7 @@ app.include_router(preprocessing_router)
 app.include_router(chart_detection_router)
 app.include_router(trading_router)
 app.include_router(brain_router)
+app.include_router(neural_router)
 app.include_router(subscription_router)
 app.include_router(download_router)
 app.include_router(device_router)
