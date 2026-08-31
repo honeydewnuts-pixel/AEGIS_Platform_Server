@@ -1,0 +1,216 @@
+{
+  "version": "v3",
+  "status": "active",
+  "title": "AEGIS MT5 Indicator Template v3 \u2014 Rulebook 2.3.6.6 (5 indicators)",
+  "description": "Lean stack: BB34/BB17 on price; RSI9 \u2192 MA7 \u2192 Bands34 on lower panel. Dark theme.",
+  "theme": "Dark",
+  "timeframe": "Any",
+  "color_space": "HSV",
+  "global_tolerance": {
+    "hue": 12,
+    "saturation": 50,
+    "value": 50
+  },
+  "roi": {
+    "price_panel": {
+      "top_percent": 0.0,
+      "bottom_percent": 0.58
+    },
+    "indicator_panel": {
+      "top_percent": 0.52,
+      "bottom_percent": 1.0
+    }
+  },
+  "install_order": [
+    {
+      "slot": 1,
+      "panel": "price",
+      "mt5_name": "Bollinger Bands",
+      "display_name": "Main BB34 (#7 White)",
+      "params": {
+        "Period": 34,
+        "Shift": 0,
+        "Deviation": 1.0,
+        "Apply to": "Close"
+      },
+      "color": "White",
+      "rgb": [
+        245,
+        245,
+        245
+      ],
+      "notes": "Price panel first"
+    },
+    {
+      "slot": 2,
+      "panel": "price",
+      "mt5_name": "Bollinger Bands",
+      "display_name": "Main BB17 (#8 Cyan)",
+      "params": {
+        "Period": 17,
+        "Shift": 0,
+        "Deviation": 1.0,
+        "Apply to": "Close"
+      },
+      "color": "Cyan",
+      "rgb": [
+        0,
+        200,
+        220
+      ],
+      "notes": "Price panel second"
+    },
+    {
+      "slot": 3,
+      "panel": "indicator",
+      "mt5_name": "Relative Strength Index",
+      "display_name": "RSI9 (#6 Cyan)",
+      "params": {
+        "Period": 9
+      },
+      "color": "Cyan",
+      "rgb": [
+        70,
+        220,
+        255
+      ]
+    },
+    {
+      "slot": 4,
+      "panel": "indicator",
+      "mt5_name": "Moving Average",
+      "display_name": "MA7 (#4 Magenta)",
+      "params": {
+        "Period": 7,
+        "Method": "SMA",
+        "Shift": 0,
+        "Apply to": "Previous Indicator's data"
+      },
+      "color": "Magenta",
+      "rgb": [
+        220,
+        0,
+        180
+      ]
+    },
+    {
+      "slot": 5,
+      "panel": "indicator",
+      "mt5_name": "Bollinger Bands",
+      "display_name": "Bands34 (#1 White)",
+      "params": {
+        "Period": 34,
+        "Deviation": 1.618,
+        "Shift": 0,
+        "Apply to": "Previous Indicator's data"
+      },
+      "color": "White",
+      "rgb": [
+        245,
+        245,
+        245
+      ],
+      "notes": "On MA7"
+    }
+  ],
+  "indicators": {
+    "#1": {
+      "name": "Bands34",
+      "rgb": [
+        245,
+        245,
+        245
+      ],
+      "hsv_tolerance": {
+        "hue": 12,
+        "saturation": 50,
+        "value": 60
+      },
+      "panel": "indicator"
+    },
+    "#4": {
+      "name": "MA7",
+      "rgb": [
+        220,
+        0,
+        180
+      ],
+      "hsv_tolerance": {
+        "hue": 14,
+        "saturation": 55,
+        "value": 50
+      },
+      "panel": "indicator"
+    },
+    "#6": {
+      "name": "RSI9",
+      "rgb": [
+        70,
+        220,
+        255
+      ],
+      "hsv_tolerance": {
+        "hue": 14,
+        "saturation": 55,
+        "value": 50
+      },
+      "panel": "indicator"
+    }
+  },
+  "price_panel_indicators": {
+    "#7": {
+      "name": "BB34",
+      "rgb": [
+        245,
+        245,
+        245
+      ],
+      "hsv_tolerance": {
+        "hue": 12,
+        "saturation": 50,
+        "value": 60
+      }
+    },
+    "#8": {
+      "name": "BB17",
+      "rgb": [
+        0,
+        200,
+        220
+      ],
+      "hsv_tolerance": {
+        "hue": 14,
+        "saturation": 55,
+        "value": 50
+      }
+    }
+  },
+  "hidden_indicators": [],
+  "matching_rules": {
+    "require_all_core": [
+      "#1",
+      "#4",
+      "#6",
+      "#7",
+      "#8"
+    ]
+  },
+  "client_checklist": [
+    "Dark theme only",
+    "Install in numbered order only",
+    "Price: #7 white BB34 then #8 cyan BB17",
+    "Lower: #6 RSI9, #4 MA7 on RSI, #1 Bands34 on MA7"
+  ],
+  "history": {
+    "touch_window_frames": 20,
+    "touch_tolerance_px": 6.0,
+    "divergence_lookback_frames": 12,
+    "higher_high_lookback_frames": 8
+  },
+  "noise_filter": {
+    "median_filter": 3,
+    "gaussian_kernel": 5,
+    "minimum_line_length": 20,
+    "minimum_contour_area": 3
+  }
+}

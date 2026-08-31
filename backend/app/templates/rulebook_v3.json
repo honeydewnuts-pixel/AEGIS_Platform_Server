@@ -1,0 +1,27 @@
+{
+  "version": "v3",
+  "status": "active",
+  "title": "AEGIS Rulebook v3 \u2014 v2.3.6.6",
+  "engine": "signal_rule_engine_v3.SignalRuleEngineV3",
+  "indicator_stack_version": "v3",
+  "description": "CONTRACTION/EXPANSION regimes + Rules A/B/C/F. Neural assist AEGIS_NEURAL_V3 with v2 fallback.",
+  "source_document": "AEGIS RULEBOOK_V3 v2.3.6.6",
+  "changelog": [
+    "v3: 5-indicator stack",
+    "Rules B/C/F primary; Rule A experimental",
+    "Neural v3 hybrid with seamless v2 neural fallback"
+  ],
+  "roles": {
+    "#7": "BB34 white price",
+    "#8": "BB17 cyan price \u2014 contraction/expansion vs #7",
+    "#6": "RSI9 cyan \u2014 f7",
+    "#4": "MA7 magenta on RSI \u2014 f8",
+    "#1": "Bands34 white on MA7 \u2014 f9/f10/f11"
+  },
+  "rules_summary": [
+    "CONTRACTION: #8 nested in #7 \u2192 Rules B/C/F (and experimental A)",
+    "EXPANSION: #8 wider than #7 \u2192 expansion BUY/SELL",
+    "Neural hybrid: confidence blend + veto; fallback to v2 neural if v3 fails"
+  ],
+  "activated_at": "2026-08-31T19:35:14.229006+00:00"
+}

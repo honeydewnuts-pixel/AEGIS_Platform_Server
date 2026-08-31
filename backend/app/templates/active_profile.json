@@ -1,6 +1,8 @@
 {
-  "indicator_stack_version": "v2",
-  "rulebook_version": "v2",
-  "activated_at": "2026-08-27T15:19:15.048857+00:00",
-  "notes": "NEW RULEBOOK v2 + color-match guide aligned template"
+  "indicator_stack_version": "v3",
+  "rulebook_version": "v3",
+  "activated_at": "2026-08-31T19:35:14.229158+00:00",
+  "notes": "Rulebook v3 + Neural v3 activated; v2 neural/rules remain seamless fallback",
+  "neural_primary": "AEGIS_NEURAL_V3",
+  "neural_fallback": "AEGIS_NEURAL_V2"
 }

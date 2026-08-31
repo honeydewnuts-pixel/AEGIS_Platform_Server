@@ -42,6 +42,8 @@ import numpy as np
 from app.core.logging import configure_logging
 from app.services.signal_rule_engine import SignalRuleEngine
 from app.services.neural_service import NeuralAssistService
+from app.services.signal_rule_engine_v3 import SignalRuleEngineV3
+from app.services.neural_service_v3 import NeuralAssistServiceV3
 
 CONFIG_PATH = Path(__file__).resolve().parent.parent / "colors_config.json"
 
@@ -58,12 +60,35 @@ class BrainCVService:
     def __init__(self) -> None:
         self.logger = configure_logging(__name__)
         self.config = self._load_config()
+        self._build_engine_and_neural()
+        self.logger.info("BrainCVService loaded config version %s", self.config.get("config_version"))
+
+    def _build_engine_and_neural(self) -> None:
+        """Select v1/v2 vs v3 rule engine + neural service based on the
+        active rulebook_version. v1/v2 is the default (unchanged
+        behaviour); v3 is opt-in via TemplateProfileService.activate().
+        If the v3 neural model/engine fails to load for any reason, we
+        fall back to v2 rather than crash the whole service, and log
+        loudly so it's visible in ops."""
+        rulebook_version = (self.config.get("rulebook_version") or "v1").lower()
+        if rulebook_version == "v3":
+            try:
+                self.rule_engine = SignalRuleEngineV3(
+                    touch_window=self.config.get("history", {}).get("touch_window_frames", 20),
+                    touch_tolerance_px=self.config.get("history", {}).get("touch_tolerance_px", 6.0),
+                )
+                self.neural = NeuralAssistServiceV3()
+                self.logger.info("BrainCVService using v3 rule engine + neural service")
+                self._neural_layer = "v3"
+                return
+            except Exception:
+                self.logger.exception("Failed to initialize v3 engine/neural - falling back to v2")
         self.rule_engine = SignalRuleEngine(
             divergence_lookback=self.config.get("history", {}).get("divergence_lookback_frames", 12),
             higher_high_lookback=self.config.get("history", {}).get("higher_high_lookback_frames", 8),
         )
         self.neural = NeuralAssistService()
-        self.logger.info("BrainCVService loaded config version %s", self.config.get("config_version"))
+        self._neural_layer = "v2"
 
     def _load_config(self) -> dict:
         # Prefer active versioned template when available
@@ -78,11 +103,7 @@ class BrainCVService:
 
     def reload_config(self) -> str:
         self.config = self._load_config()
-        self.rule_engine = SignalRuleEngine(
-            divergence_lookback=self.config.get("history", {}).get("divergence_lookback_frames", 12),
-            higher_high_lookback=self.config.get("history", {}).get("higher_high_lookback_frames", 8),
-        )
-        self.neural = NeuralAssistService()
+        self._build_engine_and_neural()
         ver = self.config.get("config_version", "?")
         self.logger.info("BrainCVService reloaded config %s", ver)
         return ver
@@ -203,24 +224,32 @@ class BrainCVService:
 
         ind = self.config["indicators"]
         price_ind = self.config.get("price_panel_indicators", {})
-
-        band1_pts = self._find_color_points(hsv_indicator, ind["#1"]["rgb"], ind["#1"]["hsv_tolerance"])
-        band2_pts = self._find_color_points(hsv_indicator, ind["#2"]["rgb"], ind["#2"]["hsv_tolerance"])
-        williams3_pts = self._find_color_points(hsv_indicator, ind["#3"]["rgb"], ind["#3"]["hsv_tolerance"])
-        ma4_pts = self._find_color_points(hsv_indicator, ind["#4"]["rgb"], ind["#4"]["hsv_tolerance"])
-        cci5_pts = self._find_color_points(hsv_indicator, ind["#5"]["rgb"], ind["#5"]["hsv_tolerance"])
-        rsi6_pts = self._find_color_points(hsv_indicator, ind["#6"]["rgb"], ind["#6"]["hsv_tolerance"])
-
         w_ind = indicator_panel.shape[1]
 
-        frame_state: dict[str, Any] = {
-            "band1": self._band_ulm(band1_pts, w_ind),
-            "band2": self._band_ulm(band2_pts, w_ind),
-            "williams3": self._single_line_y(williams3_pts, w_ind),
-            "ma4": self._single_line_y(ma4_pts, w_ind),
-            "cci5": self._single_line_y(cci5_pts, w_ind),
-            "rsi6": self._single_line_y(rsi6_pts, w_ind),
-        }
+        # #2/#3/#5 are only present in the v2 (9-indicator) stack; v3's
+        # leaner 5-indicator stack only defines #1/#4/#6, so these are
+        # looked up with .get() and simply omitted from frame_state when
+        # the active stack doesn't define them - v2 behaviour (all keys
+        # present) is unchanged.
+        frame_state: dict[str, Any] = {}
+        if ind.get("#1"):
+            pts = self._find_color_points(hsv_indicator, ind["#1"]["rgb"], ind["#1"]["hsv_tolerance"])
+            frame_state["band1"] = self._band_ulm(pts, w_ind)
+        if ind.get("#2"):
+            pts = self._find_color_points(hsv_indicator, ind["#2"]["rgb"], ind["#2"]["hsv_tolerance"])
+            frame_state["band2"] = self._band_ulm(pts, w_ind)
+        if ind.get("#3"):
+            pts = self._find_color_points(hsv_indicator, ind["#3"]["rgb"], ind["#3"]["hsv_tolerance"])
+            frame_state["williams3"] = self._single_line_y(pts, w_ind)
+        if ind.get("#4"):
+            pts = self._find_color_points(hsv_indicator, ind["#4"]["rgb"], ind["#4"]["hsv_tolerance"])
+            frame_state["ma4"] = self._single_line_y(pts, w_ind)
+        if ind.get("#5"):
+            pts = self._find_color_points(hsv_indicator, ind["#5"]["rgb"], ind["#5"]["hsv_tolerance"])
+            frame_state["cci5"] = self._single_line_y(pts, w_ind)
+        if ind.get("#6"):
+            pts = self._find_color_points(hsv_indicator, ind["#6"]["rgb"], ind["#6"]["hsv_tolerance"])
+            frame_state["rsi6"] = self._single_line_y(pts, w_ind)
 
         # Price panel #7/#8, if mapped
         w_price = price_panel.shape[1]
@@ -265,8 +294,21 @@ class BrainCVService:
             "frames_in_history": len(history),
         }
         try:
-            return self.neural.apply(history, base)
+            out = self.neural.apply(history, base)
+            out.setdefault("neural_layer", getattr(self, "_neural_layer", "primary"))
+            return out
         except Exception as exc:  # noqa: BLE001
-            self.logger.warning("Neural assist skipped: %s", exc)
-            base["neural_applied"] = False
-            return base
+            self.logger.warning("Primary neural failed (%s) — trying fallback layer", exc)
+            try:
+                if not hasattr(self, "_fallback_neural"):
+                    from app.services.neural_service import NeuralAssistService
+                    self._fallback_neural = NeuralAssistService()
+                out = self._fallback_neural.apply(history, base)
+                out["neural_layer"] = "fallback_v2"
+                out["neural_primary_error"] = str(exc)[:200]
+                return out
+            except Exception as exc2:  # noqa: BLE001
+                self.logger.warning("Fallback neural also failed: %s", exc2)
+                base["neural_applied"] = False
+                base["neural_layer"] = "none"
+                return base
