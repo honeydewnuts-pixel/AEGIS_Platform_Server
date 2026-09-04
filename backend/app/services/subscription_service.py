@@ -18,7 +18,7 @@ Status lifecycle:
 
 from __future__ import annotations
 
-from app.services.plan_catalog import get_base_lot, get_max_lot, resolve_plan, resolve_plan, mode_for_plan
+from app.services.plan_catalog import get_base_lot, get_max_lot, resolve_plan, mode_for_plan
 
 import secrets
 from datetime import datetime, timedelta, timezone
