@@ -19,6 +19,7 @@ from typing import Any
 
 from app.core.logging import configure_logging
 from app.services.adapters.mt5_adapter import MT5Adapter
+from app.services.mt5_market_snapshot_service import MT5MarketSnapshotService
 from app.schemas.trading import (
     MarketOrderRequest,
     PendingOrderRequest,
@@ -40,6 +41,7 @@ class MT5ExecutionService:
     def __init__(self) -> None:
         self.adapter = MT5Adapter()
         self.DEMO_ONLY = True  # Safety flag
+        self.market_snapshot = MT5MarketSnapshotService()
 
     # ==========================================================
     # LIFECYCLE
@@ -113,3 +115,7 @@ class MT5ExecutionService:
 
     async def get_symbol(self, symbol: str):
         return await self.adapter.get_symbol_info(symbol)
+
+    async def get_m1_ohlc_at(self, symbol: str, captured_at_ms: int):
+        """Read authoritative M1 OHLC from the already-connected MT5 terminal."""
+        return await self.market_snapshot.get_m1_ohlc_at(symbol, captured_at_ms)

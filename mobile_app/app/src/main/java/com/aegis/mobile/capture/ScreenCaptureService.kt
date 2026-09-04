@@ -278,8 +278,9 @@ class ScreenCaptureService : Service() {
                 cacheManager.remove(file)  // malformed filename - can't recover this one, drop it
                 continue
             }
-            val (capturedAtMs, accountId) = parsed
-            val sent = trySend(file, accountId, capturedAtMs)
+            val (capturedAtMs, accountId, cachedSymbol) = parsed
+            val symbol = cachedSymbol.ifBlank { applicationContext.dataStore.data.first()[PrefKeys.MT5_SYMBOL]?.trim().orEmpty() }
+            val sent = trySend(file, accountId, capturedAtMs, symbol)
             if (sent) {
                 cacheManager.remove(file)
                 HealthStatus.pendingCacheCount.postValue(cacheManager.pendingCount())
@@ -370,13 +371,14 @@ class ScreenCaptureService : Service() {
                     croppedBitmap.compress(Bitmap.CompressFormat.JPEG, 80, out)
                 }
 
-                val sent = trySend(tempFile, accountId, capturedAtMs)
+                val symbol = applicationContext.dataStore.data.first()[PrefKeys.MT5_SYMBOL]?.trim().orEmpty()
+                val sent = trySend(tempFile, accountId, capturedAtMs, symbol)
                 if (!sent) {
                     // Backend unreachable - queue it instead of losing it. The
                     // drain loop will retry this (in correct chronological
                     // order relative to other cached frames) once connectivity
                     // returns.
-                    cacheManager.cache(croppedBitmap, capturedAtMs, accountId)
+                    cacheManager.cache(croppedBitmap, capturedAtMs, accountId, symbol)
                     HealthStatus.pendingCacheCount.postValue(cacheManager.pendingCount())
                     updateNotification("Offline - ${cacheManager.pendingCount()} screenshots queued")
                 }
@@ -413,9 +415,9 @@ class ScreenCaptureService : Service() {
      * One quick retry on transient failures (Render cold start, brief
      * network blip). Persistent errors fall through to the offline cache.
      */
-    private suspend fun trySend(file: File, accountId: String, capturedAtMs: Long): Boolean {
+    private suspend fun trySend(file: File, accountId: String, capturedAtMs: Long, symbol: String): Boolean {
         repeat(2) { attempt ->
-            val ok = trySendOnce(file, accountId, capturedAtMs)
+            val ok = trySendOnce(file, accountId, capturedAtMs, symbol)
             if (ok) return true
             if (attempt == 0) {
                 delay(2_500)
@@ -424,7 +426,7 @@ class ScreenCaptureService : Service() {
         return false
     }
 
-    private suspend fun trySendOnce(file: File, accountId: String, capturedAtMs: Long): Boolean {
+    private suspend fun trySendOnce(file: File, accountId: String, capturedAtMs: Long, symbol: String): Boolean {
         val t0 = System.currentTimeMillis()
         return try {
             val requestFile = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
@@ -432,8 +434,9 @@ class ScreenCaptureService : Service() {
             val body = MultipartBody.Part.createFormData("image", "capture.jpg", requestFile)
             val accountIdBody: RequestBody = accountId.toRequestBody("text/plain".toMediaTypeOrNull())
             val capturedAtBody: RequestBody = capturedAtMs.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+            val symbolBody: RequestBody = symbol.toRequestBody("text/plain".toMediaTypeOrNull())
 
-            val response = apiService.analyzeScreenshot(body, accountIdBody, capturedAtBody)
+            val response = apiService.analyzeScreenshot(body, accountIdBody, capturedAtBody, symbolBody)
             if (response.isSuccessful) {
                 val result: AnalysisResponse? = response.body()
                 Log.d("AEGIS", "Brain Response: ${result?.signal} - ${result?.confidence}")

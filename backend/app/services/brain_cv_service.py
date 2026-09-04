@@ -40,10 +40,11 @@ import cv2
 import numpy as np
 
 from app.core.logging import configure_logging
-from app.services.signal_rule_engine import SignalRuleEngine
-from app.services.neural_service import NeuralAssistService
 from app.services.signal_rule_engine_v3 import SignalRuleEngineV3
-from app.services.neural_service_v3 import NeuralAssistServiceV3
+from app.services.neural_service import NeuralAssistService
+from app.services.signal_rule_engine_v3_fallback import SignalRuleEngineV3Fallback
+from app.services.neural_service_v3_fallback import NeuralAssistServiceV3Fallback
+from app.services.engine_failover import EngineFailoverManager
 
 CONFIG_PATH = Path(__file__).resolve().parent.parent / "colors_config.json"
 
@@ -60,35 +61,19 @@ class BrainCVService:
     def __init__(self) -> None:
         self.logger = configure_logging(__name__)
         self.config = self._load_config()
-        self._build_engine_and_neural()
+        self._init_engines()
         self.logger.info("BrainCVService loaded config version %s", self.config.get("config_version"))
 
-    def _build_engine_and_neural(self) -> None:
-        """Select v1/v2 vs v3 rule engine + neural service based on the
-        active rulebook_version. v1/v2 is the default (unchanged
-        behaviour); v3 is opt-in via TemplateProfileService.activate().
-        If the v3 neural model/engine fails to load for any reason, we
-        fall back to v2 rather than crash the whole service, and log
-        loudly so it's visible in ops."""
-        rulebook_version = (self.config.get("rulebook_version") or "v1").lower()
-        if rulebook_version == "v3":
-            try:
-                self.rule_engine = SignalRuleEngineV3(
-                    touch_window=self.config.get("history", {}).get("touch_window_frames", 20),
-                    touch_tolerance_px=self.config.get("history", {}).get("touch_tolerance_px", 6.0),
-                )
-                self.neural = NeuralAssistServiceV3()
-                self.logger.info("BrainCVService using v3 rule engine + neural service")
-                self._neural_layer = "v3"
-                return
-            except Exception:
-                self.logger.exception("Failed to initialize v3 engine/neural - falling back to v2")
-        self.rule_engine = SignalRuleEngine(
-            divergence_lookback=self.config.get("history", {}).get("divergence_lookback_frames", 12),
-            higher_high_lookback=self.config.get("history", {}).get("higher_high_lookback_frames", 8),
-        )
-        self.neural = NeuralAssistService()
-        self._neural_layer = "v2"
+    def _init_engines(self) -> None:
+        lookback = self.config.get("history", {}).get("rule_lookback_frames", 20)
+
+        def build_primary():
+            return SignalRuleEngineV3(lookback=lookback), NeuralAssistService()
+
+        def build_fallback():
+            return SignalRuleEngineV3Fallback(), NeuralAssistServiceV3Fallback()
+
+        self.engines = EngineFailoverManager(build_primary, build_fallback, logger_name=__name__)
 
     def _load_config(self) -> dict:
         # Prefer active versioned template when available
@@ -103,7 +88,7 @@ class BrainCVService:
 
     def reload_config(self) -> str:
         self.config = self._load_config()
-        self._build_engine_and_neural()
+        self._init_engines()
         ver = self.config.get("config_version", "?")
         self.logger.info("BrainCVService reloaded config %s", ver)
         return ver
@@ -184,22 +169,28 @@ class BrainCVService:
                     points.append([cx, cy])
         return sorted(points, key=lambda p: p[0])
 
-    def _rightmost_y_values(self, points: list[list[int]], panel_width: int) -> list[int]:
+    def _rightmost_y_values(self, points: list[list[int]], panel_width: int, panel_height: int) -> list[int]:
         if not points:
             return []
-        max_x = max(p[0] for p in points)
+        # Exclude MT5 frame borders and right-axis labels before selecting the
+        # current indicator line. The active chart area ends before the final
+        # ~30 px on these captures.
+        usable = [p for p in points if 5 <= p[1] <= max(5, panel_height - 5) and p[0] <= panel_width - 30]
+        if not usable:
+            return []
+        max_x = max(p[0] for p in usable)
         cutoff = max(0, max_x - RIGHT_EDGE_WINDOW_PX)
-        return [p[1] for p in points if p[0] >= cutoff]
+        return [p[1] for p in usable if p[0] >= cutoff]
 
-    def _single_line_y(self, points: list[list[int]], panel_width: int) -> float | None:
-        ys = self._rightmost_y_values(points, panel_width)
+    def _single_line_y(self, points: list[list[int]], panel_width: int, panel_height: int) -> float | None:
+        ys = self._rightmost_y_values(points, panel_width, panel_height)
         if not ys:
             return None
         return float(np.mean(ys))
 
-    def _band_ulm(self, points: list[list[int]], panel_width: int) -> dict[str, float] | None:
+    def _band_ulm(self, points: list[list[int]], panel_width: int, panel_height: int) -> dict[str, float] | None:
         """Cluster rightmost points of a 3-line band into U/M/L by Y order."""
-        ys = sorted(self._rightmost_y_values(points, panel_width))
+        ys = sorted(self._rightmost_y_values(points, panel_width, panel_height))
         if not ys:
             return None
         if len(ys) == 1:
@@ -224,41 +215,28 @@ class BrainCVService:
 
         ind = self.config["indicators"]
         price_ind = self.config.get("price_panel_indicators", {})
-        w_ind = indicator_panel.shape[1]
 
-        # #2/#3/#5 are only present in the v2 (9-indicator) stack; v3's
-        # leaner 5-indicator stack only defines #1/#4/#6, so these are
-        # looked up with .get() and simply omitted from frame_state when
-        # the active stack doesn't define them - v2 behaviour (all keys
-        # present) is unchanged.
-        frame_state: dict[str, Any] = {}
-        if ind.get("#1"):
-            pts = self._find_color_points(hsv_indicator, ind["#1"]["rgb"], ind["#1"]["hsv_tolerance"])
-            frame_state["band1"] = self._band_ulm(pts, w_ind)
-        if ind.get("#2"):
-            pts = self._find_color_points(hsv_indicator, ind["#2"]["rgb"], ind["#2"]["hsv_tolerance"])
-            frame_state["band2"] = self._band_ulm(pts, w_ind)
-        if ind.get("#3"):
-            pts = self._find_color_points(hsv_indicator, ind["#3"]["rgb"], ind["#3"]["hsv_tolerance"])
-            frame_state["williams3"] = self._single_line_y(pts, w_ind)
-        if ind.get("#4"):
-            pts = self._find_color_points(hsv_indicator, ind["#4"]["rgb"], ind["#4"]["hsv_tolerance"])
-            frame_state["ma4"] = self._single_line_y(pts, w_ind)
-        if ind.get("#5"):
-            pts = self._find_color_points(hsv_indicator, ind["#5"]["rgb"], ind["#5"]["hsv_tolerance"])
-            frame_state["cci5"] = self._single_line_y(pts, w_ind)
-        if ind.get("#6"):
-            pts = self._find_color_points(hsv_indicator, ind["#6"]["rgb"], ind["#6"]["hsv_tolerance"])
-            frame_state["rsi6"] = self._single_line_y(pts, w_ind)
+        band1_pts = self._find_color_points(hsv_indicator, ind["#1"]["rgb"], ind["#1"]["hsv_tolerance"])
+        ma4_pts = self._find_color_points(hsv_indicator, ind["#4"]["rgb"], ind["#4"]["hsv_tolerance"])
+        rsi6_pts = self._find_color_points(hsv_indicator, ind["#6"]["rgb"], ind["#6"]["hsv_tolerance"])
+
+        w_ind = indicator_panel.shape[1]
+        frame_state: dict[str, Any] = {
+            "band1": self._band_ulm(band1_pts, w_ind, indicator_panel.shape[0]),
+            "ma4": self._single_line_y(ma4_pts, w_ind, indicator_panel.shape[0]),
+            "rsi6": self._single_line_y(rsi6_pts, w_ind, indicator_panel.shape[0]),
+            "_indicator_top": 0.0,
+            "_indicator_bottom": float(indicator_panel.shape[0] - 1),
+        }
 
         # Price panel #7/#8, if mapped
         w_price = price_panel.shape[1]
         if price_ind.get("#7"):
             pts7 = self._find_color_points(hsv_price, price_ind["#7"]["rgb"], price_ind["#7"]["hsv_tolerance"])
-            frame_state["price_band7"] = self._band_ulm(pts7, w_price)
+            frame_state["price_band7"] = self._band_ulm(pts7, w_price, price_panel.shape[0])
         if price_ind.get("#8"):
             pts8 = self._find_color_points(hsv_price, price_ind["#8"]["rgb"], price_ind["#8"]["hsv_tolerance"])
-            frame_state["price_band8"] = self._band_ulm(pts8, w_price)
+            frame_state["price_band8"] = self._band_ulm(pts8, w_price, price_panel.shape[0])
 
         # Approximate price close from rightmost candle body pixels.
         candle_cfg = self.config.get("candle_colors", {})
@@ -267,13 +245,33 @@ class BrainCVService:
         bull_pts = self._find_color_points(hsv_price, bull_rgb, {"hue": 15})
         bear_pts = self._find_color_points(hsv_price, bear_rgb, {"hue": 15})
         all_candle_pts = bull_pts + bear_pts
-        frame_state["price_close"] = self._single_line_y(all_candle_pts, w_price)
+        frame_state["price_close"] = self._single_line_y(all_candle_pts, w_price, price_panel.shape[0])
 
         return frame_state
 
     # ------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------
+
+    def engine_status(self) -> dict[str, Any]:
+        s = self.engines.status()
+        return {
+            "active_tier": s.active_tier,
+            "consecutive_failures": s.consecutive_failures,
+            "primary_available": s.primary_available,
+            "fallback_available": s.fallback_available,
+            "last_error": s.last_error,
+        }
+
+    def set_engine_tier(self, tier: str) -> dict[str, Any]:
+        s = self.engines.force_tier(tier)
+        return {
+            "active_tier": s.active_tier,
+            "consecutive_failures": s.consecutive_failures,
+            "primary_available": s.primary_available,
+            "fallback_available": s.fallback_available,
+            "last_error": s.last_error,
+        }
 
     def decode_image(self, image_bytes: bytes) -> np.ndarray:
         nparr = np.frombuffer(image_bytes, np.uint8)
@@ -283,32 +281,22 @@ class BrainCVService:
         return image
 
     def evaluate(self, history: list[dict[str, Any]]) -> dict[str, Any]:
-        """Rule engine first, then Phase A/B neural assist (confidence / veto)."""
-        result = self.rule_engine.evaluate(history)
-        conf = 0.85 if result.fired else (0.15 if result.rule_name == "warming_up" else 0.0)
-        base = {
-            "signal": result.signal or "HOLD",
-            "confidence": conf,
-            "rule_name": result.rule_name,
-            "details": f"{result.rule_name}: {result.reason}",
-            "frames_in_history": len(history),
-        }
-        try:
-            out = self.neural.apply(history, base)
-            out.setdefault("neural_layer", getattr(self, "_neural_layer", "primary"))
-            return out
-        except Exception as exc:  # noqa: BLE001
-            self.logger.warning("Primary neural failed (%s) — trying fallback layer", exc)
-            try:
-                if not hasattr(self, "_fallback_neural"):
-                    from app.services.neural_service import NeuralAssistService
-                    self._fallback_neural = NeuralAssistService()
-                out = self._fallback_neural.apply(history, base)
-                out["neural_layer"] = "fallback_v2"
-                out["neural_primary_error"] = str(exc)[:200]
-                return out
-            except Exception as exc2:  # noqa: BLE001
-                self.logger.warning("Fallback neural also failed: %s", exc2)
-                base["neural_applied"] = False
-                base["neural_layer"] = "none"
-                return base
+        """RULEBOOK_V3 v2.3.6.6 engine first; neural v3 is confidence-only.
+
+        BUG FIX: `base` previously never included `rule_flags` at all (so
+        the neural layer's RULE_A/B/C/F/EXPANSION_BUY/EXPANSION_SELL
+        features were always 0), and even once included, CONTRACTION/
+        EXPANSION live as separate RuleResult fields, not inside
+        rule_flags - also always defaulting to 0. Both are merged in
+        below, so all 8 flag features the neural model expects are now
+        actually populated instead of silently zeroed.
+
+        FAILOVER: the rule-engine call previously had no exception
+        handling at all - any exception there crashed the whole
+        analysis request. Both the rule engine and neural calls now go
+        through _evaluate_with_failover(), which trips over to the
+        fallback engine (see engine_failover.py) after repeated
+        failures, rather than surfacing every transient error straight
+        to the caller.
+        """
+        return self.engines.evaluate(history)

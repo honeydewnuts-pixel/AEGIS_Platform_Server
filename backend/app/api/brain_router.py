@@ -36,6 +36,7 @@ async def analyze_screenshot(
     image: UploadFile = File(...),
     account_id: str = Form(""),
     captured_at_ms: int | None = Form(None),
+    symbol: str = Form(""),
     auth: AuthContext = Depends(verify_api_key),
 ):
     # Client mobile keys: account is defined by the key, not the form field.
@@ -52,6 +53,8 @@ async def analyze_screenshot(
     await enforce_account_rate_limit(request, account_id)
 
     brain = request.app.state.brain_cv_service
+    job_queue = request.app.state.job_queue
+    worker_pool = request.app.state.worker_pool
     history_service = request.app.state.indicator_history
     upload_diag = getattr(request.app.state, "upload_diagnostics", None)
 
@@ -104,9 +107,48 @@ async def analyze_screenshot(
     try:
         cv_image = brain.decode_image(image_bytes)
         frame_state = brain.extract_frame_state(cv_image)
+
+        # Synchronization layer: use the MT5 terminal already connected by the
+        # account's Windows worker. No external broker market-data API is used.
+        market_snapshot = None
+        pair_artifact = None
+        if symbol.strip():
+            if captured_at_ms is None:
+                raise ValueError("captured_at_ms is required when symbol is supplied.")
+            if not await worker_pool.is_running(account_id):
+                raise ValueError("MT5 worker is not connected for this account.")
+            snapshot_job = await job_queue.submit_and_wait(
+                account_id,
+                "get_m1_ohlc_at",
+                {"symbol": symbol.strip(), "captured_at_ms": int(captured_at_ms)},
+                timeout_seconds=10,
+            )
+            if snapshot_job is None or not snapshot_job.get("success"):
+                raise ValueError(snapshot_job.get("message", "MT5 market snapshot unavailable.") if snapshot_job else "MT5 market snapshot timed out.")
+            market_snapshot = snapshot_job.get("result")
+            if not isinstance(market_snapshot, dict):
+                raise ValueError("Invalid MT5 market snapshot response.")
+            # Rule engine's price comparisons now use authoritative MT5 close
+            # mapped to the existing price coordinate system. The pixel extractor
+            # remains available for visual diagnostics; it is not authoritative.
+            frame_state["market_ohlc"] = market_snapshot
+            frame_state["price_close"] = float(market_snapshot["close"])
+
         await history_service.append_frame(account_id, frame_state, captured_at_ms)
         history = await history_service.get_history(account_id)
         result = brain.evaluate(history)
+
+        if market_snapshot is not None and captured_at_ms is not None:
+            from app.services.capture_pair_service import CapturePairService
+            # Store a PNG artifact regardless of upload transport format.
+            import io
+            from PIL import Image
+            with io.BytesIO() as buf:
+                Image.open(io.BytesIO(image_bytes)).convert("RGB").save(buf, format="PNG")
+                png_bytes = buf.getvalue()
+            pair_artifact = CapturePairService().save(
+                png_bytes, account_id, symbol.strip(), int(captured_at_ms), market_snapshot
+            )
     except ValueError as exc:
         if upload_diag:
             await upload_diag.record(
@@ -147,6 +189,40 @@ async def analyze_screenshot(
         account_id, result["signal"], result["confidence"], result["rule_name"], result["details"]
     )
 
+    if market_snapshot is not None:
+        result["market_data"] = market_snapshot
+        result["market_data_source"] = "MT5_TERMINAL_TICKS"
+        result["market_data_synchronized"] = True
+        result["capture_pair"] = pair_artifact
+
+        # SERVER-SIDE AUTONOMOUS V3 DEMO EXECUTION.
+        # This is the missing link in the previous checkpoint: a signal was
+        # returned to the mobile app, but nothing called /api/trading/market-order.
+        # Execute through the existing account-specific Windows MT5 worker.
+        if str(result.get("signal") or "HOLD").upper() in ("BUY", "SELL"):
+            try:
+                from app.services.autonomous_execution_service import AutonomousDemoExecutionService
+                auto = AutonomousDemoExecutionService(
+                    job_queue=job_queue,
+                    worker_pool=worker_pool,
+                    subscription_service=request.app.state.subscription_service,
+                    trade_limits=getattr(request.app.state, "trade_limits", None),
+                )
+                vault = getattr(request.app.state, "vault", None)
+                if vault is not None:
+                    auto.credential_getter = vault.get_credentials_by_account
+                execution = await auto.execute_if_signal(
+                    account_id=account_id,
+                    symbol=symbol.strip(),
+                    result=result,
+                    market_snapshot=market_snapshot,
+                )
+                result["execution"] = execution
+            except Exception as exc:
+                brain.logger.exception("Autonomous demo execution integration failed for account %s", account_id)
+                result["execution"] = {"status": "integration_error", "executed": False, "message": str(exc)}
+    else:
+        result["market_data_synchronized"] = False
     result["timestamp"] = int(time.time() * 1000)
     result["latency_ms"] = round(latency_ms, 1)
     return result

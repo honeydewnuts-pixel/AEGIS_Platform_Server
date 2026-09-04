@@ -1,36 +1,13 @@
-from app.services.neural_features import extract_feature_vector, FEATURE_DIM
+from app.services.neural_features_v3 import FEATURE_DIM, FEATURE_NAMES, extract_feature_vector
 from app.services.neural_service import NeuralAssistService
 
+def test_feature_vector_v3():
+    frame={"band1":{"U":80,"M":140,"L":200},"ma4":150,"rsi6":130,"_indicator_top":0,"_indicator_bottom":300}
+    out=extract_feature_vector([frame],{"RULE_A":0,"RULE_B":0,"RULE_C":0,"RULE_F":1,"EXPANSION_BUY":0,"EXPANSION_SELL":0})
+    assert FEATURE_DIM==13 and len(out["vector"])==13 and len(FEATURE_NAMES)==13
 
-def _frame(i=0):
-    return {
-        "band1": {"U": 40+i, "M": 80+i, "L": 120+i},
-        "band2": {"U": 45+i, "M": 85+i, "L": 125+i},
-        "ma4": 95+i,
-        "cci5": 100+i,
-        "rsi6": 90+i,
-        "williams3": 110+i,
-        "price_close": 100-i,
-        "price_band7": {"U": 50+i, "M": 100+i, "L": 150+i},
-        "price_band8": {"U": 45+i, "M": 95+i, "L": 145+i},
-    }
-
-
-def test_feature_vector_length_v2():
-    feats = extract_feature_vector([_frame(i) for i in range(12)])
-    assert len(feats["vector"]) == FEATURE_DIM == 68
-    assert len(feats["names"]) == 68
-
-
-def test_neural_v2_inference():
-    svc = NeuralAssistService()
-    history = [_frame(i) for i in range(12)]
-    out = svc.apply(history, {
-        "signal": "BUY",
-        "confidence": 0.85,
-        "rule_name": "v2_test",
-        "details": "test",
-    })
-    assert out["neural_model_version"] == "AEGIS_NEURAL_V2"
-    assert 0.0 <= out["neural_score"] <= 1.0
-    assert set(out["neural_probabilities"]) == {"HOLD", "SELL", "BUY"}
+def test_neural_v3_inference_does_not_override_rule():
+    svc=NeuralAssistService()
+    out=svc.apply([{"band1":{"U":80,"M":140,"L":200},"ma4":150,"rsi6":130,"_indicator_top":0,"_indicator_bottom":300}], {"signal":"BUY","confidence":0.85,"rule_name":"RULE_F","details":"test","rule_flags":{"RULE_F":1}})
+    assert out["neural_model_version"].startswith("AEGIS_NEURAL_V3")
+    assert out["signal"]=="BUY"

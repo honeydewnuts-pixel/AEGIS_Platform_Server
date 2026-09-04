@@ -13,6 +13,9 @@ import android.view.WindowManager
 import android.os.PowerManager
 import android.provider.Settings
 import android.widget.Button
+import android.widget.RadioButton
+import android.widget.RadioGroup
+import android.widget.TextView
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
@@ -47,6 +50,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var startBtn: Button
     private lateinit var stopBtn: Button
     private lateinit var settingsBtn: Button
+    private lateinit var riskPresetGroup: RadioGroup
+    private lateinit var riskConservative: RadioButton
+    private lateinit var riskStandard: RadioButton
+    private lateinit var riskAggressive: RadioButton
+    private lateinit var riskMaxLotInfo: TextView
+    private var riskLoadingFromServer = false
     private lateinit var batteryBtn: Button
     private lateinit var accessibilityBtn: Button
     private lateinit var connectMt5Btn: Button
@@ -101,6 +110,13 @@ class MainActivity : AppCompatActivity() {
         startBtn.backgroundTintList = null
         stopBtn.backgroundTintList = null
         settingsBtn = findViewById(R.id.settingsBtn)
+        riskPresetGroup = findViewById(R.id.riskPresetGroup)
+        riskConservative = findViewById(R.id.riskConservative)
+        riskStandard = findViewById(R.id.riskStandard)
+        riskAggressive = findViewById(R.id.riskAggressive)
+        riskMaxLotInfo = findViewById(R.id.riskMaxLotInfo)
+        setupRiskPresets()
+        loadRiskPresetFromServer()
         batteryBtn = findViewById(R.id.batteryBtn)
         accessibilityBtn = findViewById(R.id.accessibilityBtn)
         connectMt5Btn = findViewById(R.id.connectMt5Btn)
@@ -137,33 +153,11 @@ class MainActivity : AppCompatActivity() {
                 else -> statusText.setBackgroundColor(Color.parseColor("#334155"))
             }
 
-            lifecycleScope.launch {
-                val prefs = applicationContext.dataStore.data.first()
-                val autoExecute = prefs[PrefKeys.AUTO_EXECUTE] ?: false
-                val minConf = prefs[PrefKeys.MIN_CONFIDENCE]?.toFloatOrNull()
-                    ?: DEFAULT_MIN_CONFIDENCE
-                val confidence = viewModel.confidence.value ?: 0f
-
-                if ((signal == "BUY" || signal == "SELL") && autoExecute) {
-                    if (!isAccessibilityEnabled()) {
-                        Toast.makeText(this@MainActivity, "Enable Accessibility Service first!", Toast.LENGTH_LONG).show()
-                        openAccessibilitySettings()
-                    } else if (confidence < minConf) {
-                        Toast.makeText(
-                            this@MainActivity,
-                            "Ignored $signal - confidence $confidence below $minConf",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    } else {
-                        val attempted = Mt5AccessibilityService.executeTrade(signal)
-                        if (attempted) {
-                            Toast.makeText(this@MainActivity, "Executing $signal on MT5", Toast.LENGTH_SHORT).show()
-                        } else {
-                            Toast.makeText(this@MainActivity, "$signal skipped (cooldown)", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }
-            }
+            // Automatic execution is now server-side and authoritative.
+            // Do NOT execute through Android Accessibility here: doing so can
+            // create a second MT5 order after the Windows MT5 worker has already
+            // executed the V3 signal. The server returns the execution result
+            // as part of /aegis/analyze.
         }
 
         viewModel.details.observe(this) { details ->
@@ -709,4 +703,66 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
     private fun openAccessibilitySettings() {
         startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
     }
+
+    private fun setupRiskPresets() {
+        riskPresetGroup.setOnCheckedChangeListener { _, checkedId ->
+            if (riskLoadingFromServer) return@setOnCheckedChangeListener
+            val preset = when (checkedId) {
+                R.id.riskConservative -> "conservative"
+                R.id.riskAggressive -> "aggressive"
+                else -> "standard"
+            }
+            postRiskPreset(preset)
+        }
+    }
+
+    private fun postRiskPreset(preset: String) {
+        lifecycleScope.launch {
+            try {
+                val api = NetworkModule.createApi(this@MainActivity)
+                val accountId = prefs[PrefKeys.ACCOUNT_ID]?.trim().orEmpty()
+                if (accountId.isBlank()) return@launch
+                val body = mapOf("account_id" to accountId, "risk_preset" to preset)
+                val resp = api.setRiskPreset(body)
+                if (resp.isSuccessful) {
+                    val data = resp.body()
+                    val lot = data?.get("calculated_lot_size")
+                    val maxLot = data?.get("plan_max_lot")
+                    riskMaxLotInfo.text = "Lot: $lot (plan max $maxLot)"
+                }
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private fun loadRiskPresetFromServer() {
+        lifecycleScope.launch {
+            try {
+                val api = NetworkModule.createApi(this@MainActivity)
+                val accountId = prefs[PrefKeys.ACCOUNT_ID]?.trim().orEmpty()
+                if (accountId.isBlank()) return@launch
+                val resp = api.getAccountStatus(accountId)
+                if (!resp.isSuccessful) return@launch
+                val data = resp.body() ?: return@launch
+                val preset = (data["risk_preset"] as? String)?.lowercase() ?: "standard"
+                val plan = (data["plan"] as? String)?.lowercase() ?: ""
+                val maxLot = data["plan_max_lot"]
+                riskLoadingFromServer = true
+                when (preset) {
+                    "conservative" -> riskConservative.isChecked = true
+                    "aggressive" -> riskAggressive.isChecked = true
+                    else -> riskStandard.isChecked = true
+                }
+                riskLoadingFromServer = false
+                if (plan == "demo") {
+                    riskMaxLotInfo.text = "Max Lot: 0.01"
+                } else if (maxLot != null) {
+                    riskMaxLotInfo.text = "Plan max lot: $maxLot · current: ${data["calculated_lot_size"]}"
+                }
+            } catch (_: Exception) {
+                riskLoadingFromServer = false
+            }
+        }
+    }
+
 }

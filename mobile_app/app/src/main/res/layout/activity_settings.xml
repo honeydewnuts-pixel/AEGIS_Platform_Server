@@ -173,6 +173,26 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:text="MT5 Chart Symbol"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:layout_marginTop="12dp"/>
+
+        <EditText
+            android:id="@+id/etMt5Symbol"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="e.g. EURUSD"
+            android:inputType="textCapCharacters"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#8B9BB4"
+            android:backgroundTint="#3B82F6"
+            android:layout_marginTop="4dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:text="MT5 Login (account number)"
             android:textSize="14sp"
             android:textStyle="bold"

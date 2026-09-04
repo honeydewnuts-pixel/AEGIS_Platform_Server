@@ -1,0 +1,24 @@
+{
+  "platform": "AEGIS_Platform_Server",
+  "active_indicator_stack": "v3",
+  "active_rulebook": "AEGIS RULEBOOK_V3 v2.3.6.6",
+  "active_rule_engine": "SignalRuleEngineV3",
+  "active_neural": "AEGIS Neural v3 2.3.6.6 teacher-confidence",
+  "neural_feature_dim": 13,
+  "legacy_v1_v2": "archived_only",
+  "neural_is_rule_authoritative": false,
+  "rule_engine_is_authoritative": true,
+  "synchronized_market_snapshot": {
+    "enabled": true,
+    "timeframe": "M1",
+    "source": "MT5_TERMINAL_TICKS",
+    "external_broker_market_data_api": false,
+    "capture_field": "captured_at_ms",
+    "symbol_field": "symbol",
+    "paired_artifacts": [
+      "PNG screenshot",
+      "JSON market snapshot"
+    ],
+    "exact_capture_reconstruction": true
+  }
+}

@@ -46,6 +46,8 @@ class Subscription(Base):
     portal_token: Mapped[str | None] = mapped_column(String, nullable=True, unique=True)
     # Commercial tier: demo | starter | pro | business | enterprise
     plan: Mapped[str] = mapped_column(String, nullable=False, default="starter")
+    # User risk preset: conservative | standard | aggressive (server calculates lot)
+    risk_preset: Mapped[str] = mapped_column(String(20), nullable=False, default="standard")
     max_devices: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     max_trades_per_day: Mapped[int] = mapped_column(Integer, nullable=False, default=10)  # 0 = unlimited
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

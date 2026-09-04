@@ -45,8 +45,8 @@ async def get_book(version: str, request: Request, auth: AuthContext = Depends(v
 
 
 class ActivateRequest(BaseModel):
-    indicator_stack_version: str = Field(..., examples=["v1", "v2"])
-    rulebook_version: str = Field(..., examples=["v1", "v2"])
+    indicator_stack_version: str = Field(..., examples=["v3"])
+    rulebook_version: str = Field(..., examples=["v3"])
 
 
 @router.post("/activate")

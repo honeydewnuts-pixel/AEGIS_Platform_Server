@@ -1,383 +1,247 @@
-"""
-====================================================================
-Project : AEGIS
-Company : Honeydewnuts Nigerian Limited
+"""AEGIS RULEBOOK_V3 v2.3.6.6 deterministic engine.
 
-File    : signal_rule_engine_v3.py
-
-Purpose
--------
-Evaluates AEGIS Rulebook v3 (v2.3.6.6) against a frame history and
-returns a signal. This is a NEW, separate engine class - it does not
-touch or replace the v1/v2 `SignalRuleEngine` in signal_rule_engine.py,
-so activating v3 (via TemplateProfileService) is opt-in and v1/v2
-behaviour is unaffected until BrainCVService is told to switch.
-
-Indicator stack (see indicator_stack_v3.json):
-  #7 BB34, White,  Period 34, price panel, Apply to Close
-  #8 BB17, Cyan,   Period 17, price panel, Apply to Close
-  #6 RSI9, Cyan,   Period 9,  lower panel, Apply to Close
-  #4 MA7,  Magenta,SMA Period 7, lower panel, Apply to RSI9(#6)
-  #1 Bands34, White, Period 34, lower panel, Apply to MA7(#4)
-
-Coordinate convention
-----------------------
-Same as v1/v2: all positions are pixel Y-coordinates. Smaller Y is
-higher on the chart / a higher indicator value. "Above" = smaller Y.
-
-Frame state shape (one entry per historical frame):
-{
-    "price_band7": {"U": y, "M": y, "L": y},  # #7 BB34 white, price panel
-    "price_band8": {"U": y, "M": y, "L": y},  # #8 BB17 cyan, price panel
-    "rsi6":  y,                                # #6 RSI9  -> rulebook f7
-    "ma4":   y,                                # #4 MA7 (on RSI9) -> f8
-    "band1": {"U": y, "M": y, "L": y},         # #1 Bands34 (on MA7) -> f9/f10/f11
-    "_ts": float,
-}
-
-Rulebook feature-name cross-reference (value terms, for readability):
-    f1=price_band7.U  f2=price_band7.M  f3=price_band7.L
-    f4=price_band8.U  f5=price_band8.M  f6=price_band8.L
-    f7=rsi6  f8=ma4  f9=band1.U  f10=band1.M  f11=band1.L
-
-WHAT'S IMPLEMENTED VS. FLAGGED
--------------------------------
-Implemented with confidence:
-  - CONTRACTION / EXPANSION regime detection
-  - RULE B (BUY/SELL) - touch-count + confirming cross, both terms are
-    unambiguous as written.
-  - RULE C (BUY/SELL) - failed cross of the mid-band followed by
-    repeated touches of the outer band.
-  - RULE F (BUY/SELL) - #8 vs #1/#2-band relation with RSI confirmation.
-  - EXPANSION BUY/SELL - simple, unambiguous comparison.
-
-Flagged (implemented as best-effort, NOT confirmed against a labeled
-example - see RULEBOOK_V3_TODO at the bottom):
-  - RULE A (BUY/SELL). The rulebook text ("f7 & f8 make Higher Low",
-    "cross UP f11->f10->f9", "then f7 cross DOWN f10/f11 while f8 >
-    f10") requires three judgment calls that aren't pinned down by the
-    text: (a) what counts as a pivot for "Higher Low" on a possibly
-    noisy oscillator, (b) whether the three sequential crosses must
-    happen on consecutive frames or just in order within a window,
-    and (c) how large a window "then" implies before the reversal
-    cross must occur. The implementation below uses a 3-frame pivot
-    detector and a 20-frame sequencing window - both configurable -
-    but this is a documented guess, not a confirmed spec. Recommend
-    watching `rule_a_buy` / `rule_a_sell` in signal telemetry
-    separately before trusting them at the same confidence as B/C/F.
-====================================================================
+Only active production rule engine.  It uses pixel geometry inside each
+panel; lower-panel comparisons are made only between lower-panel values and
+price-panel comparisons only between price-panel values.  No legacy v1/v2
+rules, CCI, WPR, or hidden indicators are referenced.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
-from app.services.signal_rule_engine import RuleResult, crossed, is_between, side_of
-
-TOUCH_TOLERANCE_PX_DEFAULT = 6.0   # pixels; "touch" = within this many px on the RSI-scale panel
-TOUCH_WINDOW_DEFAULT = 20          # frames; matches rulebook's "within 20 bars"
-PIVOT_HALF_WIDTH_DEFAULT = 1       # frames each side for a local min/max pivot
+Side = Literal["above", "below"]
+LOOKBACK = 20
+TOUCH_PX = 3.0
 
 
-# ------------------------------------------------------------------
-# v3-specific primitives (touches / pivot patterns / sequenced crosses)
-# ------------------------------------------------------------------
-
-def touches(a_series: list[float], b_series: list[float], tol_px: float) -> int:
-    """Count of frames where |a - b| <= tol_px, i.e. the two lines are
-    close enough on screen to call it a touch rather than a clean cross."""
-    n = min(len(a_series), len(b_series))
-    return sum(1 for i in range(n) if abs(a_series[i] - b_series[i]) <= tol_px)
+def side_of(value_y: float, level_y: float) -> Side:
+    return "above" if value_y < level_y else "below"
 
 
-def find_pivots(series: list[float], half_width: int = PIVOT_HALF_WIDTH_DEFAULT):
-    """Local minima (price-sense highs, i.e. smallest Y) and maxima
-    (price-sense lows, i.e. largest Y) using a +/-half_width window."""
-    lows_y, highs_y = [], []  # "lows_y" = pivot points with the SMALLEST y (highest value)
-    n = len(series)
-    for i in range(half_width, n - half_width):
-        window = series[i - half_width:i + half_width + 1]
-        if series[i] == min(window):
-            lows_y.append(i)
-        if series[i] == max(window):
-            highs_y.append(i)
-    return lows_y, highs_y
+def crossed(prev_value_y: float, prev_level_y: float, cur_value_y: float, cur_level_y: float) -> Side | None:
+    a = side_of(prev_value_y, prev_level_y)
+    b = side_of(cur_value_y, cur_level_y)
+    return None if a == b else b
 
 
-def higher_low_pattern(series: list[float]) -> bool:
-    """True if the series makes a 'Higher Low' in value terms: two
-    value-troughs (pivot points with the LARGEST y) where the later
-    trough is higher in value (SMALLER y) than the earlier one."""
-    _, highs_y_idx = find_pivots(series)  # value-troughs = local Y maxima
-    if len(highs_y_idx) < 2:
+def touched(value_y: float, level_y: float, tolerance: float = TOUCH_PX) -> bool:
+    return abs(float(value_y) - float(level_y)) <= tolerance
+
+
+def _valid(history: list[dict[str, Any]], key: str, band_key: str) -> bool:
+    return bool(history and all(isinstance(f.get(band_key), dict) and f[band_key].get(key) is not None for f in history))
+
+
+def _series(history: list[dict[str, Any]], value_key: str) -> list[float]:
+    return [float(f[value_key]) for f in history if f.get(value_key) is not None]
+
+
+def _band_series(history: list[dict[str, Any]], band: str, level: str) -> list[float]:
+    return [float(f[band][level]) for f in history if isinstance(f.get(band), dict) and f[band].get(level) is not None]
+
+
+def _pivots(values: list[float], kind: str) -> list[int]:
+    if len(values) < 3:
+        return []
+    out: list[int] = []
+    for i in range(1, len(values) - 1):
+        if kind == "low" and values[i] <= values[i-1] and values[i] <= values[i+1]:
+            out.append(i)
+        if kind == "high" and values[i] >= values[i-1] and values[i] >= values[i+1]:
+            out.append(i)
+    return out
+
+
+def _higher_low_pair(values: list[float]) -> bool:
+    piv = _pivots(values, "low")
+    if len(piv) < 2:
         return False
-    a, b = series[highs_y_idx[-2]], series[highs_y_idx[-1]]
-    return b < a  # later trough has smaller y => higher value => Higher Low
+    a, b = piv[-2], piv[-1]
+    return values[b] < values[a]  # smaller pixel y = numerically higher low
 
 
-def lower_high_pattern(series: list[float]) -> bool:
-    """Mirror of higher_low_pattern: two value-peaks (local Y minima)
-    where the later peak is lower in value (LARGER y)."""
-    lows_y_idx, _ = find_pivots(series)  # value-peaks = local Y minima
-    if len(lows_y_idx) < 2:
+def _lower_high_pair(values: list[float]) -> bool:
+    piv = _pivots(values, "high")
+    if len(piv) < 2:
         return False
-    a, b = series[lows_y_idx[-2]], series[lows_y_idx[-1]]
-    return b > a  # later peak has larger y => lower value => Lower High
+    a, b = piv[-2], piv[-1]
+    return values[b] > values[a]  # larger pixel y = numerically lower high
 
 
-def any_cross_in_window(value_series: list[float], level_series: list[float], direction: str) -> bool:
-    n = min(len(value_series), len(level_series))
-    for i in range(1, n):
-        if crossed(value_series[i - 1], level_series[i - 1], value_series[i], level_series[i]) == direction:
-            return True
+def _sequential_cross(history: list[dict[str, Any]], value_key: str, band_key: str, levels: list[str], direction: str) -> bool:
+    """Find ordered crosses through levels within the last 20 frames."""
+    hs = history[-LOOKBACK:]
+    pos = 0
+    for level in levels:
+        found = False
+        for i in range(pos + 1, len(hs)):
+            prev, cur = hs[i-1], hs[i]
+            if prev.get(value_key) is None or cur.get(value_key) is None:
+                continue
+            pb, cb = prev.get(band_key), cur.get(band_key)
+            if not isinstance(pb, dict) or not isinstance(cb, dict):
+                continue
+            if crossed(float(prev[value_key]), float(pb[level]), float(cur[value_key]), float(cb[level])) == direction:
+                pos = i
+                found = True
+                break
+        if not found:
+            return False
+    return True
+
+
+def _touch_count(history: list[dict[str, Any]], value_key: str, band_key: str, level: str) -> int:
+    count = 0
+    for f in history[-LOOKBACK:]:
+        b = f.get(band_key)
+        if f.get(value_key) is not None and isinstance(b, dict) and b.get(level) is not None:
+            if touched(float(f[value_key]), float(b[level])):
+                count += 1
+    return count
+
+
+def _recent_touch_or_cross_from_side(history: list[dict[str, Any]], value_key: str, band_key: str, level: str, from_side: str) -> bool:
+    hs = history[-2:]
+    if len(hs) < 2:
+        return False
+    p, c = hs
+    pb, cb = p.get(band_key), c.get(band_key)
+    if not isinstance(pb, dict) or not isinstance(cb, dict) or p.get(value_key) is None or c.get(value_key) is None:
+        return False
+    prev_side = side_of(float(p[value_key]), float(pb[level]))
+    cr = crossed(float(p[value_key]), float(pb[level]), float(c[value_key]), float(cb[level]))
+    return prev_side == from_side and (touched(float(c[value_key]), float(cb[level])) or cr is not None)
+
+
+def _failed_cross(history: list[dict[str, Any]], value_key: str, band_key: str, level: str, attempted_from: str) -> bool:
+    hs = history[-LOOKBACK:]
+    if len(hs) < 3:
+        return False
+    # An attempt comes within TOUCH_PX of the level while staying on the
+    # requested starting side, followed by a return to that same side.
+    for i in range(1, len(hs)-1):
+        p, c, n = hs[i-1], hs[i], hs[i+1]
+        try:
+            pb, cb, nb = p[band_key], c[band_key], n[band_key]
+            pv, cv, nv = float(p[value_key]), float(c[value_key]), float(n[value_key])
+            if not all(isinstance(x, dict) for x in (pb, cb, nb)):
+                continue
+            if side_of(pv, float(pb[level])) != attempted_from:
+                continue
+            if not touched(cv, float(cb[level])):
+                continue
+            if crossed(pv, float(pb[level]), cv, float(cb[level])) is not None:
+                continue
+            if side_of(nv, float(nb[level])) == attempted_from:
+                return True
+        except (KeyError, TypeError, ValueError):
+            continue
     return False
 
 
-# ------------------------------------------------------------------
-# Engine
-# ------------------------------------------------------------------
+@dataclass
+class RuleResult:
+    fired: bool
+    signal: str
+    rule_name: str
+    reason: str
+    rule_flags: dict[str, int]
+    contraction: int
+    expansion: int
+
 
 class SignalRuleEngineV3:
-    """
-    Evaluates history (a list of v3 frame_state dicts, oldest first)
-    against AEGIS Rulebook v3. Needs at least 2 frames for CONTRACTION/
-    EXPANSION + Rules B/C/F; touch-count and Rule A benefit from a
-    full `touch_window` of frames.
-    """
-
-    def __init__(self, touch_window: int = TOUCH_WINDOW_DEFAULT,
-                 touch_tolerance_px: float = TOUCH_TOLERANCE_PX_DEFAULT,
-                 enable_rule_a: bool = True) -> None:
-        self.touch_window = touch_window
-        self.touch_tolerance_px = touch_tolerance_px
-        self.enable_rule_a = enable_rule_a
+    def __init__(self, lookback: int = LOOKBACK) -> None:
+        self.lookback = lookback
 
     def evaluate(self, history: list[dict[str, Any]]) -> RuleResult:
-        n = len(history)
-        if n < 2:
-            return RuleResult(False, "HOLD", "warming_up",
-                               f"Collecting frames ({n}/2). Need at least 2 for v3 rules.")
+        if not history:
+            return self._result(False, "HOLD", "warming_up", "No frame history.", {}, 0, 0)
+        cur = history[-1]
+        p7, p8 = cur.get("price_band7"), cur.get("price_band8")
+        b1 = cur.get("band1")
+        if not isinstance(p7, dict) or not isinstance(p8, dict) or not isinstance(b1, dict):
+            return self._result(False, "HOLD", "indicators_not_detected", "Required v3 visible indicators not detected.", {}, 0, 0)
 
-        prev, cur = history[-2], history[-1]
-        if not self._frame_ok(prev) or not self._frame_ok(cur):
-            return RuleResult(False, "HOLD", "indicators_not_detected",
-                               "Could not read one or more v3 indicators (price_band7/8, rsi6, ma4, band1).")
+        # Screen coordinates invert numeric comparisons: smaller y = larger value.
+        # f4 < f1 and f6 > f3 => BB17 is inside BB34 (contraction).
+        contraction = int(float(p8["U"]) < float(p7["U"]) and float(p8["L"]) > float(p7["L"]))
+        # f4 > f1 and f6 < f3 => BB17 is outside BB34 (expansion).
+        expansion = int(float(p8["U"]) > float(p7["U"]) and float(p8["L"]) < float(p7["L"]))
 
-        window = history[-self.touch_window:]
+        flags = {k: 0 for k in ("RULE_A", "RULE_B", "RULE_C", "RULE_F", "EXPANSION_BUY", "EXPANSION_SELL")}
+        if len(history) < 2:
+            return self._result(False, "HOLD", "warming_up", "Insufficient temporal history.", flags, contraction, expansion)
 
-        contraction = self._contraction(cur)
-        expansion = self._expansion(cur)
-
-        for rule_fn in self._rules(contraction, expansion):
-            try:
-                result = rule_fn(prev, cur, window, history)
-            except Exception:
-                continue
-            if result is not None and result.fired:
-                return result
-
-        regime = "contraction" if contraction else ("expansion" if expansion else "neutral")
-        return RuleResult(False, "HOLD", "no_rule_matched", f"No v3 condition fully matched this frame ({regime}).")
-
-    @staticmethod
-    def _frame_ok(fr: dict) -> bool:
-        if not isinstance(fr.get("price_band7"), dict) or not isinstance(fr.get("price_band8"), dict):
-            return False
-        if not isinstance(fr.get("band1"), dict):
-            return False
-        if fr.get("rsi6") is None or fr.get("ma4") is None:
-            return False
-        for band_key in ("price_band7", "price_band8", "band1"):
-            for k in ("U", "M", "L"):
-                if fr[band_key].get(k) is None:
-                    return False
-        return True
-
-    # ---- regime ----
-
-    @staticmethod
-    def _contraction(cur: dict) -> bool:
-        """CONTRACTION = f4 < f1 AND f6 > f3 (#8 band nested inside #7 band)."""
-        p7, p8 = cur["price_band7"], cur["price_band8"]
-        return side_of(p8["U"], p7["U"]) == "below" and side_of(p8["L"], p7["L"]) == "above"
-
-    @staticmethod
-    def _expansion(cur: dict) -> bool:
-        """EXPANSION = f4 > f1 AND f6 < f3 (#8 band wider than #7 band)."""
-        p7, p8 = cur["price_band7"], cur["price_band8"]
-        return side_of(p8["U"], p7["U"]) == "above" and side_of(p8["L"], p7["L"]) == "below"
-
-    def _rules(self, contraction: bool, expansion: bool):
-        rules = []
-        if expansion:
-            rules += [self._rule_expansion_buy, self._rule_expansion_sell]
         if contraction:
-            rules += [self._rule_b_buy, self._rule_b_sell,
-                      self._rule_c_buy, self._rule_c_sell,
-                      self._rule_f_buy, self._rule_f_sell]
-            if self.enable_rule_a:
-                rules += [self._rule_a_buy, self._rule_a_sell]
-        return rules
+            flags["RULE_A"] = int(self._rule_a_buy(history) or self._rule_a_sell(history))
+            flags["RULE_B"] = int(self._rule_b_buy(history) or self._rule_b_sell(history))
+            flags["RULE_C"] = int(self._rule_c_buy(history) or self._rule_c_sell(history))
+        flags["RULE_F"] = int(self._rule_f_buy(history) or self._rule_f_sell(history))
+        if expansion:
+            flags["EXPANSION_BUY"] = int(self._expansion_buy(cur))
+            flags["EXPANSION_SELL"] = int(self._expansion_sell(cur))
 
-    # ---- EXPANSION rules ----
+        buys = ["RULE_A", "RULE_B", "RULE_C", "RULE_F", "EXPANSION_BUY"]
+        sells = ["RULE_A", "RULE_B", "RULE_C", "RULE_F", "EXPANSION_SELL"]
+        buy = any(flags[k] and getattr(self, f"_{k.lower()}_buy")(history) if k in ("RULE_A","RULE_B","RULE_C","RULE_F") else flags[k] for k in buys)
+        sell = any(flags[k] and getattr(self, f"_{k.lower()}_sell")(history) if k in ("RULE_A","RULE_B","RULE_C","RULE_F") else flags[k] for k in sells)
+        if buy and sell:
+            return self._result(False, "HOLD", "conflicting_v3_rules", "BUY and SELL conditions fired simultaneously.", flags, contraction, expansion)
+        if buy:
+            fired = next(k for k in ("RULE_A","RULE_B","RULE_C","RULE_F","EXPANSION_BUY") if flags[k])
+            return self._result(True, "BUY", fired, f"RULEBOOK_V3 {fired} fired.", flags, contraction, expansion)
+        if sell:
+            fired = next(k for k in ("RULE_A","RULE_B","RULE_C","RULE_F","EXPANSION_SELL") if flags[k])
+            return self._result(True, "SELL", fired, f"RULEBOOK_V3 {fired} fired.", flags, contraction, expansion)
+        return self._result(False, "HOLD", "no_rule_matched", "No v2.3.6.6 condition fired.", flags, contraction, expansion)
 
-    def _rule_expansion_buy(self, prev, cur, window, history) -> RuleResult | None:
-        f7, f8, f11 = cur["rsi6"], cur["ma4"], cur["band1"]["L"]
-        fired = side_of(f7, f11) == "above" or side_of(f8, f11) == "above"
-        return RuleResult(fired, "BUY" if fired else None, "expansion_buy",
-                           f"expansion=True, f7<f11={side_of(f7, f11) == 'above'}, f8<f11={side_of(f8, f11) == 'above'}")
+    def _rule_a_buy(self, h):
+        c = h[-1]; price = c.get("price_close"); p7 = c.get("price_band7")
+        if price is None or not isinstance(p7, dict) or float(price) <= float(p7["L"]): return False
+        f7=[x.get("rsi6") for x in h[-LOOKBACK:]]; f8=[x.get("ma4") for x in h[-LOOKBACK:]]
+        if any(v is None for v in f7+f8): return False
+        return _higher_low_pair([float(v) for v in f7]) and _higher_low_pair([float(v) for v in f8]) and _sequential_cross(h,"rsi6","band1",["L","M","U"],"above") and _recent_touch_or_cross_from_side(h,"rsi6","band1","M","above") and float(c["ma4"]) < float(c["band1"]["M"])
 
-    def _rule_expansion_sell(self, prev, cur, window, history) -> RuleResult | None:
-        f7, f8, f9 = cur["rsi6"], cur["ma4"], cur["band1"]["U"]
-        fired = side_of(f7, f9) == "below" or side_of(f8, f9) == "below"
-        return RuleResult(fired, "SELL" if fired else None, "expansion_sell",
-                           f"expansion=True, f7>f9={side_of(f7, f9) == 'below'}, f8>f9={side_of(f8, f9) == 'below'}")
+    def _rule_a_sell(self, h):
+        c=h[-1]; price=c.get("price_close"); p7=c.get("price_band7")
+        if price is None or not isinstance(p7,dict) or float(price) >= float(p7["U"]): return False
+        f7=[x.get("rsi6") for x in h[-LOOKBACK:]]; f8=[x.get("ma4") for x in h[-LOOKBACK:]]
+        if any(v is None for v in f7+f8): return False
+        return _lower_high_pair([float(v) for v in f7]) and _lower_high_pair([float(v) for v in f8]) and _sequential_cross(h,"rsi6","band1",["U","M","L"],"below") and _recent_touch_or_cross_from_side(h,"rsi6","band1","M","below") and float(c["ma4"]) > float(c["band1"]["M"])
 
-    # ---- RULE B ----
+    def _rule_b_buy(self,h):
+        return (_touch_count(h,"rsi6","band1","M")>=2 or _touch_count(h,"rsi6","band1","L")>=2) and _recent_touch_or_cross_from_side(h,"ma4","band1","M","above")
+    def _rule_b_sell(self,h):
+        return (_touch_count(h,"rsi6","band1","M")>=2 or _touch_count(h,"rsi6","band1","U")>=2) and _recent_touch_or_cross_from_side(h,"ma4","band1","M","below")
+    def _rule_c_buy(self,h):
+        c=h[-1]
+        return float(c.get("rsi6",1e9)) > float(c["band1"]["L"])+TOUCH_PX and _failed_cross(h,"rsi6","band1","M","below") and _failed_cross(h,"ma4","band1","M","below") and _touch_count(h,"rsi6","band1","L")>=2
+    def _rule_c_sell(self,h):
+        c=h[-1]
+        return float(c.get("rsi6",-1e9)) < float(c["band1"]["U"])-TOUCH_PX and _failed_cross(h,"rsi6","band1","M","above") and _failed_cross(h,"ma4","band1","M","above") and _touch_count(h,"rsi6","band1","U")>=2
 
-    def _rule_b_buy(self, prev, cur, window, history) -> RuleResult | None:
-        f7 = [f["rsi6"] for f in window]
-        f10 = [f["band1"]["M"] for f in window]
-        f11 = [f["band1"]["L"] for f in window]
-        t = max(touches(f7, f10, self.touch_tolerance_px), touches(f7, f11, self.touch_tolerance_px))
-        just_crossed = crossed(prev["ma4"], prev["band1"]["M"], cur["ma4"], cur["band1"]["M"]) == "below"
-        near = abs(cur["ma4"] - cur["band1"]["M"]) <= self.touch_tolerance_px
-        below_or_at = side_of(cur["ma4"], cur["band1"]["M"]) != "above"
-        fired = t >= 2 and (just_crossed or near) and below_or_at
-        return RuleResult(fired, "BUY" if fired else None, "rule_b_buy",
-                           f"touches(f7,f10/f11)={t}, f8_cross_down_f10={just_crossed}, f8<=f10={below_or_at}")
+    def _rule_f_buy(self,h):
+        p,c=h[-2],h[-1]; pb,cb=p.get("price_band8"),c.get("price_band8"); p7, p8=c.get("price_band7"),c.get("price_band8")
+        if not all(isinstance(x,dict) for x in (pb,cb,p7,p8)): return False
+        cond=float(c["price_band8"]["U"]) > float(c["price_band7"]["U"]) and float(c["price_band8"]["U"]) > float(c["price_band7"]["M"])
+        cross=crossed(float(p8["U"]),float(p.get("price_band7")["M"]),float(cb["U"]),float(c.get("price_band7")["M"])) == "above"
+        f7=float(c.get("rsi6",999)); rsi_cross=crossed(float(p.get("rsi6",999)),float(p.get("band1")["M"]),f7,float(c.get("band1")["M"])) == "below"
+        return cond and cross and (rsi_cross or f7 > float(c["band1"]["L"]))
+    def _rule_f_sell(self,h):
+        p,c=h[-2],h[-1]; pb,cb=p.get("price_band8"),c.get("price_band8"); p7,p8=c.get("price_band7"),c.get("price_band8")
+        if not all(isinstance(x,dict) for x in (pb,cb,p7,p8)): return False
+        cond=float(c["price_band8"]["L"]) < float(c["price_band7"]["L"]) and float(c["price_band8"]["L"]) < float(c["price_band7"]["M"])
+        cross=crossed(float(p8["L"]),float(p.get("price_band7")["M"]),float(cb["L"]),float(c.get("price_band7")["M"])) == "below"
+        f7=float(c.get("rsi6",-999)); rsi_cross=crossed(float(p.get("rsi6",-999)),float(p.get("band1")["M"]),f7,float(c.get("band1")["M"])) == "above"
+        return cond and cross and (rsi_cross or f7 < float(c["band1"]["U"]))
 
-    def _rule_b_sell(self, prev, cur, window, history) -> RuleResult | None:
-        f7 = [f["rsi6"] for f in window]
-        f9 = [f["band1"]["U"] for f in window]
-        f10 = [f["band1"]["M"] for f in window]
-        t = max(touches(f7, f10, self.touch_tolerance_px), touches(f7, f9, self.touch_tolerance_px))
-        just_crossed = crossed(prev["ma4"], prev["band1"]["M"], cur["ma4"], cur["band1"]["M"]) == "above"
-        near = abs(cur["ma4"] - cur["band1"]["M"]) <= self.touch_tolerance_px
-        above_or_at = side_of(cur["ma4"], cur["band1"]["M"]) != "below"
-        fired = t >= 2 and (just_crossed or near) and above_or_at
-        return RuleResult(fired, "SELL" if fired else None, "rule_b_sell",
-                           f"touches(f7,f10/f9)={t}, f8_cross_up_f10={just_crossed}, f8>=f10={above_or_at}")
+    def _expansion_buy(self,c):
+        return float(c.get("rsi6",999)) > float(c["band1"]["L"]) or float(c.get("ma4",999)) > float(c["band1"]["L"])
+    def _expansion_sell(self,c):
+        return float(c.get("rsi6",-999)) < float(c["band1"]["U"]) or float(c.get("ma4",-999)) < float(c["band1"]["U"])
 
-    # ---- RULE C ----
-
-    def _rule_c_buy(self, prev, cur, window, history) -> RuleResult | None:
-        f7 = [f["rsi6"] for f in window]
-        f10 = [f["band1"]["M"] for f in window]
-        f11 = [f["band1"]["L"] for f in window]
-        attempted = touches(f7, f10, self.touch_tolerance_px) >= 1
-        confirmed_cross = any_cross_in_window(f7, f10, "above") or any_cross_in_window(f7, f10, "below")
-        failed = attempted and not confirmed_cross
-        below_f11 = side_of(cur["rsi6"], cur["band1"]["L"]) == "above"
-        t_outer = touches(f7, f11, self.touch_tolerance_px)
-        fired = below_f11 and failed and t_outer >= 2
-        return RuleResult(fired, "BUY" if fired else None, "rule_c_buy",
-                           f"f7<f11={below_f11}, tried_and_failed_cross_f10={failed}, touches(f7,f11)={t_outer}")
-
-    def _rule_c_sell(self, prev, cur, window, history) -> RuleResult | None:
-        f7 = [f["rsi6"] for f in window]
-        f9 = [f["band1"]["U"] for f in window]
-        f10 = [f["band1"]["M"] for f in window]
-        attempted = touches(f7, f10, self.touch_tolerance_px) >= 1
-        confirmed_cross = any_cross_in_window(f7, f10, "above") or any_cross_in_window(f7, f10, "below")
-        failed = attempted and not confirmed_cross
-        above_f9 = side_of(cur["rsi6"], cur["band1"]["U"]) == "below"
-        t_outer = touches(f7, f9, self.touch_tolerance_px)
-        fired = above_f9 and failed and t_outer >= 2
-        return RuleResult(fired, "SELL" if fired else None, "rule_c_sell",
-                           f"f7>f9={above_f9}, tried_and_failed_cross_f10={failed}, touches(f7,f9)={t_outer}")
-
-    # ---- RULE F ----
-
-    def _rule_f_buy(self, prev, cur, window, history) -> RuleResult | None:
-        p7, p8 = cur["price_band7"], cur["price_band8"]
-        pp8 = prev["price_band8"]
-        f4_below_f1 = side_of(p8["U"], p7["U"]) == "below"
-        f4_below_f2 = side_of(p8["U"], p7["M"]) == "below"
-        f4_cross_up_f2 = crossed(pp8["U"], prev["price_band7"]["M"], p8["U"], p7["M"]) == "above"
-        f7_cross_down_f10 = crossed(prev["rsi6"], prev["band1"]["M"], cur["rsi6"], cur["band1"]["M"]) == "below"
-        f7_below_f11 = side_of(cur["rsi6"], cur["band1"]["L"]) == "above"
-        fired = f4_below_f1 and f4_below_f2 and f4_cross_up_f2 and (f7_cross_down_f10 or f7_below_f11)
-        return RuleResult(fired, "BUY" if fired else None, "rule_f_buy",
-                           f"f4<f1={f4_below_f1}, f4<f2={f4_below_f2}, f4_x_up_f2={f4_cross_up_f2}, "
-                           f"rsi_confirm={f7_cross_down_f10 or f7_below_f11}")
-
-    def _rule_f_sell(self, prev, cur, window, history) -> RuleResult | None:
-        p7, p8 = cur["price_band7"], cur["price_band8"]
-        pp8 = prev["price_band8"]
-        f6_above_f3 = side_of(p8["L"], p7["L"]) == "above"
-        f6_above_f2 = side_of(p8["L"], p7["M"]) == "above"
-        f6_cross_down_f2 = crossed(pp8["L"], prev["price_band7"]["M"], p8["L"], p7["M"]) == "below"
-        f7_cross_up_f10 = crossed(prev["rsi6"], prev["band1"]["M"], cur["rsi6"], cur["band1"]["M"]) == "above"
-        f7_above_f9 = side_of(cur["rsi6"], cur["band1"]["U"]) == "below"
-        fired = f6_above_f3 and f6_above_f2 and f6_cross_down_f2 and (f7_cross_up_f10 or f7_above_f9)
-        return RuleResult(fired, "SELL" if fired else None, "rule_f_sell",
-                           f"f6>f3={f6_above_f3}, f6>f2={f6_above_f2}, f6_x_down_f2={f6_cross_down_f2}, "
-                           f"rsi_confirm={f7_cross_up_f10 or f7_above_f9}")
-
-    # ---- RULE A (flagged - see module docstring) ----
-
-    def _rule_a_buy(self, prev, cur, window, history) -> RuleResult | None:
-        f7 = [f["rsi6"] for f in window]
-        f8_last = cur["ma4"]
-        f9 = [f["band1"]["U"] for f in window]
-        f10 = [f["band1"]["M"] for f in window]
-        f11 = [f["band1"]["L"] for f in window]
-
-        below_f11 = side_of(cur["rsi6"], cur["band1"]["L"]) == "above"
-        hl = higher_low_pattern(f7)
-        seq_up = (any_cross_in_window(f7, f11, "above")
-                  and any_cross_in_window(f7, f10, "above")
-                  and any_cross_in_window(f7, f9, "above"))
-        rev_down = (crossed(prev["rsi6"], prev["band1"]["M"], cur["rsi6"], cur["band1"]["M"]) == "below"
-                    or crossed(prev["rsi6"], prev["band1"]["L"], cur["rsi6"], cur["band1"]["L"]) == "below")
-        f8_above_f10 = side_of(f8_last, cur["band1"]["M"]) == "above"
-
-        fired = below_f11 and hl and seq_up and rev_down and f8_above_f10
-        return RuleResult(fired, "BUY" if fired else None, "rule_a_buy_experimental",
-                           f"[best-effort interpretation] f7<f11={below_f11}, higher_low={hl}, "
-                           f"seq_cross_up={seq_up}, reversal_cross_down={rev_down}, f8>f10={f8_above_f10}")
-
-    def _rule_a_sell(self, prev, cur, window, history) -> RuleResult | None:
-        f7 = [f["rsi6"] for f in window]
-        f8_last = cur["ma4"]
-        f9 = [f["band1"]["U"] for f in window]
-        f10 = [f["band1"]["M"] for f in window]
-        f11 = [f["band1"]["L"] for f in window]
-
-        above_f9 = side_of(cur["rsi6"], cur["band1"]["U"]) == "below"
-        lh = lower_high_pattern(f7)
-        seq_down = (any_cross_in_window(f7, f9, "below")
-                    and any_cross_in_window(f7, f10, "below")
-                    and any_cross_in_window(f7, f11, "below"))
-        rev_up = (crossed(prev["rsi6"], prev["band1"]["M"], cur["rsi6"], cur["band1"]["M"]) == "above"
-                  or crossed(prev["rsi6"], prev["band1"]["U"], cur["rsi6"], cur["band1"]["U"]) == "above")
-        f8_below_f10 = side_of(f8_last, cur["band1"]["M"]) == "below"
-
-        fired = above_f9 and lh and seq_down and rev_up and f8_below_f10
-        return RuleResult(fired, "SELL" if fired else None, "rule_a_sell_experimental",
-                           f"[best-effort interpretation] f7>f9={above_f9}, lower_high={lh}, "
-                           f"seq_cross_down={seq_down}, reversal_cross_up={rev_up}, f8<f10={f8_below_f10}")
-
-
-# ------------------------------------------------------------------
-# Flagged ambiguity - see module docstring for detail.
-# ------------------------------------------------------------------
-RULEBOOK_V3_TODO = [
-    {
-        "rule": "RULE A (BUY/SELL)",
-        "ambiguous_phrase": "\"f7 & f8 make Higher Low\" then \"cross UP f11->f10->f9\" then "
-                             "\"f7 cross DOWN f10/f11 while f8 > f10\" - pivot definition, cross "
-                             "sequencing window, and the gap before the reversal cross are all "
-                             "underspecified. Implemented with a documented best-effort guess "
-                             "(see class docstring); confirm against a labeled example before "
-                             "trusting at the same confidence as Rules B/C/F.",
-    },
-    {
-        "rule": "TOUCH (all rules)",
-        "ambiguous_phrase": "\"2 or 3 touches within 20 bars\" doesn't specify a pixel/price "
-                             "tolerance for what counts as a touch vs. a clean cross. Defaulted "
-                             "to touch_tolerance_px=6.0 - tune per the actual rendered chart "
-                             "resolution and confirm visually.",
-    },
-]
+    @staticmethod
+    def _result(fired, signal, name, reason, flags, contraction, expansion):
+        return RuleResult(fired, signal, name, reason, flags, contraction, expansion)

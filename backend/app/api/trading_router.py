@@ -148,10 +148,11 @@ async def place_market_order(
     auth: AuthContext = Depends(verify_api_key),
 ):
     require_account_match(auth, request.account_id)
-    if not await subscription_service.allows_live_trading(request.account_id):
+    plan = await subscription_service.get_plan(request.account_id)
+    if plan != "demo" and not await subscription_service.allows_live_trading(request.account_id):
         raise HTTPException(
             status_code=402,
-            detail="Live trading requires an active paid subscription. Demo plan is analysis-only / demo-server only.",
+            detail="Trading is not enabled for this account. Demo accounts may execute only on a verified MT5 DEMO terminal.",
         )
     trade_limits = getattr(http_request.app.state, "trade_limits", None)
     if trade_limits is not None:

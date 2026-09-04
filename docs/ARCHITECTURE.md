@@ -110,3 +110,17 @@ authenticated key's account matches the requested one (`require_account_match`)
 - a key issued to one subscriber cannot be used to act on another
 subscriber's account, even though all subscribers' mobile apps talk to the
 same backend.
+
+
+## Synchronized Screenshot + MT5 M1 Market Snapshot (V3)
+
+The V3 capture path accepts `captured_at_ms` and the configured MT5 chart symbol.
+The API sends a read-only `get_m1_ohlc_at` job to the account's existing Windows
+MT5 worker. The worker reads tick history from the already-connected MetaTrader 5
+terminal and reconstructs OHLC through the exact capture timestamp. No separate
+broker REST/HTTP market-data API is called. The server persists a paired PNG + JSON
+artifact under `CAPTURE_PAIR_DIRECTORY`.
+
+The mobile app stores the MT5 chart symbol in Settings and sends it with every
+screenshot. If the symbol is blank, the legacy visual-only path remains available;
+synchronized OHLC is not silently guessed.

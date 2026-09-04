@@ -18,6 +18,8 @@ PLAN_CATALOG: dict[str, dict[str, Any]] = {
         "live_trading": False,
         "price_usd": 0,
         "price_hint": "Free 14-day trial",
+        "base_lot": 0.01,
+        "max_lot": 0.01,
     },
     "starter": {
         "label": "Starter",
@@ -26,6 +28,8 @@ PLAN_CATALOG: dict[str, dict[str, Any]] = {
         "live_trading": True,
         "price_usd": 100,
         "price_hint": "$100 / period · 1 phone · 15 trades/day",
+        "base_lot": 0.10,
+        "max_lot": 0.20,
     },
     "pro": {
         "label": "Pro",
@@ -34,6 +38,8 @@ PLAN_CATALOG: dict[str, dict[str, Any]] = {
         "live_trading": True,
         "price_usd": 500,
         "price_hint": "$500 / period · 1 phone · 50 trades/day",
+        "base_lot": 0.50,
+        "max_lot": 0.50,
     },
     "business": {
         "label": "Business",
@@ -42,6 +48,8 @@ PLAN_CATALOG: dict[str, dict[str, Any]] = {
         "live_trading": True,
         "price_usd": 1000,
         "price_hint": "$1,000 / period · 3 phones · 200 trades/day",
+        "base_lot": 0.50,
+        "max_lot": 1.00,
     },
     "enterprise": {
         "label": "Enterprise",
@@ -50,6 +58,8 @@ PLAN_CATALOG: dict[str, dict[str, Any]] = {
         "live_trading": True,
         "price_usd": 0,  # custom quote
         "price_hint": "Custom · 10 phones · unlimited trades",
+        "base_lot": 1.00,
+        "max_lot": 5.00,
     },
 }
 
@@ -65,6 +75,17 @@ def resolve_plan(plan_code: str) -> dict[str, Any]:
 
 def plan_price_usd(plan_code: str) -> float:
     return float(resolve_plan(plan_code).get("price_usd") or 0)
+
+
+def mode_for_plan(plan_code: str) -> str:
+    """DEMO_VERIFY / LIVE_TRADE is the explicit, client-facing vocabulary
+    for what's really just `live_trading` on the resolved plan - kept as a
+    thin derived mapping rather than a second stored field, so it can never
+    drift out of sync with the plan catalog above. DEMO_VERIFY covers the
+    "let a prospect see real autonomous execution before paying" case
+    (currently just the demo plan; any future plan with live_trading=False
+    would also read as DEMO_VERIFY automatically)."""
+    return "LIVE_TRADE" if resolve_plan(plan_code).get("live_trading") else "DEMO_VERIFY"
 
 
 # Trade Copier add-ons (require an active paid AEGIS plan: starter+)
@@ -98,3 +119,13 @@ def resolve_addon(code: str) -> dict[str, Any]:
 
 def addon_price_usd(code: str) -> float:
     return float(resolve_addon(code).get("price_usd") or 0)
+
+
+def get_base_lot(plan_code: str) -> float:
+    """Default lot size for the plan (before risk preset multiplier)."""
+    return float(resolve_plan(plan_code).get("base_lot") or 0.01)
+
+
+def get_max_lot(plan_code: str) -> float:
+    """Hard cap on lot size for the plan. Server never exceeds this."""
+    return float(resolve_plan(plan_code).get("max_lot") or 0.01)

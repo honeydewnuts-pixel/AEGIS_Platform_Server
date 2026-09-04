@@ -93,3 +93,11 @@ instead. See `portal_router.py`'s module docstring for why.
 Prometheus scraping conventionally works (network-level access control,
 i.e. your reverse proxy/firewall, rather than an application-level key).
 Make sure it isn't reachable from the public internet in your deployment.
+
+
+### Synchronized capture fields
+`POST /aegis/analyze` additionally accepts optional multipart field `symbol`. When
+`symbol` is supplied, `captured_at_ms` is required and the connected MT5 worker
+returns authoritative M1 OHLC reconstructed from MT5 terminal ticks up to that
+capture time. The response includes `market_data`, `market_data_synchronized`, and
+`capture_pair`.

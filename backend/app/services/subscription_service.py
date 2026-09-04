@@ -18,7 +18,7 @@ Status lifecycle:
 
 from __future__ import annotations
 
-from app.services.plan_catalog import resolve_plan
+from app.services.plan_catalog import get_base_lot, get_max_lot, resolve_plan, resolve_plan, mode_for_plan
 
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -82,12 +82,36 @@ class SubscriptionService:
                 # generate a new one the first time this account activates.
                 portal_token = existing.portal_token if existing and existing.portal_token else secrets.token_urlsafe(24)
 
+                # THE FIX: resolve which plan this payment is for and apply
+                # its tier (devices/trade caps + live_trading eligibility),
+                # instead of only touching `status`. Previously this method
+                # never set `plan` at all, so an account that signed up for
+                # the demo (plan="demo") and then paid stayed on plan="demo"
+                # forever unless an admin manually called
+                # POST /api/admin/tenants/set-plan - i.e. there was no
+                # working DEMO_VERIFY -> LIVE_TRADE auto-switch on payment.
+                # event.plan comes from checkout metadata, now threaded
+                # through by every adapter's parse_webhook_event (see
+                # payment_providers/*.py) - it was already being SENT at
+                # checkout, just silently dropped on the webhook side.
+                # Fallback order if a provider ever omits it: keep whatever
+                # plan the account already had (renewal case), else "starter"
+                # (brand-new paid signup with no captured plan - shouldn't
+                # normally happen now that all three adapters send it, but
+                # fails safe rather than crashing the webhook).
+                existing_plan = getattr(existing, "plan", None) if existing else None
+                plan_code = event.plan or existing_plan or "starter"
+                plan_meta = resolve_plan(plan_code)
+
                 stmt = pg_insert(Subscription).values(
                     account_id=event.account_id,
                     provider=event.provider,
                     provider_customer_id=event.provider_customer_id,
                     provider_subscription_id=event.provider_subscription_id,
                     status="active",
+                    plan=plan_meta["code"],
+                    max_devices=plan_meta["max_devices"],
+                    max_trades_per_day=plan_meta["max_trades_per_day"],
                     current_period_end=event.current_period_end,
                     grace_period_ends_at=None,
                     portal_token=portal_token,
@@ -100,6 +124,9 @@ class SubscriptionService:
                         "provider_customer_id": event.provider_customer_id,
                         "provider_subscription_id": event.provider_subscription_id,
                         "status": "active",
+                        "plan": plan_meta["code"],
+                        "max_devices": plan_meta["max_devices"],
+                        "max_trades_per_day": plan_meta["max_trades_per_day"],
                         "current_period_end": event.current_period_end,
                         "grace_period_ends_at": None,
                         "portal_token": portal_token,
@@ -107,7 +134,10 @@ class SubscriptionService:
                     },
                 )
                 await session.execute(stmt)
-                self.logger.info("Subscription activated/renewed: %s (%s)", event.account_id, event.provider)
+                self.logger.info(
+                    "Subscription activated/renewed: %s (%s) -> plan=%s mode=%s",
+                    event.account_id, event.provider, plan_meta["code"], mode_for_plan(plan_meta["code"]),
+                )
 
                 if is_first_activation:
                     # Issued after commit (outside this session) since
@@ -168,12 +198,23 @@ class SubscriptionService:
         if row is None:
             return None
 
+        plan_code = getattr(row, "plan", None) or "starter"
+        preset = getattr(row, "risk_preset", None) or "standard"
+        lot = self.calculate_lot_size(plan_code, preset)
         return {
             "account_id": row.account_id,
             "provider": row.provider,
             "provider_customer_id": row.provider_customer_id,
             "provider_subscription_id": row.provider_subscription_id,
             "status": row.status,
+            "plan": plan_code,
+            "mode": mode_for_plan(plan_code),
+            "risk_preset": preset,
+            "calculated_lot_size": lot,
+            "plan_max_lot": get_max_lot(plan_code),
+            "plan_base_lot": get_base_lot(plan_code),
+            "strategy_sl_points": int(getattr(settings, "STRATEGY_SL_POINTS", 100)),
+            "strategy_tp_points": int(getattr(settings, "STRATEGY_TP_POINTS", 180)),
             "current_period_end": row.current_period_end.isoformat() if row.current_period_end else None,
             "grace_period_ends_at": row.grace_period_ends_at.isoformat() if row.grace_period_ends_at else None,
             "updated_at": row.updated_at.isoformat(),
@@ -275,6 +316,64 @@ class SubscriptionService:
             return False
         return bool(resolve_plan(plan_code).get("live_trading"))
 
+    async def set_mode(self, account_id: str, mode: str, actor: str = "system") -> dict[str, Any]:
+        """
+        Explicit mode setter backing POST /api/set_mode. This is the SAME
+        underlying mechanism apply_event() now uses automatically on a
+        successful payment (see the comment there) - both paths resolve a
+        plan via plan_catalog and write it the same way, so they can't
+        drift out of sync. This method exists for the cases that aren't
+        "a payment just succeeded": admin/support overrides (comping a
+        client, reverting someone to demo, testing), or any future
+        self-service downgrade-to-demo flow.
+
+        mode: "DEMO_VERIFY" or "LIVE_TRADE" (case-insensitive). Maps to
+        the "demo" plan or, for LIVE_TRADE, either the account's current
+        paid plan if it already has one, or "starter" as the default
+        entry-level paid tier.
+        """
+        mode_norm = (mode or "").strip().upper()
+        if mode_norm not in ("DEMO_VERIFY", "LIVE_TRADE"):
+            raise ValueError(f"Unknown mode '{mode}' - expected DEMO_VERIFY or LIVE_TRADE")
+
+        now = datetime.now(timezone.utc)
+        async with async_session_factory() as session:
+            result = await session.execute(select(Subscription).where(Subscription.account_id == account_id))
+            existing = result.scalar_one_or_none()
+
+            if mode_norm == "DEMO_VERIFY":
+                plan_code = "demo"
+            else:
+                current_plan = getattr(existing, "plan", None) if existing else None
+                plan_code = current_plan if current_plan and current_plan != "demo" else "starter"
+            plan_meta = resolve_plan(plan_code)
+
+            if existing is None:
+                portal_token = secrets.token_urlsafe(24)
+                session.add(Subscription(
+                    account_id=account_id,
+                    provider="manual",
+                    status="active",
+                    plan=plan_meta["code"],
+                    max_devices=plan_meta["max_devices"],
+                    max_trades_per_day=plan_meta["max_trades_per_day"],
+                    portal_token=portal_token,
+                    current_period_end=now + timedelta(days=14) if plan_meta["code"] == "demo" else None,
+                    updated_at=now,
+                ))
+            else:
+                existing.plan = plan_meta["code"]
+                existing.max_devices = plan_meta["max_devices"]
+                existing.max_trades_per_day = plan_meta["max_trades_per_day"]
+                existing.status = "active"
+                existing.updated_at = now
+                if plan_meta["code"] == "demo" and not existing.current_period_end:
+                    existing.current_period_end = now + timedelta(days=14)
+            await session.commit()
+
+        self.logger.info("Mode set for %s -> %s (plan=%s) by %s", account_id, mode_norm, plan_meta["code"], actor)
+        return {"account_id": account_id, "mode": mode_norm, "plan": plan_meta["code"]}
+
     async def activate_demo(self, account_id: str) -> dict[str, str]:
         from datetime import datetime, timedelta, timezone
         import secrets as sec
@@ -349,3 +448,65 @@ class SubscriptionService:
                 else "Copy mobile_api_key into the app with this account_id."
             ),
         }
+
+    # ------------------------------------------------------------
+    # Risk presets (server is source of truth for lot size)
+    # ------------------------------------------------------------
+
+    VALID_RISK_PRESETS = ("conservative", "standard", "aggressive")
+
+    def calculate_lot_size(self, plan_code: str, risk_preset: str) -> float:
+        """final_lot = min(base_lot * multiplier, max_lot), rounded to 2 decimals."""
+        preset = (risk_preset or "standard").strip().lower()
+        multipliers = getattr(settings, "RISK_MULTIPLIERS", None) or {
+            "conservative": 0.5,
+            "standard": 1.0,
+            "aggressive": 1.5,
+        }
+        mult = float(multipliers.get(preset, 1.0))
+        base = get_base_lot(plan_code)
+        cap = get_max_lot(plan_code)
+        final = min(base * mult, cap)
+        return round(final, 2)
+
+    async def get_risk_preset(self, account_id: str) -> str:
+        async with async_session_factory() as session:
+            row = await session.get(Subscription, account_id)
+        if row is None:
+            return "standard"
+        return getattr(row, "risk_preset", None) or "standard"
+
+    async def set_risk_preset(self, account_id: str, risk_preset: str) -> dict:
+        preset = (risk_preset or "").strip().lower()
+        if preset not in self.VALID_RISK_PRESETS:
+            raise ValueError("Invalid risk_preset")
+        async with async_session_factory() as session:
+            row = await session.get(Subscription, account_id)
+            if row is None:
+                # Create minimal subscription row so preset can be stored
+                from datetime import datetime, timezone
+                row = Subscription(
+                    account_id=account_id,
+                    status="demo",
+                    plan="demo",
+                    risk_preset=preset,
+                    max_devices=1,
+                    max_trades_per_day=5,
+                    updated_at=datetime.now(timezone.utc),
+                )
+                session.add(row)
+            else:
+                row.risk_preset = preset
+                from datetime import datetime, timezone
+                row.updated_at = datetime.now(timezone.utc)
+            await session.commit()
+            plan_code = getattr(row, "plan", None) or "demo"
+        lot = self.calculate_lot_size(plan_code, preset)
+        return {
+            "status": "success",
+            "risk_preset": preset,
+            "calculated_lot_size": lot,
+            "plan_max_lot": get_max_lot(plan_code),
+            "plan_base_lot": get_base_lot(plan_code),
+        }
+

@@ -29,13 +29,15 @@ class ScreenshotCacheManager(context: Context) {
     private val cacheDir: File = File(context.cacheDir, "pending_screenshots").apply { mkdirs() }
 
     /** filename pattern: {capturedAtMs}_{accountId}.jpg - sorts chronologically by name. */
-    private fun fileFor(capturedAtMs: Long, accountId: String): File =
-        File(cacheDir, "${capturedAtMs}_${accountId}.jpg")
+    private fun safeSymbol(symbol: String): String = symbol.replace(Regex("[^A-Za-z0-9.-]"), "_").ifBlank { "UNKNOWN" }
 
-    fun cache(bitmap: Bitmap, capturedAtMs: Long, accountId: String) {
+    private fun fileFor(capturedAtMs: Long, accountId: String, symbol: String): File =
+        File(cacheDir, "${capturedAtMs}_${accountId}_${safeSymbol(symbol)}.jpg")
+
+    fun cache(bitmap: Bitmap, capturedAtMs: Long, accountId: String, symbol: String) {
         try {
             enforceCapBeforeInsert()
-            val file = fileFor(capturedAtMs, accountId)
+            val file = fileFor(capturedAtMs, accountId, symbol)
             FileOutputStream(file).use { out ->
                 bitmap.compress(Bitmap.CompressFormat.JPEG, 80, out)
             }
@@ -66,11 +68,13 @@ class ScreenshotCacheManager(context: Context) {
     }
 
     /** Parses "{capturedAtMs}_{accountId}.jpg" back into its parts. */
-    fun parse(file: File): Pair<Long, String>? {
+    fun parse(file: File): Triple<Long, String, String>? {
         val name = file.nameWithoutExtension
-        val parts = name.split("_", limit = 2)
-        if (parts.size != 2) return null
+        val parts = name.split("_", limit = 3)
+        if (parts.size < 2) return null
         val ts = parts[0].toLongOrNull() ?: return null
-        return ts to parts[1]
+        val account = parts[1].substringBeforeLast("_")
+        val symbol = if (parts.size >= 3) parts.drop(2).joinToString("_") else ""
+        return Triple(ts, account, symbol)
     }
 }

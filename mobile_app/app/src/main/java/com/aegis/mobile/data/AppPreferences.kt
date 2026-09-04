@@ -35,6 +35,7 @@ object PrefKeys {
     val MT5_SERVER = stringPreferencesKey("mt5_server")
     val MT5_BROKER_NAME = stringPreferencesKey("mt5_broker_name")
     val MT5_EXECUTION_ENABLED = booleanPreferencesKey("mt5_execution_enabled")
+    val MT5_SYMBOL = stringPreferencesKey("mt5_symbol")
 }
 
 // Default Render URL when Settings has never been saved.

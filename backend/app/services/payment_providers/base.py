@@ -47,6 +47,16 @@ class PaymentEvent:
     provider_subscription_id: str | None
     current_period_end: datetime | None
     raw_payload: dict
+    plan: str | None = None
+    # The plan code chosen at checkout (see create_checkout_session), echoed
+    # back by the provider as metadata on the webhook payload. Was
+    # previously captured at checkout but silently dropped on the webhook
+    # side by every adapter - meaning a successful payment never actually
+    # updated which plan an account was on (SubscriptionService.apply_event
+    # only touched `status`, never `plan`). A demo account that paid stayed
+    # on plan="demo" forever unless an admin manually intervened via
+    # /api/admin/tenants/set-plan. This field, plus apply_event's new
+    # handling of it, is the fix - see subscription_service.py.
 
 
 @dataclass

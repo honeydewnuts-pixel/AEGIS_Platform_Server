@@ -1,38 +1,42 @@
-# AEGIS Capture — Windows
+# windows-desktop — AEGIS Capture + Executor
 
-Draggable chart-region capture for MetaTrader 5. Sends PNGs to the AEGIS cloud brain and shows BUY/SELL/HOLD.
+## Components
 
-## Features
-- Draggable **chart region** (not full desktop)
-- Same API as mobile (`POST /aegis/analyze`, field `image`)
-- **MT5 Color Match Guide** (in-app button + installed assets)
-- Writes `aegis_signal.txt` for `mq5/AEGIS_Executor.mq5`
-- Start / Stop, interval, credentials
+| Artifact | Role |
+|----------|------|
+| `AEGIS_Capture.exe` | Draggable chart region selector, periodic capture, upload to cloud, tray, signals |
+| `AEGIS_Executor.mq5` | MT5 Expert Advisor — reads cloud signals and executes trades |
+| `installer/AEGIS_Setup.iss` | Inno Setup script for one-click installer |
 
-## Build (Windows 10+)
+## Quick start (dev)
 
-```bat
+```bash
+cd windows-desktop/aegis_capture
 python -m venv .venv
-.venv\Scripts\activate
+.venv\Scripts\activate          # Windows
 pip install -r requirements.txt
-pyinstaller aegis_capture.spec
+python main.py
 ```
 
-Produces `dist\AEGIS_Capture.exe`.
+## Build EXE
 
-### Installer (Inno Setup 6)
+```bash
+pip install pyinstaller
+pyinstaller --noconfirm aegis_capture.spec
+# output: dist/AEGIS_Capture.exe
+```
 
-1. Install [Inno Setup 6](https://jrsoftware.org/isinfo.php)
-2. Open `AEGIS_Setup.iss` → **Compile**
-3. Output: `Output\AEGIS_Capture_Setup.exe`
+## Install EA
 
-## Client setup
-1. Install via `AEGIS_Capture_Setup.exe`
-2. Enter Server URL, Account ID, API key (from leveragefx.co portal)
-3. **COLOR GUIDE** — match MT5 indicators exactly
-4. **SELECT CHART REGION** — lock over MT5 chart
-5. **START**
-6. Optional: copy `mq5\AEGIS_Executor.mq5` into MetaEditor → compile → attach to chart
+1. Copy `mq5/AEGIS_Executor.mq5` into MT5 `MQL5/Experts/`
+2. Compile in MetaEditor
+3. Attach to chart; set `ApiKey`, `AccountId`, `ServerUrl`
 
-## Note
-MT5 chart must stay **visible** under the locked region (Windows cannot capture fully minimized windows reliably).
+## Capture region
+
+1. Start AEGIS Capture
+2. Drag the semi-transparent frame over the **MT5 chart only**
+3. Click **Lock region** then **Start**
+4. Capture continues on that screen rectangle (MT5 can stay visible in that area)
+
+> True capture of a *minimized* window is limited by Windows; keep the chart visible in the locked region (can be a small always-on-top MT5 chart).

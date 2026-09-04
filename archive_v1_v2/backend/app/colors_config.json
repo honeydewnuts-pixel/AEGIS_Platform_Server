@@ -1,0 +1,190 @@
+{
+  "config_version": "AEGIS_VISION_2.0",
+  "description": "Aligned to AEGIS MT5 COLOR MATCH GUIDE + rulebook v2",
+  "image_profile": {
+    "theme": "Dark",
+    "template": "Color Match Guide v2"
+  },
+  "color_space": "HSV",
+  "global_tolerance": {
+    "hue": 12,
+    "saturation": 50,
+    "value": 50
+  },
+  "roi": {
+    "price_panel": {
+      "top_percent": 0.0,
+      "bottom_percent": 0.58
+    },
+    "indicator_panel": {
+      "top_percent": 0.52,
+      "bottom_percent": 1.0
+    }
+  },
+  "indicators": {
+    "#1": {
+      "name": "Bands34",
+      "color_name": "White",
+      "rgb": [
+        245,
+        245,
+        245
+      ],
+      "hsv_tolerance": {
+        "hue": 12,
+        "saturation": 40,
+        "value": 50
+      },
+      "panel": "indicator"
+    },
+    "#2": {
+      "name": "Bands17",
+      "color_name": "LimeGreen",
+      "rgb": [
+        0,
+        255,
+        0
+      ],
+      "hsv_tolerance": {
+        "hue": 16,
+        "saturation": 55,
+        "value": 50
+      },
+      "panel": "indicator"
+    },
+    "#3": {
+      "name": "WilliamsR60",
+      "color_name": "SaddleBrown",
+      "rgb": [
+        160,
+        82,
+        45
+      ],
+      "hsv_tolerance": {
+        "hue": 14,
+        "saturation": 55,
+        "value": 50
+      },
+      "panel": "indicator"
+    },
+    "#4": {
+      "name": "MA7",
+      "color_name": "Magenta",
+      "rgb": [
+        220,
+        0,
+        255
+      ],
+      "hsv_tolerance": {
+        "hue": 14,
+        "saturation": 55,
+        "value": 50
+      },
+      "panel": "indicator"
+    },
+    "#5": {
+      "name": "CCI6",
+      "color_name": "Red",
+      "rgb": [
+        255,
+        0,
+        0
+      ],
+      "hsv_tolerance": {
+        "hue": 12,
+        "saturation": 55,
+        "value": 50
+      },
+      "panel": "indicator"
+    },
+    "#6": {
+      "name": "RSI9",
+      "color_name": "CyanLightSky",
+      "rgb": [
+        70,
+        220,
+        255
+      ],
+      "hsv_tolerance": {
+        "hue": 15,
+        "saturation": 50,
+        "value": 50
+      },
+      "panel": "indicator"
+    }
+  },
+  "price_panel_indicators": {
+    "#7": {
+      "name": "MainBB30",
+      "color_name": "White",
+      "rgb": [
+        245,
+        245,
+        245
+      ],
+      "hsv_tolerance": {
+        "hue": 12,
+        "saturation": 40,
+        "value": 50
+      }
+    },
+    "#8": {
+      "name": "MainBB20",
+      "color_name": "Cyan",
+      "rgb": [
+        0,
+        200,
+        220
+      ],
+      "hsv_tolerance": {
+        "hue": 14,
+        "saturation": 50,
+        "value": 50
+      }
+    }
+  },
+  "hidden_indicators": {
+    "#9": {
+      "name": "HiddenYellow",
+      "rgb": [
+        255,
+        255,
+        0
+      ],
+      "visible": false
+    }
+  },
+  "candle_colors": {
+    "bullish_rgb": [
+      0,
+      200,
+      0
+    ],
+    "bearish_rgb": [
+      220,
+      30,
+      30
+    ]
+  },
+  "decision": {
+    "minimum_confirmation_candles": 2,
+    "maximum_gap_pixels": 2
+  },
+  "history": {
+    "max_frames_kept": 60,
+    "divergence_lookback_frames": 12,
+    "higher_high_lookback_frames": 8,
+    "ttl_seconds": 3600
+  },
+  "noise_filter": {
+    "median_filter": 3,
+    "gaussian_kernel": 5,
+    "minimum_line_length": 20,
+    "minimum_contour_area": 3
+  },
+  "output": {
+    "coordinate_system": "Pixel",
+    "extract_per_candle": true,
+    "return_confidence": true
+  }
+}

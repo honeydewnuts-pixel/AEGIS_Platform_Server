@@ -77,6 +77,7 @@ class StripeAdapter(PaymentProviderAdapter):
             provider_subscription_id=obj.get("subscription") or obj.get("id"),
             current_period_end=period_end,
             raw_payload=event,
+            plan=metadata.get("plan"),
         )
 
     async def create_checkout_session(self, account_id: str, email: str, plan: str, reveal_token: str) -> CheckoutSession:

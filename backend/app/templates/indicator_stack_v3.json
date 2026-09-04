@@ -1,14 +1,14 @@
 {
   "version": "v3",
   "status": "active",
-  "title": "AEGIS MT5 Indicator Template v3 \u2014 Rulebook 2.3.6.6 (5 indicators)",
-  "description": "Lean stack: BB34/BB17 on price; RSI9 \u2192 MA7 \u2192 Bands34 on lower panel. Dark theme.",
+  "title": "AEGIS MT5 Indicator Template v3 \u2014 RULEBOOK_V3 v2.3.6.6",
+  "description": "Sole active indicator stack. Visible indicators only: #7, #8, #6, #4, #1. No hidden indicators.",
   "theme": "Dark",
   "timeframe": "Any",
   "color_space": "HSV",
   "global_tolerance": {
-    "hue": 12,
-    "saturation": 50,
+    "hue": 14,
+    "saturation": 55,
     "value": 50
   },
   "roi": {
@@ -26,7 +26,7 @@
       "slot": 1,
       "panel": "price",
       "mt5_name": "Bollinger Bands",
-      "display_name": "Main BB34 (#7 White)",
+      "display_name": "BB34 (#7 White)",
       "params": {
         "Period": 34,
         "Shift": 0,
@@ -38,14 +38,13 @@
         245,
         245,
         245
-      ],
-      "notes": "Price panel first"
+      ]
     },
     {
       "slot": 2,
       "panel": "price",
       "mt5_name": "Bollinger Bands",
-      "display_name": "Main BB17 (#8 Cyan)",
+      "display_name": "BB17 (#8 Cyan)",
       "params": {
         "Period": 17,
         "Shift": 0,
@@ -57,8 +56,7 @@
         0,
         200,
         220
-      ],
-      "notes": "Price panel second"
+      ]
     },
     {
       "slot": 3,
@@ -66,7 +64,8 @@
       "mt5_name": "Relative Strength Index",
       "display_name": "RSI9 (#6 Cyan)",
       "params": {
-        "Period": 9
+        "Period": 9,
+        "Apply to": "Close"
       },
       "color": "Cyan",
       "rgb": [
@@ -90,14 +89,14 @@
       "rgb": [
         220,
         0,
-        180
+        255
       ]
     },
     {
       "slot": 5,
       "panel": "indicator",
       "mt5_name": "Bollinger Bands",
-      "display_name": "Bands34 (#1 White)",
+      "display_name": "BB34 (#1 White)",
       "params": {
         "Period": 34,
         "Deviation": 1.618,
@@ -109,31 +108,32 @@
         245,
         245,
         245
-      ],
-      "notes": "On MA7"
+      ]
     }
   ],
   "indicators": {
     "#1": {
-      "name": "Bands34",
+      "name": "BB34_1",
+      "color_name": "White",
       "rgb": [
         245,
         245,
         245
       ],
       "hsv_tolerance": {
-        "hue": 12,
-        "saturation": 50,
-        "value": 60
+        "hue": 14,
+        "saturation": 40,
+        "value": 50
       },
       "panel": "indicator"
     },
     "#4": {
-      "name": "MA7",
+      "name": "MA7_4",
+      "color_name": "Magenta",
       "rgb": [
         220,
         0,
-        180
+        255
       ],
       "hsv_tolerance": {
         "hue": 14,
@@ -143,15 +143,16 @@
       "panel": "indicator"
     },
     "#6": {
-      "name": "RSI9",
+      "name": "RSI9_6",
+      "color_name": "CyanLightSky",
       "rgb": [
         70,
         220,
         255
       ],
       "hsv_tolerance": {
-        "hue": 14,
-        "saturation": 55,
+        "hue": 15,
+        "saturation": 50,
         "value": 50
       },
       "panel": "indicator"
@@ -159,20 +160,22 @@
   },
   "price_panel_indicators": {
     "#7": {
-      "name": "BB34",
+      "name": "BB34_7",
+      "color_name": "White",
       "rgb": [
         245,
         245,
         245
       ],
       "hsv_tolerance": {
-        "hue": 12,
-        "saturation": 50,
-        "value": 60
+        "hue": 14,
+        "saturation": 40,
+        "value": 50
       }
     },
     "#8": {
-      "name": "BB17",
+      "name": "BB17_8",
+      "color_name": "Cyan",
       "rgb": [
         0,
         200,
@@ -180,32 +183,28 @@
       ],
       "hsv_tolerance": {
         "hue": 14,
-        "saturation": 55,
+        "saturation": 50,
         "value": 50
       }
     }
   },
-  "hidden_indicators": [],
+  "hidden_indicators": {},
   "matching_rules": {
-    "require_all_core": [
-      "#1",
-      "#4",
-      "#6",
-      "#7",
-      "#8"
-    ]
+    "exact_rgb": true,
+    "line_width": 1,
+    "style": "Solid",
+    "windows": "PRICE and RSI as listed",
+    "order": "Must match install_order exactly"
   },
-  "client_checklist": [
-    "Dark theme only",
-    "Install in numbered order only",
-    "Price: #7 white BB34 then #8 cyan BB17",
-    "Lower: #6 RSI9, #4 MA7 on RSI, #1 Bands34 on MA7"
-  ],
+  "client_checklist": {
+    "must_match_colors": true,
+    "must_match_order": true,
+    "theme": "Dark"
+  },
   "history": {
-    "touch_window_frames": 20,
-    "touch_tolerance_px": 6.0,
-    "divergence_lookback_frames": 12,
-    "higher_high_lookback_frames": 8
+    "max_frames_kept": 60,
+    "rule_lookback_frames": 20,
+    "ttl_seconds": 3600
   },
   "noise_filter": {
     "median_filter": 3,

@@ -81,6 +81,7 @@ class PaystackAdapter(PaymentProviderAdapter):
             provider_subscription_id=data.get("subscription_code"),
             current_period_end=current_period_end,
             raw_payload=payload,
+            plan=metadata.get("plan"),
         )
 
     async def create_checkout_session(self, account_id: str, email: str, plan: str, reveal_token: str) -> CheckoutSession:

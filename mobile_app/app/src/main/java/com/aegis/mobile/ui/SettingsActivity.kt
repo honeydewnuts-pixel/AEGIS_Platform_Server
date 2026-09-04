@@ -44,6 +44,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var etMt5Server: EditText
     private lateinit var etMt5Login: EditText
     private lateinit var etMt5Password: EditText
+    private lateinit var etMt5Symbol: EditText
     private lateinit var cbMt5Execution: CheckBox
     private lateinit var cbAutoExecute: CheckBox
     private lateinit var cbKeepNetwork: CheckBox
@@ -68,6 +69,7 @@ class SettingsActivity : AppCompatActivity() {
         etMt5Server = findViewById(R.id.etMt5Server)
         etMt5Login = findViewById(R.id.etMt5Login)
         etMt5Password = findViewById(R.id.etMt5Password)
+        etMt5Symbol = findViewById(R.id.etMt5Symbol)
         cbMt5Execution = findViewById(R.id.cbMt5Execution)
         cbAutoExecute = findViewById(R.id.cbAutoExecute)
         cbKeepNetwork = findViewById(R.id.cbKeepNetwork)
@@ -88,6 +90,7 @@ class SettingsActivity : AppCompatActivity() {
             etMt5Server.setText(prefs[PrefKeys.MT5_SERVER] ?: "")
             etMt5Login.setText(prefs[PrefKeys.MT5_LOGIN] ?: "")
             etMt5Password.setText(prefs[PrefKeys.MT5_PASSWORD] ?: "")
+            etMt5Symbol.setText(prefs[PrefKeys.MT5_SYMBOL] ?: "")
             cbMt5Execution.isChecked = prefs[PrefKeys.MT5_EXECUTION_ENABLED] ?: true
             cbAutoExecute.isChecked = prefs[PrefKeys.AUTO_EXECUTE] ?: false
             cbKeepNetwork.isChecked = prefs[PrefKeys.KEEP_NETWORK_ALIVE] ?: true
@@ -134,6 +137,7 @@ class SettingsActivity : AppCompatActivity() {
             settings[PrefKeys.MT5_SERVER] = etMt5Server.text.toString().trim()
             settings[PrefKeys.MT5_LOGIN] = etMt5Login.text.toString().trim()
             settings[PrefKeys.MT5_PASSWORD] = etMt5Password.text.toString()
+            settings[PrefKeys.MT5_SYMBOL] = etMt5Symbol.text.toString().trim()
             settings[PrefKeys.MT5_EXECUTION_ENABLED] = cbMt5Execution.isChecked
             settings[PrefKeys.AUTO_EXECUTE] = cbAutoExecute.isChecked
             settings[PrefKeys.KEEP_NETWORK_ALIVE] = cbKeepNetwork.isChecked

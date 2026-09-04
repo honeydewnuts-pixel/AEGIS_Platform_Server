@@ -49,11 +49,27 @@ class Settings(BaseSettings):
     WORKER_JOB_TIMEOUT_SECONDS: int = 30
     MAX_CONCURRENT_WORKERS: int = 100
 
+    # Autonomous V3 DEMO execution. Live execution is intentionally not enabled by this checkpoint.
+    AUTONOMOUS_EXECUTION_ENABLED: bool = True
+    AUTONOMOUS_DEMO_ONLY: bool = True
+    AUTONOMOUS_DEFAULT_VOLUME: float = 0.01
+
+    # Risk presets — server multiplies base_lot; hard-capped by plan max_lot.
+    # Users never set lot size directly; only choose a preset name.
+    RISK_MULTIPLIERS: dict = {"conservative": 0.5, "standard": 1.0, "aggressive": 1.5}
+    # Strategy-locked SL/TP in points — not user-editable from clients.
+    STRATEGY_SL_POINTS: int = 100
+    STRATEGY_TP_POINTS: int = 180
+
     # API key lifecycle (0 = never expire / no scheduled rotation)
     API_KEY_DEFAULT_TTL_DAYS: int = 365
     API_KEY_ROTATION_DAYS: int = 90
     API_RATE_LIMIT_PER_MINUTE: int = 120
     AUDIT_RETENTION_DAYS: int = 90
+
+    # Paired screenshot + authoritative MT5 market snapshot artifacts.
+    CAPTURE_PAIR_DIRECTORY: str = "capture_pairs"
+    CAPTURE_PAIR_RETENTION_DAYS: int = 30
 
 
     # Multi-channel alerts (all optional)
@@ -93,11 +109,11 @@ class Settings(BaseSettings):
     TRACING_ENABLED: bool = False
     OTLP_ENDPOINT: str = "tempo:4317"
 
-    # Neural assist layer (Phase A/B). off | confidence | filter | hybrid
+    # AEGIS Neural v3 teacher-confidence layer; deterministic v3 rules remain authoritative
     # confidence = blend NN score into confidence
     # filter = veto weak rule fires → HOLD
     # hybrid = both
-    NEURAL_MODE: str = "hybrid"
+    NEURAL_MODE: str = "v3_teacher_confidence"
     NEURAL_VETO_THRESHOLD: float = 0.35
     NEURAL_MIN_BLEND: float = 0.15
 

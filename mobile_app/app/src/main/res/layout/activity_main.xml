@@ -94,6 +94,75 @@
             android:stateListAnimator="@null"/>
     </LinearLayout>
 
+
+    <!-- ===== TRADING RISK PRESETS ===== -->
+    <LinearLayout
+        android:id="@+id/riskCard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="6dp"
+        android:padding="8dp"
+        android:background="@drawable/card_signal_bg">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Trading Risk"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"/>
+
+        <RadioGroup
+            android:id="@+id/riskPresetGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <RadioButton
+                android:id="@+id/riskConservative"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Conservative — 0.5x Lot Size"
+                android:textColor="#E2E8F0"
+                android:textSize="12sp"/>
+
+            <RadioButton
+                android:id="@+id/riskStandard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Standard — 1.0x Lot Size"
+                android:textColor="#E2E8F0"
+                android:textSize="12sp"
+                android:checked="true"/>
+
+            <RadioButton
+                android:id="@+id/riskAggressive"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Aggressive — 1.5x Lot Size (capped by plan)"
+                android:textColor="#E2E8F0"
+                android:textSize="12sp"/>
+        </RadioGroup>
+
+        <TextView
+            android:id="@+id/riskLockedInfo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="SL: 100pts | TP: 180pts | Locked by Strategy"
+            android:textColor="#94A3B8"
+            android:textSize="11sp"
+            android:layout_marginTop="4dp"/>
+
+        <TextView
+            android:id="@+id/riskMaxLotInfo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="#FBBF24"
+            android:textSize="11sp"/>
+    </LinearLayout>
+
     <!-- ===== LAST CAPTURE (weight 22) — smaller than data ===== -->
     <FrameLayout
         android:layout_width="match_parent"

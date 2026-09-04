@@ -22,7 +22,8 @@ interface ApiService {
     suspend fun analyzeScreenshot(
         @Part image: MultipartBody.Part,
         @Part("account_id") accountId: RequestBody,
-        @Part("captured_at_ms") capturedAtMs: RequestBody
+        @Part("captured_at_ms") capturedAtMs: RequestBody,
+        @Part("symbol") symbol: RequestBody
     ): Response<AnalysisResponse>
 
     @POST("/api/devices/heartbeat")
@@ -78,4 +79,10 @@ interface ApiService {
         @Path("slaveId") slaveId: Int,
         @Query("account_id") accountId: String
     ): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @POST("/api/account/risk_preset")
+    suspend fun setRiskPreset(@Body body: Map<String, @JvmSuppressWildcards Any>): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @GET("/api/account/status")
+    suspend fun getAccountStatus(@Query("account_id") accountId: String): Response<Map<String, @JvmSuppressWildcards Any>>
 }

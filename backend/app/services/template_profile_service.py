@@ -6,11 +6,10 @@ Files live under app/templates/:
   rulebook_v{N}.json
   active_profile.json
 
-Adding a new version:
-  1. Copy indicator_stack_v1.json -> indicator_stack_v2.json and edit.
-  2. Copy rulebook_v1.json -> rulebook_v2.json; point engine if needed.
-  3. Admin activates via POST /api/admin/templates/activate
-  4. Mobile clients poll GET /api/templates/active and show install checklist.
+Active policy:
+  AEGIS v3 is the sole production indicator/rulebook profile. Legacy v1/v2
+  artifacts are archived outside the active templates directory.
+  New versions must be explicitly promoted after audit.
 """
 
 from __future__ import annotations
@@ -48,8 +47,8 @@ class TemplateProfileService:
             return self._read("active_profile.json")
         except FileNotFoundError:
             return {
-                "indicator_stack_version": "v1",
-                "rulebook_version": "v1",
+                "indicator_stack_version": "v3",
+                "rulebook_version": "v3",
             }
 
     def list_indicator_stacks(self) -> list[dict[str, Any]]:
@@ -93,8 +92,8 @@ class TemplateProfileService:
 
     def get_active_bundle(self) -> dict[str, Any]:
         ptr = self.get_active_pointer()
-        stack_v = ptr.get("indicator_stack_version", "v1")
-        book_v = ptr.get("rulebook_version", "v1")
+        stack_v = ptr.get("indicator_stack_version", "v3")
+        book_v = ptr.get("rulebook_version", "v3")
         stack = self.get_indicator_stack(stack_v)
         book = self.get_rulebook(book_v)
         return {

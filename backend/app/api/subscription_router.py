@@ -250,3 +250,45 @@ async def demo_signup(body: DemoSignupRequest, request: Request):
             "demo_days": 14,
         },
     }
+
+
+
+class RiskPresetRequest(BaseModel):
+    account_id: str
+    risk_preset: str
+
+
+@router.post("/risk_preset")
+async def set_risk_preset(
+    body: RiskPresetRequest,
+    request: Request,
+    auth: AuthContext = Depends(verify_api_key),
+):
+    """Set risk preset for an account. Server calculates and returns final lot size."""
+    require_account_match(auth, body.account_id)
+    sub = request.app.state.subscription_service
+    try:
+        result = await sub.set_risk_preset(body.account_id, body.risk_preset)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid risk_preset")
+    return result
+
+
+@router.get("/risk_preset/{account_id}")
+async def get_risk_preset(
+    account_id: str,
+    request: Request,
+    auth: AuthContext = Depends(verify_api_key),
+):
+    require_account_match(auth, account_id)
+    sub = request.app.state.subscription_service
+    record = await sub.get_status(account_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="No subscription found for this account.")
+    return {
+        "status": "success",
+        "risk_preset": record.get("risk_preset", "standard"),
+        "calculated_lot_size": record.get("calculated_lot_size"),
+        "plan_max_lot": record.get("plan_max_lot"),
+        "plan_base_lot": record.get("plan_base_lot"),
+    }

@@ -469,3 +469,49 @@ async def admin_list_devices(request: Request, auth: AuthContext = Depends(verif
 async def admin_list_tokens(request: Request, auth: AuthContext = Depends(verify_api_key)):
     require_admin(auth)
     return await request.app.state.device_bindings.list_download_tokens()
+
+
+# ------------------------------------------------------------------
+# V3 engine failover: status + manual tier control
+# ------------------------------------------------------------------
+# See app/services/engine_failover.py for the full policy. Automatic
+# failover to the fallback V3 engine already happens on repeated
+# runtime errors; these two endpoints are for visibility and for the
+# one thing that's deliberately NOT automatic - switching back to
+# primary after a fix, which always re-verifies primary actually works
+# before allowing the switch (see EngineFailoverManager.force_tier).
+
+class SetEngineTierRequest(BaseModel):
+    tier: str = Field(description="'primary' or 'fallback'")
+
+
+@router.get("/engine/status")
+async def engine_status(request: Request, auth: AuthContext = Depends(verify_api_key)):
+    require_admin(auth)
+    return request.app.state.brain_cv_service.engine_status()
+
+
+@router.post("/engine/set_tier")
+async def set_engine_tier(
+    body: SetEngineTierRequest,
+    request: Request,
+    auth: AuthContext = Depends(verify_api_key),
+):
+    require_admin(auth)
+    brain = request.app.state.brain_cv_service
+    try:
+        result = brain.set_engine_tier(body.tier)
+    except (ValueError, RuntimeError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    if hasattr(request.app.state, "audit_service"):
+        await request.app.state.audit_service.record(
+            action="engine.set_tier",
+            actor_type="admin_key",
+            actor_id=str(auth.key_id) if auth.key_id else None,
+            actor_label=auth.label,
+            account_id=None,
+            detail=f"tier={result['active_tier']}",
+            ip=request.client.host if request.client else None,
+        )
+    return result

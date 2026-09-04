@@ -79,6 +79,7 @@ class FlutterwaveAdapter(PaymentProviderAdapter):
             provider_subscription_id=data.get("plan"),
             current_period_end=None,   # Flutterwave doesn't send this in the charge webhook - track via subscription.get if needed
             raw_payload=payload,
+            plan=meta.get("plan"),
         )
 
     async def create_checkout_session(self, account_id: str, email: str, plan: str, reveal_token: str) -> CheckoutSession:

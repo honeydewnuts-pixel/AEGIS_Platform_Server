@@ -1,25 +1,25 @@
-# AEGIS Capture — macOS
+# macos-desktop — AEGIS Capture (Mac)
 
-Region capture for MetaTrader 5 on Mac. Sends frames to the AEGIS cloud brain.
+Same cloud brain as Windows/Android. Uses Python + `mss` / Quartz for region capture.
 
-## Features
-- Screen region capture (requires **Screen Recording** permission)
-- Multipart upload to `/aegis/analyze` (same as mobile/Windows)
-- **MT5 Color Match Guide** in-app
-- `AEGIS_Executor.mq5` for Mac MT5
+## Permissions
 
-## Build (macOS only)
+System Settings → Privacy & Security → **Screen Recording** → enable Terminal / AEGIS Capture.
+
+## Dev
 
 ```bash
-chmod +x build.sh
-./build.sh
+cd macos-desktop/aegis_capture
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python main.py
 ```
 
-Output: `AEGIS_Capture_v1.0.0.dmg`
+## Build .app
 
-## Client setup
-1. Open DMG → drag app to Applications
-2. System Settings → Privacy → Screen Recording → enable AEGIS Capture
-3. Enter portal API key + account id
-4. Open **Color Guide** and match MT5 indicators
-5. Start capture with MT5 chart visible
+```bash
+pip install py2app
+python setup.py py2app
+```
+
+`AEGIS_Executor.mq5` is identical to the Windows EA (MT5 for Mac).

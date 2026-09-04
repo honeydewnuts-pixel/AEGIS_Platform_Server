@@ -66,6 +66,7 @@ JOB_DISPATCH = {
     "get_account": (None, "get_account"),
     "get_symbol": (None, "get_symbol"),             # payload: {"symbol": str}
     "health": (None, "health_check"),
+    "get_m1_ohlc_at": (None, "get_m1_ohlc_at"),  # payload: {symbol, captured_at_ms}
 }
 
 

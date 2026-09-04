@@ -1,27 +1,45 @@
 {
-  "version": "v3",
+  "version": "v3.6.6",
   "status": "active",
-  "title": "AEGIS Rulebook v3 \u2014 v2.3.6.6",
+  "title": "AEGIS RULEBOOK_V3 v2.3.6.6",
   "engine": "signal_rule_engine_v3.SignalRuleEngineV3",
   "indicator_stack_version": "v3",
-  "description": "CONTRACTION/EXPANSION regimes + Rules A/B/C/F. Neural assist AEGIS_NEURAL_V3 with v2 fallback.",
-  "source_document": "AEGIS RULEBOOK_V3 v2.3.6.6",
-  "changelog": [
-    "v3: 5-indicator stack",
-    "Rules B/C/F primary; Rule A experimental",
-    "Neural v3 hybrid with seamless v2 neural fallback"
-  ],
-  "roles": {
-    "#7": "BB34 white price",
-    "#8": "BB17 cyan price \u2014 contraction/expansion vs #7",
-    "#6": "RSI9 cyan \u2014 f7",
-    "#4": "MA7 magenta on RSI \u2014 f8",
-    "#1": "Bands34 white on MA7 \u2014 f9/f10/f11"
+  "description": "Only active rulebook. Visible indicators only; f1-f11. No CCI, WPR, or legacy v1/v2 rules.",
+  "feature_map": {
+    "f1": "BB34_7U",
+    "f2": "BB34_7M",
+    "f3": "BB34_7L",
+    "f4": "BB17_8U",
+    "f5": "BB17_8M",
+    "f6": "BB17_8L",
+    "f7": "RSI9_6",
+    "f8": "MA7_4",
+    "f9": "BB34_1U",
+    "f10": "BB34_1M",
+    "f11": "BB34_1L"
   },
-  "rules_summary": [
-    "CONTRACTION: #8 nested in #7 \u2192 Rules B/C/F (and experimental A)",
-    "EXPANSION: #8 wider than #7 \u2192 expansion BUY/SELL",
-    "Neural hybrid: confidence blend + veto; fallback to v2 neural if v3 fails"
-  ],
-  "activated_at": "2026-08-31T19:35:14.229006+00:00"
+  "definitions": {
+    "CONTRACTION": "f4 < f1 AND f6 > f3",
+    "EXPANSION": "f4 > f1 AND f6 < f3",
+    "TOUCH": "2 or 3 touches within 20 bars",
+    "CROSS_UP": "value moves from below to above",
+    "CROSS_DOWN": "value moves from above to below"
+  },
+  "rules": {
+    "A_BUY": "f7 < f11 AND f7/f8 Higher Low AND cross UP f11->f10->f9; then f7 cross DOWN f10/f11 while f8 > f10",
+    "A_SELL": "f7 > f9 AND f7/f8 Lower High AND cross DOWN f9->f10->f11; then f7 cross UP f10/f11 while f8 < f10",
+    "B_BUY": "f7 touches f10 OR f11 >=2 times AND f8 just touched/crossed f10 from above",
+    "B_SELL": "f7 touches f10 OR f9 >=2 times AND f8 just touched/crossed f10 from below",
+    "C_BUY": "f7 < f11 AND f7/f8 try cross f10 and FAIL; then f7 touches f11 >=2 times",
+    "C_SELL": "f7 > f9 AND f7/f8 try cross f10 and FAIL; then f7 touches f9 >=2 times",
+    "F_BUY": "f4 < f1 AND f4 < f2 AND f4 crosses UP f2 AND (f7 crosses DOWN f10 OR f7 < f11)",
+    "F_SELL": "f6 > f3 AND f6 > f2 AND f6 crosses DOWN f2 AND (f7 crosses UP f10 OR f7 > f9)",
+    "EXPANSION_BUY": "EXPANSION AND (f7 < f11 OR f8 < f11)",
+    "EXPANSION_SELL": "EXPANSION AND (f7 > f9 OR f8 > f9)"
+  },
+  "label": {
+    "+1": "BUY",
+    "-1": "SELL",
+    "0": "HOLD"
+  }
 }
