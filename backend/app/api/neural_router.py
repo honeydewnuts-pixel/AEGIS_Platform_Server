@@ -6,7 +6,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from app.services.neural_features import FEATURE_DIM
+from app.services.neural_features_v3 import FEATURE_DIM
 from app.services.neural_service import NeuralAssistService, MODEL_PATH
 
 router = APIRouter(prefix="/api/neural", tags=["Neural"])
