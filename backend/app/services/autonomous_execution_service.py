@@ -108,7 +108,8 @@ class AutonomousDemoExecutionService:
     async def _credentials(self, account_id: str):
         # Vault is not directly available here; this check is supplied by the
         # caller through app state in the route. Kept as a late-bound hook.
+        # Fail CLOSED: missing getter must never enable execution.
         getter = getattr(self, "credential_getter", None)
         if getter:
             return await getter(account_id)
-        return {"execution_enabled": True}
+        return {"execution_enabled": False}

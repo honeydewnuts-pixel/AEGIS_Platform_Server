@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     # Worker pool — default 100 concurrent account workers on one host.
     # For hundreds of thousands of accounts, run remote Windows worker fleets
     # against the same Redis (see WorkerPoolManager module docstring).
+    WORKER_REGISTRY_TTL_SECONDS: int = 900
     WORKER_IDLE_TIMEOUT_SECONDS: int = 900
     WORKER_JOB_TIMEOUT_SECONDS: int = 30
     MAX_CONCURRENT_WORKERS: int = 100

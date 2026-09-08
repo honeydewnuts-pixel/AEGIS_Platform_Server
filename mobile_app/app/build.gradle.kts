@@ -27,7 +27,7 @@ val hasReleaseSigning =
         !releaseStorePassword.isNullOrBlank() &&
         !releaseKeyAlias.isNullOrBlank() &&
         !releaseKeyPassword.isNullOrBlank() &&
-        file(releaseStoreFilePath!!).exists()
+        file(releaseStoreFilePath as String).exists()
 
 android {
     namespace = "com.aegis.mobile"

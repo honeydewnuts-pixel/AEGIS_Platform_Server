@@ -90,11 +90,27 @@ async def verify_api_key(x_api_key: str | None = Header(default=None)) -> AuthCo
 
 
 def require_account_match(auth: AuthContext, requested_account_id: str) -> None:
+    """Enforce object-level account isolation.
+
+    Safe against blank/missing account ids: a non-admin key must present a
+    non-blank requested account that exactly matches the key's bound account.
+    Previously, if either side was blank the check was skipped (fail-open).
+    """
     if auth.is_admin:
         return
     req = (requested_account_id or "").strip()
     key_acct = (auth.account_id or "").strip()
-    if key_acct and req and key_acct != req:
+    if not key_acct:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="API key is not bound to an account.",
+        )
+    if not req:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="account_id is required.",
+        )
+    if key_acct != req:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=(

@@ -164,10 +164,10 @@ class SignalRuleEngineV3:
         if not isinstance(p7, dict) or not isinstance(p8, dict) or not isinstance(b1, dict):
             return self._result(False, "HOLD", "indicators_not_detected", "Required v3 visible indicators not detected.", {}, 0, 0)
 
-        # Screen coordinates invert numeric comparisons: smaller y = larger value.
-        # f4 < f1 and f6 > f3 => BB17 is inside BB34 (contraction).
+        # Formal rulebook operators are screen-Y operators (smaller y = higher on chart).
+        # CONTRACTION: f4 < f1 AND f6 > f3  →  BB17 nested inside BB34 in Y-space.
         contraction = int(float(p8["U"]) < float(p7["U"]) and float(p8["L"]) > float(p7["L"]))
-        # f4 > f1 and f6 < f3 => BB17 is outside BB34 (expansion).
+        # EXPANSION: f4 > f1 AND f6 < f3
         expansion = int(float(p8["U"]) > float(p7["U"]) and float(p8["L"]) < float(p7["L"]))
 
         flags = {k: 0 for k in ("RULE_A", "RULE_B", "RULE_C", "RULE_F", "EXPANSION_BUY", "EXPANSION_SELL")}
@@ -198,49 +198,151 @@ class SignalRuleEngineV3:
         return self._result(False, "HOLD", "no_rule_matched", "No v2.3.6.6 condition fired.", flags, contraction, expansion)
 
     def _rule_a_buy(self, h):
-        c = h[-1]; price = c.get("price_close"); p7 = c.get("price_band7")
-        if price is None or not isinstance(p7, dict) or float(price) <= float(p7["L"]): return False
-        f7=[x.get("rsi6") for x in h[-LOOKBACK:]]; f8=[x.get("ma4") for x in h[-LOOKBACK:]]
-        if any(v is None for v in f7+f8): return False
-        return _higher_low_pair([float(v) for v in f7]) and _higher_low_pair([float(v) for v in f8]) and _sequential_cross(h,"rsi6","band1",["L","M","U"],"above") and _recent_touch_or_cross_from_side(h,"rsi6","band1","M","above") and float(c["ma4"]) < float(c["band1"]["M"])
+        """A_BUY (Y-coords as formal rulebook): f7 < f11 AND higher-lows AND
+        sequential cross UP L→M→U; then f7 cross DOWN from above M while f8 > f10.
+        """
+        c = h[-1]
+        b1 = c.get("band1")
+        if not isinstance(b1, dict) or c.get("rsi6") is None or c.get("ma4") is None:
+            return False
+        # formal f7 < f11 (screen Y): RSI above lower band
+        if float(c["rsi6"]) >= float(b1["L"]):
+            return False
+        f7 = [x.get("rsi6") for x in h[-LOOKBACK:]]
+        f8 = [x.get("ma4") for x in h[-LOOKBACK:]]
+        if any(v is None for v in f7 + f8):
+            return False
+        # formal f8 > f10 (screen Y) — do NOT invert relative to rulebook text
+        if float(c["ma4"]) <= float(b1["M"]):
+            return False
+        return (
+            _higher_low_pair([float(v) for v in f7])
+            and _higher_low_pair([float(v) for v in f8])
+            and _sequential_cross(h, "rsi6", "band1", ["L", "M", "U"], "above")
+            and _recent_touch_or_cross_from_side(h, "rsi6", "band1", "M", "above")
+        )
 
     def _rule_a_sell(self, h):
-        c=h[-1]; price=c.get("price_close"); p7=c.get("price_band7")
-        if price is None or not isinstance(p7,dict) or float(price) >= float(p7["U"]): return False
-        f7=[x.get("rsi6") for x in h[-LOOKBACK:]]; f8=[x.get("ma4") for x in h[-LOOKBACK:]]
-        if any(v is None for v in f7+f8): return False
-        return _lower_high_pair([float(v) for v in f7]) and _lower_high_pair([float(v) for v in f8]) and _sequential_cross(h,"rsi6","band1",["U","M","L"],"below") and _recent_touch_or_cross_from_side(h,"rsi6","band1","M","below") and float(c["ma4"]) > float(c["band1"]["M"])
+        """A_SELL (Y-coords): f7 > f9 AND lower-highs AND sequential cross DOWN U→M→L;
+        then f7 cross UP from below M while f8 < f10.
+        """
+        c = h[-1]
+        b1 = c.get("band1")
+        if not isinstance(b1, dict) or c.get("rsi6") is None or c.get("ma4") is None:
+            return False
+        # formal f7 > f9 (screen Y): RSI below upper band
+        if float(c["rsi6"]) <= float(b1["U"]):
+            return False
+        f7 = [x.get("rsi6") for x in h[-LOOKBACK:]]
+        f8 = [x.get("ma4") for x in h[-LOOKBACK:]]
+        if any(v is None for v in f7 + f8):
+            return False
+        # formal f8 < f10 (screen Y)
+        if float(c["ma4"]) >= float(b1["M"]):
+            return False
+        return (
+            _lower_high_pair([float(v) for v in f7])
+            and _lower_high_pair([float(v) for v in f8])
+            and _sequential_cross(h, "rsi6", "band1", ["U", "M", "L"], "below")
+            and _recent_touch_or_cross_from_side(h, "rsi6", "band1", "M", "below")
+        )
 
-    def _rule_b_buy(self,h):
-        return (_touch_count(h,"rsi6","band1","M")>=2 or _touch_count(h,"rsi6","band1","L")>=2) and _recent_touch_or_cross_from_side(h,"ma4","band1","M","above")
-    def _rule_b_sell(self,h):
-        return (_touch_count(h,"rsi6","band1","M")>=2 or _touch_count(h,"rsi6","band1","U")>=2) and _recent_touch_or_cross_from_side(h,"ma4","band1","M","below")
-    def _rule_c_buy(self,h):
-        c=h[-1]
-        return float(c.get("rsi6",1e9)) > float(c["band1"]["L"])+TOUCH_PX and _failed_cross(h,"rsi6","band1","M","below") and _failed_cross(h,"ma4","band1","M","below") and _touch_count(h,"rsi6","band1","L")>=2
-    def _rule_c_sell(self,h):
-        c=h[-1]
-        return float(c.get("rsi6",-1e9)) < float(c["band1"]["U"])-TOUCH_PX and _failed_cross(h,"rsi6","band1","M","above") and _failed_cross(h,"ma4","band1","M","above") and _touch_count(h,"rsi6","band1","U")>=2
+    def _rule_b_buy(self, h):
+        # f7 touches f10 OR f11 >=2 AND f8 just touched/crossed f10 from above
+        return (
+            (_touch_count(h, "rsi6", "band1", "M") >= 2 or _touch_count(h, "rsi6", "band1", "L") >= 2)
+            and _recent_touch_or_cross_from_side(h, "ma4", "band1", "M", "above")
+        )
 
-    def _rule_f_buy(self,h):
-        p,c=h[-2],h[-1]; pb,cb=p.get("price_band8"),c.get("price_band8"); p7, p8=c.get("price_band7"),c.get("price_band8")
-        if not all(isinstance(x,dict) for x in (pb,cb,p7,p8)): return False
-        cond=float(c["price_band8"]["U"]) > float(c["price_band7"]["U"]) and float(c["price_band8"]["U"]) > float(c["price_band7"]["M"])
-        cross=crossed(float(p8["U"]),float(p.get("price_band7")["M"]),float(cb["U"]),float(c.get("price_band7")["M"])) == "above"
-        f7=float(c.get("rsi6",999)); rsi_cross=crossed(float(p.get("rsi6",999)),float(p.get("band1")["M"]),f7,float(c.get("band1")["M"])) == "below"
-        return cond and cross and (rsi_cross or f7 > float(c["band1"]["L"]))
-    def _rule_f_sell(self,h):
-        p,c=h[-2],h[-1]; pb,cb=p.get("price_band8"),c.get("price_band8"); p7,p8=c.get("price_band7"),c.get("price_band8")
-        if not all(isinstance(x,dict) for x in (pb,cb,p7,p8)): return False
-        cond=float(c["price_band8"]["L"]) < float(c["price_band7"]["L"]) and float(c["price_band8"]["L"]) < float(c["price_band7"]["M"])
-        cross=crossed(float(p8["L"]),float(p.get("price_band7")["M"]),float(cb["L"]),float(c.get("price_band7")["M"])) == "below"
-        f7=float(c.get("rsi6",-999)); rsi_cross=crossed(float(p.get("rsi6",-999)),float(p.get("band1")["M"]),f7,float(c.get("band1")["M"])) == "above"
-        return cond and cross and (rsi_cross or f7 < float(c["band1"]["U"]))
+    def _rule_b_sell(self, h):
+        return (
+            (_touch_count(h, "rsi6", "band1", "M") >= 2 or _touch_count(h, "rsi6", "band1", "U") >= 2)
+            and _recent_touch_or_cross_from_side(h, "ma4", "band1", "M", "below")
+        )
 
-    def _expansion_buy(self,c):
-        return float(c.get("rsi6",999)) > float(c["band1"]["L"]) or float(c.get("ma4",999)) > float(c["band1"]["L"])
-    def _expansion_sell(self,c):
-        return float(c.get("rsi6",-999)) < float(c["band1"]["U"]) or float(c.get("ma4",-999)) < float(c["band1"]["U"])
+    def _rule_c_buy(self, h):
+        # formal: f7 < f11 AND fail cross f10; then f7 touches f11 >=2
+        c = h[-1]
+        b1 = c.get("band1")
+        if not isinstance(b1, dict) or c.get("rsi6") is None:
+            return False
+        if float(c["rsi6"]) >= float(b1["L"]):  # need f7 < f11 (Y)
+            return False
+        return (
+            _failed_cross(h, "rsi6", "band1", "M", "below")
+            and _failed_cross(h, "ma4", "band1", "M", "below")
+            and _touch_count(h, "rsi6", "band1", "L") >= 2
+        )
+
+    def _rule_c_sell(self, h):
+        # formal: f7 > f9 AND fail cross f10; then f7 touches f9 >=2
+        c = h[-1]
+        b1 = c.get("band1")
+        if not isinstance(b1, dict) or c.get("rsi6") is None:
+            return False
+        if float(c["rsi6"]) <= float(b1["U"]):  # need f7 > f9 (Y)
+            return False
+        return (
+            _failed_cross(h, "rsi6", "band1", "M", "above")
+            and _failed_cross(h, "ma4", "band1", "M", "above")
+            and _touch_count(h, "rsi6", "band1", "U") >= 2
+        )
+
+    def _rule_f_buy(self, h):
+        # formal: f4 < f1 AND f4 < f2 AND f4 crosses UP f2 AND (f7 cross DOWN f10 OR f7 < f11)
+        if len(h) < 2:
+            return False
+        c, p = h[-1], h[-2]
+        p7, p8 = c.get("price_band7"), c.get("price_band8")
+        pp7, pp8 = p.get("price_band7"), p.get("price_band8")
+        b1 = c.get("band1")
+        if not all(isinstance(x, dict) for x in (p7, p8, pp7, pp8, b1)):
+            return False
+        cond = float(p8["U"]) < float(p7["U"]) and float(p8["U"]) < float(p7["M"])
+        cross = crossed(float(pp8["U"]), float(pp7["M"]), float(p8["U"]), float(p7["M"])) == "above"
+        f7 = float(c.get("rsi6", 999))
+        rsi_cross = crossed(
+            float(p.get("rsi6", 999)), float(p.get("band1")["M"]),
+            f7, float(b1["M"]),
+        ) == "below"
+        return cond and cross and (rsi_cross or f7 < float(b1["L"]))
+
+    def _rule_f_sell(self, h):
+        # formal: f6 > f3 AND f6 > f2 AND f6 crosses DOWN f2 AND (f7 cross UP f10 OR f7 > f9)
+        if len(h) < 2:
+            return False
+        c, p = h[-1], h[-2]
+        p7, p8 = c.get("price_band7"), c.get("price_band8")
+        pp7, pp8 = p.get("price_band7"), p.get("price_band8")
+        b1 = c.get("band1")
+        if not all(isinstance(x, dict) for x in (p7, p8, pp7, pp8, b1)):
+            return False
+        cond = float(p8["L"]) > float(p7["L"]) and float(p8["L"]) > float(p7["M"])
+        cross = crossed(float(pp8["L"]), float(pp7["M"]), float(p8["L"]), float(p7["M"])) == "below"
+        f7 = float(c.get("rsi6", -999))
+        rsi_cross = crossed(
+            float(p.get("rsi6", -999)), float(p.get("band1")["M"]),
+            f7, float(b1["M"]),
+        ) == "above"
+        return cond and cross and (rsi_cross or f7 > float(b1["U"]))
+
+    def _expansion_buy(self, c):
+        # formal EXPANSION AND (f7 < f11 OR f8 < f11) — screen Y, not inverted
+        b1 = c.get("band1")
+        if not isinstance(b1, dict):
+            return False
+        r = c.get("rsi6")
+        m = c.get("ma4")
+        return (r is not None and float(r) < float(b1["L"])) or (m is not None and float(m) < float(b1["L"]))
+
+    def _expansion_sell(self, c):
+        # formal EXPANSION AND (f7 > f9 OR f8 > f9)
+        b1 = c.get("band1")
+        if not isinstance(b1, dict):
+            return False
+        r = c.get("rsi6")
+        m = c.get("ma4")
+        return (r is not None and float(r) > float(b1["U"])) or (m is not None and float(m) > float(b1["U"]))
 
     @staticmethod
     def _result(fired, signal, name, reason, flags, contraction, expansion):

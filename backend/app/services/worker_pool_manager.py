@@ -107,9 +107,13 @@ class WorkerPoolManager:
                 return True
 
             if existing is not None:
-                # Process died - clean up before respawning.
+                # Process died - clean up before respawning; clear stale Redis entry.
                 self.logger.warning("Worker for %s exited, respawning.", account_id)
                 self._workers.pop(account_id, None)
+                try:
+                    await self._registry_remove(account_id)
+                except Exception:
+                    self.logger.exception("Failed to clear registry after worker crash for %s", account_id)
 
             if len(self._workers) >= settings.MAX_CONCURRENT_WORKERS:
                 self.logger.error(
@@ -170,10 +174,54 @@ class WorkerPoolManager:
         """
         Redis-backed so this is correct regardless of which API instance
         handles the request - see AUDIT FINDING in the module docstring.
+
+        Stale-entry safety: if THIS instance still has a local Popen that has
+        exited, purge the Redis registry entry so crashed workers cannot leave
+        a permanent "running" ghost. Entries owned by other instances are
+        trusted only if their started_at is within WORKER_REGISTRY_TTL_SECONDS;
+        older entries are treated as stale and removed.
         """
         redis_client = self.job_queue.get_redis_client()
+        # Local process died → clear registry immediately
+        local = self._workers.get(account_id)
+        if local is not None and local.poll() is not None:
+            self._workers.pop(account_id, None)
+            try:
+                await self._registry_remove(account_id)
+            except Exception:
+                self.logger.exception("Failed to clear stale registry for %s", account_id)
+            return False
+
         raw = await redis_client.hget(REGISTRY_KEY, account_id)
-        return raw is not None
+        if raw is None:
+            return False
+        try:
+            payload = json.loads(raw if isinstance(raw, str) else raw.decode())
+            started = float(payload.get("started_at") or 0)
+            instance = payload.get("instance")
+        except Exception:
+            await self._registry_remove(account_id)
+            return False
+
+        # If this instance owns the entry but has no live process, purge
+        if instance == self._instance_id:
+            proc = self._workers.get(account_id)
+            if proc is None or proc.poll() is not None:
+                self._workers.pop(account_id, None)
+                await self._registry_remove(account_id)
+                return False
+            return True
+
+        # Foreign instance: expire stale registrations (default 15 min)
+        ttl = float(getattr(settings, "WORKER_REGISTRY_TTL_SECONDS", 900) or 900)
+        if started and (time.time() - started) > ttl:
+            self.logger.warning(
+                "Purging stale worker registry entry for %s (age %.0fs > ttl %.0fs)",
+                account_id, time.time() - started, ttl,
+            )
+            await self._registry_remove(account_id)
+            return False
+        return True
 
     def active_worker_count(self) -> int:
         """
