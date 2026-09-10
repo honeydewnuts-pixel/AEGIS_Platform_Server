@@ -17,7 +17,6 @@ import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.TextView
 import android.widget.ImageView
-import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -719,7 +718,8 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
     private fun postRiskPreset(preset: String) {
         lifecycleScope.launch {
             try {
-                val api = NetworkModule.createApi(this@MainActivity)
+                val api = RetrofitClient.getApiService(this@MainActivity)
+                val prefs = applicationContext.dataStore.data.first()
                 val accountId = prefs[PrefKeys.ACCOUNT_ID]?.trim().orEmpty()
                 if (accountId.isBlank()) return@launch
                 val body = mapOf("account_id" to accountId, "risk_preset" to preset)
@@ -738,7 +738,8 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
     private fun loadRiskPresetFromServer() {
         lifecycleScope.launch {
             try {
-                val api = NetworkModule.createApi(this@MainActivity)
+                val api = RetrofitClient.getApiService(this@MainActivity)
+                val prefs = applicationContext.dataStore.data.first()
                 val accountId = prefs[PrefKeys.ACCOUNT_ID]?.trim().orEmpty()
                 if (accountId.isBlank()) return@launch
                 val resp = api.getAccountStatus(accountId)
