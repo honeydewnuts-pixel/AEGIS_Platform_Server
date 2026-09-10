@@ -318,13 +318,13 @@
                 android:stateListAnimator="@null"/>
 
             <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/indicatorSetupBtn"
+                android:id="@+id/registryBtn"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:layout_marginStart="4dp"
                 android:layout_marginBottom="3dp"
-                android:text="INDICATORS"
+                android:text="PAIRS / RULES"
                 android:textSize="11sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFF"

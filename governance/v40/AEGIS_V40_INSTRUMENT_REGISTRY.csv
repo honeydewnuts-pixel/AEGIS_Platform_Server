@@ -1,0 +1,9 @@
+instrument,asset_class,timeframe,registry_status,router_status,eligible_rulebooks,reason
+GBPUSD,FOREX,M5,SOURCE_RULEBOOK_FROZEN,RESEARCH_ELIGIBLE,AEGIS-RB-V31-GBPUSD-5M;AEGIS-RB-V35-GBPUSD-5M,Frozen standardized source rulebooks; historical qualification only
+AUDUSD,FOREX,M5,TRANSFER_QUALIFIED,RESEARCH_ELIGIBLE,AEGIS-RB-V39-V31-AUDUSD-M5;AEGIS-RB-V39-V35-AUDUSD-M5,36M transfer passed all V39 gates
+USDCHF,FOREX,M5,TRANSFER_QUALIFIED,RESEARCH_ELIGIBLE,AEGIS-RB-V39-V31-USDCHF-M5;AEGIS-RB-V39-V35-USDCHF-M5,36M transfer passed all V39 gates
+NZDUSD,FOREX,M5,TRANSFER_QUALIFIED,RESEARCH_ELIGIBLE,AEGIS-RB-V39-V31-NZDUSD-M5;AEGIS-RB-V39-V35-NZDUSD-M5,36M transfer passed all V39 gates
+EURUSD,FOREX,M5,TRANSFER_REJECTED,TRADING_DISABLED,,V31/V35 failed immutable V39 qualification gates; native discovery required
+USDJPY,FOREX,M5,TRANSFER_REJECTED,TRADING_DISABLED,,Transfer not qualified; Bid-only history is insufficient for spread-dependent execution qualification; native discovery required
+EURJPY,FOREX,M5,NATIVE_DISCOVERY_REJECTED,TRADING_DISABLED,,24M native screening best candidate failed immutable validation trade-count gate (195)
+GBPJPY,FOREX,M5,NATIVE_DISCOVERY_REJECTED,TRADING_DISABLED,,24M native screening best candidate failed PF gates

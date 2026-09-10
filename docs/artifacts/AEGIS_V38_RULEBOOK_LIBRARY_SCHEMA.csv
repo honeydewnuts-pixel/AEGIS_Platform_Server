@@ -1,0 +1,29 @@
+field,description
+rulebook_id,immutable unique rulebook identifier
+source_rulebook_id,parent rulebook identifier or SOURCE
+asset_class,FOREX/METALS/CRYPTO/SYNTHETIC/SHARES
+instrument,target symbol
+timeframe,e.g. M5
+broker_source,data/broker provenance
+mechanism_family,mechanism family
+feature_requirements,required causal features
+normalization_method,transfer normalization
+volatility_profile,target volatility profile reference
+spread_profile,target spread profile reference
+entry_model,entry specification
+exit_model,exit specification
+risk_model,risk specification
+parameter_set,frozen parameters
+training_period,chronological train range
+validation_period,chronological validation range
+final_test_period,chronological final test range
+trade_count,qualified trade count
+profit_factor,PF
+drawdown,max drawdown
+robustness,robustness summary
+independent_reproduction_status,reproduction state
+qualification_status,library status
+version,semantic version
+created_at,UTC creation time
+data_hash,research data SHA256
+code_hash,implementation SHA256

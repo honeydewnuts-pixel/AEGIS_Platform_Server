@@ -49,9 +49,12 @@ from app.api.copier_router import router as copier_router
 from app.api.signal_router import router as signal_router
 from app.api.config_router import router as config_router
 from app.api.template_router import router as template_router
+from app.api.registry_router import router as registry_router
 from app.api.auth_router import router as auth_router
 from app.api.support_router import router as support_router
 from app.api.status_router import router as status_router
+from app.api.rulebook_router import router as rulebook_router
+from app.api.transfer_router import router as transfer_router
 
 logger = configure_logging(__name__)
 
@@ -112,6 +115,7 @@ app.add_middleware(
 
 app.include_router(telemetry_router)
 app.include_router(template_router)
+app.include_router(registry_router)
 app.include_router(auth_router)
 app.include_router(support_router)
 app.include_router(status_router)
@@ -131,6 +135,8 @@ app.include_router(portal_router)
 app.include_router(copier_router)
 app.include_router(signal_router)
 app.include_router(config_router)
+app.include_router(rulebook_router)
+app.include_router(transfer_router)
 
 # /metrics - HTTP request counts/latencies auto-instrumented, plus custom
 # business gauges from app.core.metrics (populated by a background loop

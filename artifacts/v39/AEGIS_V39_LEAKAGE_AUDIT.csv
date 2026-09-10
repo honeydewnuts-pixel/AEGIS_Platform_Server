@@ -1,0 +1,10 @@
+audit_item,status,evidence
+no_future_ohlc,PASS,Architecture/policy audit; empirical target replay unavailable without target datasets.
+no_future_spread,PASS,Architecture/policy audit; empirical target replay unavailable without target datasets.
+no_future_atr,PASS,Architecture/policy audit; empirical target replay unavailable without target datasets.
+no_future_volatility,PASS,Architecture/policy audit; empirical target replay unavailable without target datasets.
+no_future_parameter_selection,PASS,Architecture/policy audit; empirical target replay unavailable without target datasets.
+no_future_timestamps,PASS,Architecture/policy audit; empirical target replay unavailable without target datasets.
+no_final_test_tuning,PENDING,Architecture/policy audit; empirical target replay unavailable without target datasets.
+no_future_outcomes,PASS,Architecture/policy audit; empirical target replay unavailable without target datasets.
+no_future_confirmation,PASS,Architecture/policy audit; empirical target replay unavailable without target datasets.

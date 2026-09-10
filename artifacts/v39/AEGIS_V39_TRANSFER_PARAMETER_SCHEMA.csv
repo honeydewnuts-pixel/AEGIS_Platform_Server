@@ -1,0 +1,261 @@
+source_rulebook_id,target_instrument,timeframe,parameter_name,source_value,normalization_method,target_value,causal_window,adaptation_version,adaptation_reason,data_version,status
+AEGIS-RB-V31-GBPUSD-5M,EURUSD,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURUSD,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURUSD,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURUSD,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURUSD,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,USDJPY,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,USDJPY,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,USDJPY,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,USDJPY,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,USDJPY,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,GBPJPY,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,GBPJPY,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,GBPJPY,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,GBPJPY,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,GBPJPY,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURGBP,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURGBP,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURGBP,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURGBP,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURGBP,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,AUDUSD,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,AUDUSD,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,AUDUSD,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,AUDUSD,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,AUDUSD,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,NZDUSD,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,NZDUSD,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,NZDUSD,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,NZDUSD,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,NZDUSD,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,USDCAD,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,USDCAD,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,USDCAD,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,USDCAD,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,USDCAD,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,USDCHF,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,USDCHF,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,USDCHF,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,USDCHF,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,USDCHF,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURCHF,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURCHF,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURCHF,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURCHF,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURCHF,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURJPY,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURJPY,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURJPY,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURJPY,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURJPY,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,AUDJPY,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,AUDJPY,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,AUDJPY,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,AUDJPY,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,AUDJPY,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,CADJPY,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,CADJPY,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,CADJPY,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,CADJPY,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,CADJPY,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,CHFJPY,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,CHFJPY,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,CHFJPY,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,CHFJPY,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,CHFJPY,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURAUD,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURAUD,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURAUD,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURAUD,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURAUD,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURNZD,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURNZD,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURNZD,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURNZD,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,EURNZD,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,GBPAUD,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,GBPAUD,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,GBPAUD,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,GBPAUD,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,GBPAUD,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,GBPCAD,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,GBPCAD,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,GBPCAD,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,GBPCAD,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,GBPCAD,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,GBPCHF,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,GBPCHF,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,GBPCHF,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,GBPCHF,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,GBPCHF,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,GBPNZD,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,GBPNZD,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,GBPNZD,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,GBPNZD,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,GBPNZD,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,AUDCAD,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,AUDCAD,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,AUDCAD,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,AUDCAD,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,AUDCAD,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,AUDCHF,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,AUDCHF,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,AUDCHF,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,AUDCHF,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,AUDCHF,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,AUDNZD,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,AUDNZD,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,AUDNZD,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,AUDNZD,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,AUDNZD,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,CADCHF,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,CADCHF,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,CADCHF,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,CADCHF,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,CADCHF,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,NZDJPY,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,NZDJPY,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,NZDJPY,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,NZDJPY,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,NZDJPY,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,NZDCAD,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,NZDCAD,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,NZDCAD,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,NZDCAD,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,NZDCAD,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,NZDCHF,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,NZDCHF,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,NZDCHF,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,NZDCHF,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V31-GBPUSD-5M,NZDCHF,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURUSD,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURUSD,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURUSD,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURUSD,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURUSD,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,USDJPY,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,USDJPY,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,USDJPY,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,USDJPY,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,USDJPY,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,GBPJPY,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,GBPJPY,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,GBPJPY,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,GBPJPY,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,GBPJPY,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURGBP,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURGBP,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURGBP,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURGBP,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURGBP,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,AUDUSD,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,AUDUSD,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,AUDUSD,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,AUDUSD,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,AUDUSD,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,NZDUSD,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,NZDUSD,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,NZDUSD,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,NZDUSD,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,NZDUSD,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,USDCAD,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,USDCAD,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,USDCAD,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,USDCAD,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,USDCAD,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,USDCHF,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,USDCHF,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,USDCHF,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,USDCHF,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,USDCHF,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURCHF,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURCHF,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURCHF,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURCHF,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURCHF,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURJPY,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURJPY,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURJPY,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURJPY,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURJPY,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,AUDJPY,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,AUDJPY,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,AUDJPY,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,AUDJPY,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,AUDJPY,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,CADJPY,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,CADJPY,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,CADJPY,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,CADJPY,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,CADJPY,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,CHFJPY,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,CHFJPY,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,CHFJPY,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,CHFJPY,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,CHFJPY,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURAUD,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURAUD,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURAUD,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURAUD,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURAUD,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURNZD,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURNZD,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURNZD,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURNZD,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,EURNZD,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,GBPAUD,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,GBPAUD,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,GBPAUD,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,GBPAUD,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,GBPAUD,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,GBPCAD,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,GBPCAD,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,GBPCAD,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,GBPCAD,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,GBPCAD,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,GBPCHF,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,GBPCHF,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,GBPCHF,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,GBPCHF,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,GBPCHF,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,GBPNZD,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,GBPNZD,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,GBPNZD,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,GBPNZD,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,GBPNZD,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,AUDCAD,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,AUDCAD,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,AUDCAD,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,AUDCAD,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,AUDCAD,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,AUDCHF,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,AUDCHF,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,AUDCHF,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,AUDCHF,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,AUDCHF,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,AUDNZD,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,AUDNZD,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,AUDNZD,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,AUDNZD,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,AUDNZD,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,CADCHF,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,CADCHF,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,CADCHF,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,CADCHF,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,CADCHF,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,NZDJPY,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,NZDJPY,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,NZDJPY,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,NZDJPY,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,NZDJPY,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,NZDCAD,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,NZDCAD,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,NZDCAD,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,NZDCAD,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,NZDCAD,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,NZDCHF,M5,compression_threshold,1.0,ratio of range/ATR; source mechanism frozen,predeclared source ratio threshold,preceding 12 completed bars,V39.1,Preserve V31/V35 compression mechanism in dimensionless form,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,NZDCHF,M5,expansion_threshold,1.5,current range/ATR,1.5,current completed bar,V39.1,Preserve V35 expansion mechanism,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,NZDCHF,M5,initial_sl,1.5 ATR,ATR-relative,1.5 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,NZDCHF,M5,trailing_stop,0.75 ATR,ATR-relative,0.75 ATR14,current ATR14,V39.1,Frozen source execution geometry,NO_TARGET_DATA,PENDING
+AEGIS-RB-V35-GBPUSD-5M,NZDCHF,M5,max_holding_bars,72,bar count,72,fixed causal execution rule,V39.1,Frozen source execution limit,NO_TARGET_DATA,PENDING

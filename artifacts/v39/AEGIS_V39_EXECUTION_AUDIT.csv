@@ -1,0 +1,11 @@
+audit_item,status,evidence
+next_bar_entry,PASS,Architecture/policy audit; empirical target replay unavailable without target datasets.
+bid_ask_side,PENDING,Architecture/policy audit; empirical target replay unavailable without target datasets.
+atr_stop,PASS,Architecture/policy audit; empirical target replay unavailable without target datasets.
+break_even,PASS,Architecture/policy audit; empirical target replay unavailable without target datasets.
+atr_trailing,PASS,Architecture/policy audit; empirical target replay unavailable without target datasets.
+time_exit,PASS,Architecture/policy audit; empirical target replay unavailable without target datasets.
+one_position,PASS,Architecture/policy audit; empirical target replay unavailable without target datasets.
+event_throttle,PASS,Architecture/policy audit; empirical target replay unavailable without target datasets.
+cost_treatment,PENDING,Architecture/policy audit; empirical target replay unavailable without target datasets.
+instrument_specific_spread,PENDING,Architecture/policy audit; empirical target replay unavailable without target datasets.

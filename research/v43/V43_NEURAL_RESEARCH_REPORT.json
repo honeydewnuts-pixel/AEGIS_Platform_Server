@@ -1,0 +1,40 @@
+{
+  "validation": {
+    "accuracy": 0.40549343541183974,
+    "balanced_accuracy": 0.377176100081442,
+    "macro_precision": 0.43549825471009945,
+    "logloss": 1.0619039656391471
+  },
+  "final_test": {
+    "accuracy": 0.408918437930224,
+    "balanced_accuracy": 0.3874505431164839,
+    "macro_precision": 0.4523246381234168,
+    "logloss": 1.0656954256734195
+  },
+  "threshold": {
+    "selected": {
+      "threshold": 0.6000000000000003,
+      "resolved": 142.0,
+      "precision": 0.6126760563380281,
+      "pf": 1.3339757017176377
+    },
+    "validation": {
+      "threshold": 0.6000000000000003,
+      "signals": 181,
+      "resolved": 142,
+      "precision": 0.6126760563380281,
+      "pf": 1.3339757017176377,
+      "total_R": 19.93,
+      "max_DD_R": 12.615000000000014
+    },
+    "final_test": {
+      "threshold": 0.6000000000000003,
+      "signals": 177,
+      "resolved": 125,
+      "precision": 0.576,
+      "pf": 1.14563950960786,
+      "total_R": 8.375,
+      "max_DD_R": 11.975000000000001
+    }
+  }
+}

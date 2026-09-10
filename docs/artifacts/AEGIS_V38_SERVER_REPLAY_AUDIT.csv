@@ -1,0 +1,8 @@
+check,status
+dataset_sha256,PASS
+dataset_chronological,PASS
+v31_exact_trade_count,PASS
+v35_exact_trade_count,PASS
+existing_rulebook_v3_present,PASS
+existing_neural_v3_present,PASS
+live_execution_not_enabled_by_this_checkpoint,PASS

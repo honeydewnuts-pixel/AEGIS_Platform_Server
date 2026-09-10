@@ -135,3 +135,22 @@ remaining step before launch, not optional.
 
 Desktop capture locks a **screen rectangle** over the MT5 chart and posts PNG frames to `/aegis/analyze` with the same API key as mobile.
 
+
+## V46 Repository Baseline
+
+See `AEGIS_REPOSITORY_BASELINE_V46.md` and `REPOSITORY_DEPLOYMENT_READINESS.md`.
+The canonical governed additions are under `governance/`, `registry/`, and
+`research/`. The V46 Universal Router is fail-closed and research-only by
+construction; production authorization remains disabled.
+
+## V46 change: indicators retired
+
+MT5 charts **no longer use an indicator template**. Clients capture plain price charts.
+The former template slot is now the **rulebook registry** + **tradeable pairs registry**:
+
+- `GET /api/registry/pairs` — tradeable instruments
+- `GET /api/registry/rulebooks` — per-pair rulebooks
+- `GET /api/registry/active` — mobile snapshot (`indicators_required: false`)
+- `GET /api/templates/active` — kept for backward compatibility; same payload, no install checklist
+
+CSV sources: `registry/v40/AEGIS_V40_RULEBOOK_REGISTRY.csv`, `AEGIS_V40_INSTRUMENT_REGISTRY.csv`.

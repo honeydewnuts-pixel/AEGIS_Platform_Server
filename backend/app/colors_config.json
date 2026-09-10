@@ -18,7 +18,36 @@
       "bottom_percent": 1.0
     }
   },
-  "indicators": {
+  "hidden_indicators": {},
+  "candle_colors": {
+    "bullish_rgb": [
+      0,
+      200,
+      0
+    ],
+    "bearish_rgb": [
+      220,
+      30,
+      30
+    ]
+  },
+  "history": {
+    "max_frames_kept": 60,
+    "rule_lookback_frames": 20,
+    "ttl_seconds": 3600
+  },
+  "noise_filter": {
+    "median_filter": 3,
+    "gaussian_kernel": 5,
+    "minimum_line_length": 20,
+    "minimum_contour_area": 3
+  },
+  "rulebook_version": "v3",
+  "indicator_stack_version": "v3",
+  "indicators_required": false,
+  "mode": "plain_price_chart",
+  "note": "Indicator stack retired. CV should use full chart price structure, not band indicators.",
+  "indicators_legacy": {
     "#1": {
       "name": "BB34_1",
       "color_name": "White",
@@ -65,7 +94,7 @@
       "panel": "indicator"
     }
   },
-  "price_panel_indicators": {
+  "price_panel_indicators_legacy": {
     "#7": {
       "name": "BB34_7",
       "color_name": "White",
@@ -94,31 +123,5 @@
         "value": 50
       }
     }
-  },
-  "hidden_indicators": {},
-  "candle_colors": {
-    "bullish_rgb": [
-      0,
-      200,
-      0
-    ],
-    "bearish_rgb": [
-      220,
-      30,
-      30
-    ]
-  },
-  "history": {
-    "max_frames_kept": 60,
-    "rule_lookback_frames": 20,
-    "ttl_seconds": 3600
-  },
-  "noise_filter": {
-    "median_filter": 3,
-    "gaussian_kernel": 5,
-    "minimum_line_length": 20,
-    "minimum_contour_area": 3
-  },
-  "rulebook_version": "v3",
-  "indicator_stack_version": "v3"
+  }
 }

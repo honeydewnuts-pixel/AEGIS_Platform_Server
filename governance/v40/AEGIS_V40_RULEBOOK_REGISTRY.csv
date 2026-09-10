@@ -1,0 +1,7 @@
+rulebook_id,source_rulebook_id,asset_class,instrument,timeframe,mechanism_family,status,validation_trades,validation_pf,final_test_trades,final_test_pf,min_six_block_pf,independent_reproduction,production_authorized
+AEGIS-RB-V39-V31-AUDUSD-M5,AEGIS-RB-V31,FOREX,AUDUSD,M5,12-bar compression + low exhaustion + down break continuation,QUALIFIED_RESEARCH_CANDIDATE,430,1.907689,427,2.100625,1.744553,true,false
+AEGIS-RB-V39-V35-AUDUSD-M5,AEGIS-RB-V35,FOREX,AUDUSD,M5,12-bar compression + 24/48-bar downside agreement + expansion continuation,QUALIFIED_RESEARCH_CANDIDATE,328,2.123376,349,2.388958,1.512861,true,false
+AEGIS-RB-V39-V31-USDCHF-M5,AEGIS-RB-V31,FOREX,USDCHF,M5,12-bar compression + low exhaustion + down break continuation,QUALIFIED_RESEARCH_CANDIDATE,430,2.205261,460,2.518696,1.789298,true,false
+AEGIS-RB-V39-V35-USDCHF-M5,AEGIS-RB-V35,FOREX,USDCHF,M5,12-bar compression + 24/48-bar downside agreement + expansion continuation,QUALIFIED_RESEARCH_CANDIDATE,367,2.819370,335,3.388069,2.282969,true,false
+AEGIS-RB-V39-V31-NZDUSD-M5,AEGIS-RB-V31,FOREX,NZDUSD,M5,12-bar compression + low exhaustion + down break continuation,QUALIFIED_RESEARCH_CANDIDATE,439,2.145246,483,2.482567,2.033992,true,false
+AEGIS-RB-V39-V35-NZDUSD-M5,AEGIS-RB-V35,FOREX,NZDUSD,M5,12-bar compression + 24/48-bar downside agreement + expansion continuation,QUALIFIED_RESEARCH_CANDIDATE,358,2.619170,378,3.305567,1.787691,true,false

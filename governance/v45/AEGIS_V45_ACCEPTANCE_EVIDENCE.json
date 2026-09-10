@@ -1,0 +1,12 @@
+{
+  "stage": "V45",
+  "date": "2026-09-10",
+  "decision": {"controlled_research_paper": "GO", "autonomous_live_trading": "NO-GO"},
+  "v39": {"qualified_research_candidates": 6, "production_authorized": false},
+  "v40": {"registry_candidates": 6, "router_fail_closed": true, "production_authorized_all": false},
+  "v41": {"status": "NO_NEW_DATA", "cutoff": "2026-08-28 16:55:00", "rows": 6},
+  "v42": {"live_enabled_default": false, "production_authorized_default": false, "legacy_mt5_demo_only": true, "isolated_tests_passed": 2},
+  "v43": {"model_count": 2, "features": 50, "seeds": [4301,4302], "locked_threshold": 0.6000000000000003, "final_test_precision": 0.576, "final_test_pf": 1.14563950960786, "production": "REJECTED"},
+  "v44": {"integration_tests_prior_checkpoint": 3, "neural_status": "RESEARCH_ONLY", "neural_live_authorization": false},
+  "v45": {"acceptance_tests_passed": 4, "forward_validation_complete": false, "live_authorization": false}
+}

@@ -1,0 +1,11 @@
+field,status,server_count,reference_count,max_abs_diff
+event_i,EXACT,2600,2600,
+exit_i,EXACT,2600,2600,
+entry,EXACT,2600,2600,0.0
+exit,MACHINE_PRECISION,2600,2600,2.220446049250313e-16
+R,MACHINE_PRECISION,2600,2600,4.418687638008123e-13
+reason,EXACT,2600,2600,
+signal_datetime,EXACT,2600,2600,
+entry_datetime,EXACT,2600,2600,
+exit_datetime,EXACT,2600,2600,
+duration_bars,EXACT,2600,2600,

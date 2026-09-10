@@ -1,0 +1,27 @@
+source_rulebook_id,target_instrument,timeframe,status,validation_trades,validation_pf,final_test_trades,final_test_pf,notes
+AEGIS-RB-V31-GBPUSD-5M,EURUSD,M5,DATA_NOT_AVAILABLE,0,0.0,0,0.0,No target Forex OHLC/Bid-Ask dataset found in mounted workspace or Library; no performance evaluation executed.
+AEGIS-RB-V31-GBPUSD-5M,USDJPY,M5,DATA_NOT_AVAILABLE,0,0.0,0,0.0,No target Forex OHLC/Bid-Ask dataset found in mounted workspace or Library; no performance evaluation executed.
+AEGIS-RB-V31-GBPUSD-5M,GBPJPY,M5,DATA_NOT_AVAILABLE,0,0.0,0,0.0,No target Forex OHLC/Bid-Ask dataset found in mounted workspace or Library; no performance evaluation executed.
+AEGIS-RB-V31-GBPUSD-5M,EURGBP,M5,DATA_NOT_AVAILABLE,0,0.0,0,0.0,No target Forex OHLC/Bid-Ask dataset found in mounted workspace or Library; no performance evaluation executed.
+AEGIS-RB-V31-GBPUSD-5M,AUDUSD,M5,DATA_NOT_AVAILABLE,0,0.0,0,0.0,No target Forex OHLC/Bid-Ask dataset found in mounted workspace or Library; no performance evaluation executed.
+AEGIS-RB-V31-GBPUSD-5M,NZDUSD,M5,DATA_NOT_AVAILABLE,0,0.0,0,0.0,No target Forex OHLC/Bid-Ask dataset found in mounted workspace or Library; no performance evaluation executed.
+AEGIS-RB-V31-GBPUSD-5M,USDCAD,M5,DATA_NOT_AVAILABLE,0,0.0,0,0.0,No target Forex OHLC/Bid-Ask dataset found in mounted workspace or Library; no performance evaluation executed.
+AEGIS-RB-V31-GBPUSD-5M,USDCHF,M5,DATA_NOT_AVAILABLE,0,0.0,0,0.0,No target Forex OHLC/Bid-Ask dataset found in mounted workspace or Library; no performance evaluation executed.
+AEGIS-RB-V31-GBPUSD-5M,EURCHF,M5,DATA_NOT_AVAILABLE,0,0.0,0,0.0,No target Forex OHLC/Bid-Ask dataset found in mounted workspace or Library; no performance evaluation executed.
+AEGIS-RB-V31-GBPUSD-5M,EURJPY,M5,DATA_NOT_AVAILABLE,0,0.0,0,0.0,No target Forex OHLC/Bid-Ask dataset found in mounted workspace or Library; no performance evaluation executed.
+AEGIS-RB-V31-GBPUSD-5M,AUDJPY,M5,DATA_NOT_AVAILABLE,0,0.0,0,0.0,No target Forex OHLC/Bid-Ask dataset found in mounted workspace or Library; no performance evaluation executed.
+AEGIS-RB-V31-GBPUSD-5M,CADJPY,M5,DATA_NOT_AVAILABLE,0,0.0,0,0.0,No target Forex OHLC/Bid-Ask dataset found in mounted workspace or Library; no performance evaluation executed.
+AEGIS-RB-V31-GBPUSD-5M,CHFJPY,M5,DATA_NOT_AVAILABLE,0,0.0,0,0.0,No target Forex OHLC/Bid-Ask dataset found in mounted workspace or Library; no performance evaluation executed.
+AEGIS-RB-V31-GBPUSD-5M,EURAUD,M5,DATA_NOT_AVAILABLE,0,0.0,0,0.0,No target Forex OHLC/Bid-Ask dataset found in mounted workspace or Library; no performance evaluation executed.
+AEGIS-RB-V31-GBPUSD-5M,EURNZD,M5,DATA_NOT_AVAILABLE,0,0.0,0,0.0,No target Forex OHLC/Bid-Ask dataset found in mounted workspace or Library; no performance evaluation executed.
+AEGIS-RB-V31-GBPUSD-5M,GBPAUD,M5,DATA_NOT_AVAILABLE,0,0.0,0,0.0,No target Forex OHLC/Bid-Ask dataset found in mounted workspace or Library; no performance evaluation executed.
+AEGIS-RB-V31-GBPUSD-5M,GBPCAD,M5,DATA_NOT_AVAILABLE,0,0.0,0,0.0,No target Forex OHLC/Bid-Ask dataset found in mounted workspace or Library; no performance evaluation executed.
+AEGIS-RB-V31-GBPUSD-5M,GBPCHF,M5,DATA_NOT_AVAILABLE,0,0.0,0,0.0,No target Forex OHLC/Bid-Ask dataset found in mounted workspace or Library; no performance evaluation executed.
+AEGIS-RB-V31-GBPUSD-5M,GBPNZD,M5,DATA_NOT_AVAILABLE,0,0.0,0,0.0,No target Forex OHLC/Bid-Ask dataset found in mounted workspace or Library; no performance evaluation executed.
+AEGIS-RB-V31-GBPUSD-5M,AUDCAD,M5,DATA_NOT_AVAILABLE,0,0.0,0,0.0,No target Forex OHLC/Bid-Ask dataset found in mounted workspace or Library; no performance evaluation executed.
+AEGIS-RB-V31-GBPUSD-5M,AUDCHF,M5,DATA_NOT_AVAILABLE,0,0.0,0,0.0,No target Forex OHLC/Bid-Ask dataset found in mounted workspace or Library; no performance evaluation executed.
+AEGIS-RB-V31-GBPUSD-5M,AUDNZD,M5,DATA_NOT_AVAILABLE,0,0.0,0,0.0,No target Forex OHLC/Bid-Ask dataset found in mounted workspace or Library; no performance evaluation executed.
+AEGIS-RB-V31-GBPUSD-5M,CADCHF,M5,DATA_NOT_AVAILABLE,0,0.0,0,0.0,No target Forex OHLC/Bid-Ask dataset found in mounted workspace or Library; no performance evaluation executed.
+AEGIS-RB-V31-GBPUSD-5M,NZDJPY,M5,DATA_NOT_AVAILABLE,0,0.0,0,0.0,No target Forex OHLC/Bid-Ask dataset found in mounted workspace or Library; no performance evaluation executed.
+AEGIS-RB-V31-GBPUSD-5M,NZDCAD,M5,DATA_NOT_AVAILABLE,0,0.0,0,0.0,No target Forex OHLC/Bid-Ask dataset found in mounted workspace or Library; no performance evaluation executed.
+AEGIS-RB-V31-GBPUSD-5M,NZDCHF,M5,DATA_NOT_AVAILABLE,0,0.0,0,0.0,No target Forex OHLC/Bid-Ask dataset found in mounted workspace or Library; no performance evaluation executed.

@@ -1,0 +1,18 @@
+field,required,description
+capture_timestamp,yes,Timestamp of completed source bar
+instrument,yes,Instrument symbol
+rulebook_id,yes,Frozen rulebook identifier
+bar_timestamp,yes,Completed M5 bar timestamp
+bid_open,bid_high,bid_low,bid_close,yes,Bid OHLC
+ask_open,ask_high,ask_low,ask_close,yes,Ask OHLC when available
+spread,conditional,Ask-Bid executable spread
+atr14,yes,Causal Wilder ATR14
+signal,yes,Frozen rulebook signal result
+entry_timestamp,conditional,Next-bar entry timestamp
+entry_price,conditional,Instrument-appropriate executable entry
+stop_price,conditional,Frozen initial/trailing stop
+exit_timestamp,conditional,Exit timestamp
+exit_reason,conditional,Stop/BE/trailing/time exit
+r_multiple,conditional,Net paper trade result in R
+router_decision,yes,ALLOW or FAIL_CLOSED
+router_reason,yes,Machine-readable eligibility reason

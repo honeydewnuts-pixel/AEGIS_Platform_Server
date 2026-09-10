@@ -34,7 +34,7 @@ from app.services.alert_service import AlertService
 from app.services.device_binding_service import DeviceBindingService
 from app.services.trade_limit_service import TradeLimitService
 from app.services.retention_service import purge_old_records
-from app.services.template_profile_service import TemplateProfileService
+from app.services.registry_service import RegistryService, TemplateProfileService
 from app.core.metrics import refresh_metrics_loop
 from app.security import issue_api_key
 from app.db.base import async_session_factory
@@ -95,7 +95,8 @@ async def on_startup(app: FastAPI) -> None:
     app.state.alert_service = AlertService()
     app.state.device_bindings = DeviceBindingService()
     app.state.trade_limits = TradeLimitService()
-    app.state.templates = TemplateProfileService()
+    app.state.templates = RegistryService()
+    app.state.registry = app.state.templates  # alias
 
     app.state.subscription_sweep_task = asyncio.create_task(_subscription_sweep_loop(app))
     app.state.metrics_task = asyncio.create_task(refresh_metrics_loop(app))

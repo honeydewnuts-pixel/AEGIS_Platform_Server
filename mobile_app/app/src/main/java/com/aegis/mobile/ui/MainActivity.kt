@@ -65,7 +65,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var reportIssueBtn: Button
     private lateinit var previewImage: ImageView
     private lateinit var previewPlaceholder: TextView
-    private lateinit var indicatorSetupBtn: Button
+    private lateinit var registryBtn: Button
 
     private var captureRunning = false
 
@@ -126,7 +126,7 @@ class MainActivity : AppCompatActivity() {
         reportIssueBtn = findViewById(R.id.reportIssueBtn)
         previewImage = findViewById(R.id.previewImage)
         previewPlaceholder = findViewById(R.id.previewPlaceholder)
-        indicatorSetupBtn = findViewById(R.id.indicatorSetupBtn)
+        registryBtn = findViewById(R.id.registryBtn)
 
         // High-contrast text on dark background (theme alone is not always enough)
         val textLight = Color.parseColor("#FFFFFF")
@@ -284,8 +284,8 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
             minimizeApp()
             true
         }
-        indicatorSetupBtn.setOnClickListener {
-            startActivity(Intent(this, IndicatorSetupActivity::class.java))
+        registryBtn.setOnClickListener {
+            startActivity(Intent(this, RegistryActivity::class.java))
         }
 
         setCaptureRunning(HealthStatus.mediaProjectionActive.value == true)

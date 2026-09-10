@@ -1,6 +1,7 @@
 {
-  "indicator_stack_version": "v3",
-  "rulebook_version": "v3",
-  "activated_at": "2026-08-31T02:10:00Z",
-  "notes": "ONLY ACTIVE: AEGIS RULEBOOK_V3 v2.3.6.6 + Indicator Stack v3. Legacy v1/v2 archived and not loaded."
+  "rulebook_version": "registry",
+  "registry_version": "v40",
+  "indicators_required": false,
+  "activated_at": "2026-09-10T12:00:00Z",
+  "notes": "Indicator templates retired. MT5 charts are plain price only. Rulebook registry + tradeable pairs registry are authoritative."
 }

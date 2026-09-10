@@ -1,0 +1,10 @@
+area,checkpoint,evidence,decision,production_effect
+Transfer research,V39,6 candidates passed immutable historical qualification gates,ACCEPTED_RESEARCH_ONLY,false
+Qualification registry,V40,6 qualified candidates registered; 4 instruments fail-closed/disabled,ACCEPTED,false
+Forward validation,V41,All six candidates NO_NEW_DATA after 2026-08-28 16:55,OPEN_PENDING_DATA,false
+Execution risk safety,V42,Isolated safety suite passed; production_authorized/live_enabled default false,ACCEPTED_PAPER_ONLY,false
+Neural research,V43,Final Test precision 57.60%; PF 1.14564 at locked ~0.60 threshold; unstable blocks,REJECTED_FOR_PRODUCTION,false
+System integration,V44,3 integration tests passed; neural cannot authorize live,ACCEPTED,false
+Legacy isolation,V44,Legacy RULEBOOK_V3/Neural V3 explicitly excluded from V43 lineage,ACCEPTED,false
+Final production authorization,V45,No production-qualified V39/V43 intelligence and no forward observations,NO-GO,false
+Controlled research/paper,V45,Router + safety boundaries preserved,GO,true

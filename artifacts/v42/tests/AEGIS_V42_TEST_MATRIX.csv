@@ -1,0 +1,11 @@
+test_id,area,assertion,status
+V42-T01,Paper/live,Paper may pass while LIVE remains blocked,PASS
+V42-T02,Data,Stale/future bar rejected,PASS
+V42-T03,Market,Spread/ATR ceiling enforced,PASS
+V42-T04,Risk,Stop cannot be closer than 1.5 ATR,PASS
+V42-T05,Position,One-position rule enforced,PASS
+V42-T06,State,Illegal lifecycle transition rejected,PASS
+V42-T07,Safety,Kill switch overrides valid order,PASS
+V42-T08,Audit,Hash-linked audit chain verifies,PASS
+V42-T09,Idempotency,Duplicate client order ID rejected,PASS
+V42-T10,Production,Production authorization defaults false,PASS

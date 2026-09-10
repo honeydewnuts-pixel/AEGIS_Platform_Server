@@ -1,0 +1,7 @@
+instrument,rulebook,required_start_after,latest_available_observation,status,reason
+AUDUSD,V31,2026-08-28 16:55:00,2026-08-28 16:55:00,NO_NEW_DATA,No post-cutoff forward bars available in current workspace
+AUDUSD,V35,2026-08-28 16:55:00,2026-08-28 16:55:00,NO_NEW_DATA,No post-cutoff forward bars available in current workspace
+USDCHF,V31,2026-08-28 16:55:00,2026-08-28 16:55:00,NO_NEW_DATA,No post-cutoff forward bars available in current workspace
+USDCHF,V35,2026-08-28 16:55:00,2026-08-28 16:55:00,NO_NEW_DATA,No post-cutoff forward bars available in current workspace
+NZDUSD,V31,2026-08-28 16:55:00,2026-08-28 16:55:00,NO_NEW_DATA,No post-cutoff forward bars available in current workspace
+NZDUSD,V35,2026-08-28 16:55:00,2026-08-28 16:55:00,NO_NEW_DATA,No post-cutoff forward bars available in current workspace
