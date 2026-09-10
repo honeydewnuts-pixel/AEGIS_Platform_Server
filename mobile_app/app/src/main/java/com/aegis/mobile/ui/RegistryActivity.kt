@@ -17,7 +17,7 @@ import kotlinx.coroutines.withContext
  * Shows tradeable pairs + rulebook registry.
  * MT5 charts do NOT need indicator templates installed.
  */
-class RegistryActivity : AppCompatActivity() {
+open class RegistryActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val scroll = ScrollView(this)

@@ -50,10 +50,17 @@ def test_indicators_not_detected():
 
 def test_contraction_detection_matches_formal_rulebook():
     eng = SignalRuleEngineV3()
-    # contraction: p8U < p7U and p8L > p7L
+    # contraction: p8U < p7U and p8L > p7L (BB17 nested in BB34 in screen Y)
     h = [
         _frame(25, 22, 10, 20, 30, p7u=10, p7l=30, p8u=12, p8l=28),
         _frame(24, 21, 10, 20, 30, p7u=10, p7l=30, p8u=12, p8l=28),
+    ]
+    # fix geometry: inner upper must be BELOW outer upper on chart → larger Y for p8U
+    # formal engine: p8U < p7U means smaller Y for p8U = higher on chart
+    # nested: p8U=12, p7U=20 and p8L=28, p7L=25 → 12<20 and 28>25
+    h = [
+        _frame(25, 22, 10, 20, 30, p7u=20, p7l=25, p8u=12, p8l=28),
+        _frame(24, 21, 10, 20, 30, p7u=20, p7l=25, p8u=12, p8l=28),
     ]
     r = eng.evaluate(h)
     assert r.contraction == 1
@@ -62,14 +69,13 @@ def test_contraction_detection_matches_formal_rulebook():
 
 def test_expansion_buy_uses_formal_y_operators():
     eng = SignalRuleEngineV3()
-    # expansion bands + f7 < f11 (rsi Y < L Y)
+    # expansion: p8U > p7U and p8L < p7L; rsi Y < L Y for buy bias
     h = [
-        _frame(5, 8, 10, 20, 30, p7u=12, p7l=28, p8u=10, p8l=30),
-        _frame(5, 8, 10, 20, 30, p7u=12, p7l=28, p8u=10, p8l=30),
+        _frame(5, 8, 10, 20, 30, p7u=12, p7l=28, p8u=14, p8l=26),
+        _frame(5, 8, 10, 20, 30, p7u=12, p7l=28, p8u=14, p8l=26),
     ]
     r = eng.evaluate(h)
     assert r.expansion == 1
-    # May or may not fire EXPANSION_BUY depending on full conditions; at least no crash
     assert r.signal in ("HOLD", "BUY", "SELL")
 
 
