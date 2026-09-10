@@ -1,203 +1,278 @@
 """
-AEGIS Capture for macOS — draggable chart region + cloud analysis.
-Packaged as AEGIS_Capture.exe via PyInstaller.
+AEGIS Capture for Windows — V46 baseline.
+
+- Draggable region over plain MT5 price chart (no indicator pack required)
+- Cloud analysis via /aegis/analyze
+- Pairs + rulebook registry (/api/registry/*)
+- Risk presets (server-side lot sizing)
 """
 from __future__ import annotations
 
+import sys
 import threading
 import time
 import tkinter as tk
+from pathlib import Path
 from tkinter import messagebox, ttk
 import uuid
 
-from api_client import AegisClient
+from api_client import AegisClient, CLIENT_VERSION
 from capture_loop import CaptureLoop
 from config import load, save
 
 
-class RegionOverlay(tk.Toplevel):
-    """Semi-transparent resizable frame to select MT5 chart area."""
+def _resource_path(*parts: str) -> Path:
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        base = Path(sys._MEIPASS)
+    else:
+        base = Path(__file__).resolve().parent
+    return base.joinpath(*parts)
 
+
+class RegionOverlay(tk.Toplevel):
     def __init__(self, master, on_lock):
         super().__init__(master)
         self.on_lock = on_lock
         self.attributes("-alpha", 0.35)
         self.attributes("-topmost", True)
         self.geometry("640x400+200+150")
-        self.title("AEGIS — drag over MT5 chart, then Lock")
+        self.title("AEGIS V46 — drag over MT5 chart, then Lock")
         self.configure(bg="#00c8c8")
-        label = tk.Label(
+        tk.Label(
             self,
-            text="Drag & resize over MT5 chart only\nThen click LOCK REGION",
+            text="Drag & resize over the MT5 price chart only\n(No indicators required) · then LOCK REGION",
             bg="#003333",
             fg="white",
             font=("Segoe UI", 11, "bold"),
-        )
-        label.pack(fill="both", expand=True, padx=8, pady=8)
-        btn = tk.Button(self, text="LOCK REGION", command=self._lock, bg="#00aa88", fg="white")
-        btn.pack(pady=8)
+        ).pack(fill="both", expand=True, padx=8, pady=8)
+        tk.Button(self, text="LOCK REGION", command=self._lock, bg="#00aa88", fg="white").pack(pady=8)
 
     def _lock(self):
-        geo = self.geometry()  # WxH+X+Y
-        wh, _, xy = geo.partition("+")
-        w, h = wh.split("x")
-        parts = geo.split("+")
-        x, y = int(parts[1]), int(parts[2])
-        region = {"left": x, "top": y, "width": int(w), "height": int(h)}
-        self.on_lock(region)
+        geo = self.geometry()
+        parts = geo.replace("x", "+").split("+")
+        w, h, x, y = int(parts[0]), int(parts[1]), int(parts[2]), int(parts[3])
+        self.on_lock({"left": x, "top": y, "width": w, "height": h})
         self.destroy()
 
 
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AEGIS Capture — macOS")
-        self.geometry("480x560")
+        self.title(f"AEGIS Capture — macOS V{CLIENT_VERSION}")
         self.configure(bg="#0b1220")
+        self.geometry("520x560")
+        self.resizable(False, False)
+
         self.cfg = load()
         if not self.cfg.get("device_id"):
-            self.cfg["device_id"] = f"mac-{uuid.uuid4().hex[:10]}"
+            self.cfg["device_id"] = f"mac-{uuid.uuid4().hex[:12]}"
             save(self.cfg)
 
         self.client: AegisClient | None = None
         self.loop: CaptureLoop | None = None
-        self.last_signal = "—"
-        self.last_http = "—"
         self.running = False
 
-        self._build_ui()
-        self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.status = tk.StringVar(value="Idle — plain MT5 chart, server rulebooks")
+        self.signal_var = tk.StringVar(value="Signal: —")
+        self.diag = tk.StringVar(value="HTTP: —")
+        self.region_lbl = tk.StringVar(value="Region: not set")
+        self.registry_lbl = tk.StringVar(value="Registry: not loaded")
 
-    def _build_ui(self):
-        style = {"bg": "#0b1220", "fg": "#e2e8f0", "font": ("Segoe UI", 10)}
         pad = {"padx": 12, "pady": 4}
+        frm = ttk.Frame(self, padding=12)
+        frm.pack(fill="both", expand=True)
 
-        tk.Label(self, text="AEGIS Capture", font=("Segoe UI", 16, "bold"), bg="#0b1220", fg="#00e0c0").pack(pady=10)
-
-        form = tk.Frame(self, bg="#0b1220")
-        form.pack(fill="x", **pad)
-
-        def row(label, key, show=None):
-            tk.Label(form, text=label, **style).pack(anchor="w")
-            e = tk.Entry(form, width=52, show=show)
-            e.insert(0, str(self.cfg.get(key, "")))
-            e.pack(fill="x", pady=2)
-            setattr(self, f"ent_{key}", e)
-
-        row("Server URL", "server_url")
-        row("Account ID", "account_id")
-        row("API Key", "api_key", show="*")
-        row("Capture interval (sec)", "interval_sec")
-
-        self.region_lbl = tk.Label(self, text="Region: not locked", **style)
-        self.region_lbl.pack(anchor="w", **pad)
-
-        btns = tk.Frame(self, bg="#0b1220")
-        btns.pack(fill="x", **pad)
-        tk.Button(btns, text="Select chart region", command=self._select_region, bg="#1e3a5f", fg="white").pack(
-            side="left", padx=4
-        )
-        tk.Button(btns, text="Save settings", command=self._save, bg="#334155", fg="white").pack(side="left", padx=4)
-
-        ctrl = tk.Frame(self, bg="#0b1220")
-        ctrl.pack(fill="x", **pad)
-        self.btn_start = tk.Button(ctrl, text="START", command=self._start, bg="#16a34a", fg="white", width=12)
-        self.btn_start.pack(side="left", padx=4)
-        self.btn_stop = tk.Button(ctrl, text="STOP", command=self._stop, bg="#dc2626", fg="white", width=12, state="disabled")
-        self.btn_stop.pack(side="left", padx=4)
-
-        self.status = tk.Label(self, text="Idle", **style, justify="left")
-        self.status.pack(anchor="w", **pad)
-        self.signal_lbl = tk.Label(self, text="Signal: —", font=("Segoe UI", 14, "bold"), bg="#0b1220", fg="#fbbf24")
-        self.signal_lbl.pack(anchor="w", **pad)
-
-        tk.Label(
-            self,
-            text="Tip: Keep MT5 chart visible inside the locked region.\n"
-            "Use the same Account ID + API key as the mobile app / portal.",
-            bg="#0b1220",
-            fg="#94a3b8",
-            font=("Segoe UI", 9),
-            justify="left",
+        ttk.Label(frm, text=f"AEGIS V46  ·  client {CLIENT_VERSION}", font=("Segoe UI", 12, "bold")).pack(anchor="w")
+        ttk.Label(
+            frm,
+            text="No indicator template. Server pairs + rulebook registry decides analysis.",
+            wraplength=480,
         ).pack(anchor="w", **pad)
 
+        grid = ttk.Frame(frm)
+        grid.pack(fill="x", pady=8)
+        self.url_var = tk.StringVar(value=self.cfg.get("server_url") or "")
+        self.acc_var = tk.StringVar(value=self.cfg.get("account_id") or "")
+        self.key_var = tk.StringVar(value=self.cfg.get("api_key") or "")
+        self.interval_var = tk.StringVar(value=str(self.cfg.get("interval_sec") or 5))
+        self.risk_var = tk.StringVar(value=self.cfg.get("risk_preset") or "standard")
+
+        rows = [
+            ("Server URL", self.url_var),
+            ("Account ID", self.acc_var),
+            ("API Key", self.key_var),
+            ("Interval (sec)", self.interval_var),
+        ]
+        for i, (lab, var) in enumerate(rows):
+            ttk.Label(grid, text=lab).grid(row=i, column=0, sticky="e", padx=4, pady=2)
+            show = "*" if lab == "API Key" else None
+            ttk.Entry(grid, textvariable=var, width=42, show=show).grid(row=i, column=1, sticky="we", pady=2)
+
+        ttk.Label(grid, text="Risk preset").grid(row=4, column=0, sticky="e", padx=4, pady=2)
+        ttk.Combobox(
+            grid,
+            textvariable=self.risk_var,
+            values=("conservative", "standard", "aggressive"),
+            state="readonly",
+            width=20,
+        ).grid(row=4, column=1, sticky="w", pady=2)
+
+        btns = ttk.Frame(frm)
+        btns.pack(fill="x", pady=8)
+        ttk.Button(btns, text="Save", command=self._save).pack(side="left", padx=2)
+        ttk.Button(btns, text="Set chart region", command=self._pick_region).pack(side="left", padx=2)
+        ttk.Button(btns, text="Load registry", command=self._load_registry).pack(side="left", padx=2)
+        ttk.Button(btns, text="Apply risk", command=self._apply_risk).pack(side="left", padx=2)
+
+        run = ttk.Frame(frm)
+        run.pack(fill="x", pady=8)
+        self.btn_start = ttk.Button(run, text="START", command=self._start)
+        self.btn_start.pack(side="left", padx=2)
+        self.btn_stop = ttk.Button(run, text="STOP", command=self._stop, state="disabled")
+        self.btn_stop.pack(side="left", padx=2)
+
+        ttk.Label(frm, textvariable=self.region_lbl).pack(anchor="w")
+        ttk.Label(frm, textvariable=self.registry_lbl, wraplength=480).pack(anchor="w")
+        ttk.Label(frm, textvariable=self.signal_var, font=("Segoe UI", 11, "bold")).pack(anchor="w", pady=6)
+        ttk.Label(frm, textvariable=self.diag).pack(anchor="w")
+        ttk.Label(frm, textvariable=self.status, wraplength=480).pack(anchor="w", pady=6)
+
+        if self.cfg.get("region"):
+            r = self.cfg["region"]
+            self.region_lbl.set(f"Region: {r['left']},{r['top']} {r['width']}×{r['height']}")
+
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+
     def _save(self):
-        self.cfg["server_url"] = self.ent_server_url.get().strip()
-        self.cfg["account_id"] = self.ent_account_id.get().strip()
-        self.cfg["api_key"] = self.ent_api_key.get().strip()
+        self.cfg["server_url"] = self.url_var.get().strip()
+        self.cfg["account_id"] = self.acc_var.get().strip()
+        self.cfg["api_key"] = self.key_var.get().strip()
         try:
-            self.cfg["interval_sec"] = max(1, int(float(self.ent_interval_sec.get())))
+            self.cfg["interval_sec"] = max(2, int(float(self.interval_var.get())))
         except ValueError:
-            self.cfg["interval_sec"] = 3
+            self.cfg["interval_sec"] = 5
+        self.cfg["risk_preset"] = self.risk_var.get().strip() or "standard"
+        self.cfg["client_version"] = CLIENT_VERSION
         save(self.cfg)
-        messagebox.showinfo("AEGIS", "Settings saved.")
+        self.status.set("Settings saved.")
 
-    def _select_region(self):
-        RegionOverlay(self, self._on_region_locked)
-
-    def _on_region_locked(self, region: dict):
-        self.cfg["region"] = region
-        save(self.cfg)
-        self.region_lbl.config(
-            text=f"Region: {region['width']}x{region['height']} @ ({region['left']},{region['top']})"
-        )
-
-    def _start(self):
+    def _client(self) -> AegisClient | None:
         self._save()
-        if not self.cfg.get("api_key") or not self.cfg.get("account_id"):
-            messagebox.showerror("AEGIS", "Account ID and API Key required.")
-            return
-        if not self.cfg.get("region"):
-            messagebox.showerror("AEGIS", "Lock a chart region first.")
-            return
-        self.client = AegisClient(
+        if not self.cfg.get("api_key") or not self.cfg.get("server_url"):
+            messagebox.showerror("AEGIS", "Server URL and API Key are required.")
+            return None
+        return AegisClient(
             self.cfg["server_url"],
             self.cfg["api_key"],
-            self.cfg["account_id"],
-            self.cfg["device_id"],
+            self.cfg.get("account_id") or "",
+            self.cfg.get("device_id") or "mac-device",
         )
+
+    def _pick_region(self):
+        RegionOverlay(self, self._on_region)
+
+    def _on_region(self, region: dict):
+        self.cfg["region"] = region
+        save(self.cfg)
+        self.region_lbl.set(f"Region: {region['left']},{region['top']} {region['width']}×{region['height']}")
+
+    def _load_registry(self):
+        c = self._client()
+        if not c:
+            return
+
+        def work():
+            active = c.get_registry_active()
+            pairs = c.list_pairs()
+            body = active.get("body") if isinstance(active.get("body"), dict) else {}
+            pb = pairs.get("body") if isinstance(pairs.get("body"), dict) else {}
+            pair_list = pb.get("pairs") or []
+            n = len(pair_list) if isinstance(pair_list, list) else 0
+            msg = (
+                f"Registry HTTP {active.get('http')}/{pairs.get('http')} · "
+                f"tradeable pairs: {n} · indicators_required={pb.get('indicators_required', False)} · "
+                f"active={str(body)[:120]}"
+            )
+
+            def ui():
+                self.registry_lbl.set(msg)
+                self.status.set("Registry loaded (V46 pairs + rulebooks).")
+
+            self.after(0, ui)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _apply_risk(self):
+        c = self._client()
+        if not c:
+            return
+        preset = self.risk_var.get().strip() or "standard"
+
+        def work():
+            r = c.set_risk_preset(preset)
+            body = r.get("body") if isinstance(r.get("body"), dict) else {}
+
+            def ui():
+                lot = body.get("calculated_lot_size")
+                mx = body.get("plan_max_lot")
+                self.status.set(f"Risk preset '{preset}' → HTTP {r.get('http')} lot={lot} max={mx}")
+
+            self.after(0, ui)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _start(self):
+        c = self._client()
+        if not c:
+            return
+        if not self.cfg.get("region"):
+            messagebox.showwarning("AEGIS", "Set chart region first (drag over MT5 price chart).")
+            return
+        self.client = c
         self.loop = CaptureLoop(
-            get_region=lambda: self.cfg.get("region"),
-            interval_sec=float(self.cfg.get("interval_sec", 3)),
-            on_frame=self._on_frame,
+            self.client,
+            self.cfg.get("region") or {},
+            float(self.cfg.get("interval_sec") or 5),
+            on_result=self._on_result,
         )
+        self.loop.start()
         self.running = True
         self.btn_start.config(state="disabled")
         self.btn_stop.config(state="normal")
-        self.loop.start()
-        self.status.config(text="Capturing…")
+        self.status.set("Capturing… keep MT5 price chart under the locked region.")
         threading.Thread(target=self._hb_loop, daemon=True).start()
 
     def _stop(self):
-        self.running = False
         if self.loop:
             self.loop.stop()
+            self.loop = None
+        self.running = False
         self.btn_start.config(state="normal")
         self.btn_stop.config(state="disabled")
-        self.status.config(text="Stopped")
+        self.status.set("Stopped.")
 
-    def _on_frame(self, png: bytes):
-        if not self.client:
-            return
-        try:
-            res = self.client.upload_screenshot(png)
-            self.last_http = str(res.get("http"))
-            body = res.get("body") or {}
-            signal = body.get("signal") or body.get("direction") or body.get("action") or "HOLD"
-            rule = body.get("rule") or body.get("rule_name") or ""
-            conf = body.get("confidence", "")
-            self.last_signal = f"{signal}  conf={conf}  {rule}"
-            self.after(0, lambda: self.signal_lbl.config(text=f"Signal: {self.last_signal}"))
-            self.after(
-                0,
-                lambda: self.status.config(
-                    text=f"Frames={self.loop.frames if self.loop else 0}  HTTP={self.last_http}"
-                ),
+    def _on_result(self, result: dict):
+        def ui():
+            body = result.get("body") or {}
+            sig = body.get("signal") or body.get("action") or "—"
+            conf = body.get("confidence")
+            rule = body.get("rule_name") or body.get("rule") or ""
+            pair = body.get("pair") or body.get("instrument") or ""
+            self.signal_var.set(
+                f"Signal: {sig}"
+                + (f"  ({conf})" if conf is not None else "")
+                + (f"  [{pair}]" if pair else "")
             )
-            if signal in ("BUY", "SELL"):
-                self.after(0, lambda: messagebox.showinfo("AEGIS Signal", f"{signal}\n{rule}"))
-        except Exception as e:
-            self.after(0, lambda: self.status.config(text=f"Upload error: {e}"))
+            self.diag.set(
+                f"HTTP: {result.get('http')} · frames {result.get('frames')} · "
+                f"uploads {result.get('uploads_ok')} · {rule}"
+            )
+            if result.get("http") == 200:
+                self.status.set("Last upload OK")
+            else:
+                self.status.set(f"Upload issue HTTP {result.get('http')}")
+
+        self.after(0, ui)
 
     def _hb_loop(self):
         while self.running and self.client:

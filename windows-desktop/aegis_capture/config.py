@@ -12,6 +12,8 @@ DEFAULTS = {
     "api_key": "",
     "device_id": "",
     "interval_sec": 3,
+    "client_version": "1.46.0",
+    "risk_preset": "standard",
     "region": None,  # {left, top, width, height}
     "auto_start": False,
 }
