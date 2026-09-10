@@ -11,17 +11,26 @@ LEDGERS = {
 }
 EXPECTED_DATA_SHA256 = "6e962ec23023f9c747514bed17077a9bc7dadc4b42591feb1e29140c1e580ed5"
 
+
 class ReferenceHistoricalReplay:
     """Deterministic historical replay adapter over the frozen V37 reference ledgers.
 
-    This checkpoint deliberately uses the independently reproduced V37 trade ledgers as
-    the server replay oracle. It verifies the canonical dataset hash and returns the
-    exact frozen event/trade sequence. A future rulebook implementation may replace the
-    oracle with a fully causal feature evaluator without changing the interface.
+    Full dataset hash verification runs only when
+    AEGIS_V37_STANDARDIZED_GBPUSD_5M.csv is present (external large artifact).
+    Ledger CSVs alone are enough for count/metric checks in CI.
     """
-    def __init__(self, dataset: Path = DATASET) -> None:
+
+    def __init__(self, dataset: Path = DATASET, *, require_dataset: bool = False) -> None:
         self.dataset = Path(dataset)
-        self._validate_dataset()
+        self.dataset_validated = False
+        if self.dataset.exists():
+            self._validate_dataset()
+            self.dataset_validated = True
+        elif require_dataset:
+            raise FileNotFoundError(
+                f"Missing research dataset: {self.dataset} "
+                "(see EXTERNAL_LARGE_ARTIFACTS.md)"
+            )
 
     def _validate_dataset(self) -> None:
         h = hashlib.sha256(self.dataset.read_bytes()).hexdigest()
@@ -37,4 +46,6 @@ class ReferenceHistoricalReplay:
             path = LEDGERS[rulebook_id]
         except KeyError as exc:
             raise ValueError("NO_QUALIFIED_RULEBOOK") from exc
+        if not path.exists():
+            raise FileNotFoundError(path)
         return pd.read_csv(path)
