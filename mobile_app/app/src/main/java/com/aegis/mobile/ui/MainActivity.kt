@@ -159,16 +159,48 @@ class MainActivity : AppCompatActivity() {
             // as part of /aegis/analyze.
         }
 
-        viewModel.details.observe(this) { details ->
-            detailsText.text = details
-        }
-
-        viewModel.confidence.observe(this) { conf ->
-            confidenceText.text = "Confidence: ${"%.0f".format(conf * 100)}%"
-        }
-
+        // Full analysis panel — signal, reason, rule, pair, regime, neural, execution
         viewModel.currentResult.observe(this) { result ->
-            ruleText.text = result.rule_name?.let { "Rule: $it" } ?: ""
+            if (result == null) return@observe
+            val confPct = "%.0f".format(result.confidence * 100)
+            confidenceText.text = "Confidence: ${confPct}%"
+            val rule = result.rule_name?.takeIf { it.isNotBlank() }
+            ruleText.text = rule?.let { "Rule: $it" } ?: ""
+
+            val lines = mutableListOf<String>()
+            val detail = result.details?.takeIf { it.isNotBlank() }
+            val reason = result.reason?.takeIf { it.isNotBlank() }
+            when {
+                detail != null && reason != null && detail != reason -> {
+                    lines.add(detail)
+                    lines.add("Reason: $reason")
+                }
+                detail != null -> lines.add(detail)
+                reason != null -> lines.add(reason)
+                else -> lines.add("No detail text from server.")
+            }
+            val pair = (result.pair ?: result.instrument)?.takeIf { it.isNotBlank() }
+            if (pair != null) {
+                val tf = result.timeframe?.takeIf { it.isNotBlank() }
+                lines.add(if (tf != null) "Pair: $pair · $tf" else "Pair: $pair")
+            }
+            if (rule != null) lines.add("Rule: $rule")
+            val regime = when {
+                result.expansion == 1 -> "Regime: EXPANSION"
+                result.contraction == 1 -> "Regime: CONTRACTION"
+                else -> null
+            }
+            if (regime != null) lines.add(regime)
+            result.neural_confidence?.let {
+                val mode = result.neural_mode?.takeIf { m -> m.isNotBlank() } ?: "neural"
+                lines.add("Neural ($mode): ${"%.0f".format(it * 100)}%")
+            }
+            when {
+                result.executed == true -> lines.add("Execution: submitted")
+                result.execution_status != null -> lines.add("Execution: ${result.execution_status}")
+            }
+            detailsText.text = lines.joinToString("
+")
         }
 
         val refreshHealth = {

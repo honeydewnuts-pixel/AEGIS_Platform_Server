@@ -9,19 +9,19 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@color/aegis_bg"
-    android:paddingStart="12dp"
-    android:paddingEnd="12dp"
-    android:paddingTop="10dp"
-    android:paddingBottom="10dp"
+    android:paddingStart="10dp"
+    android:paddingEnd="10dp"
+    android:paddingTop="6dp"
+    android:paddingBottom="6dp"
     android:clipChildren="false"
     android:clipToPadding="false"
     android:weightSum="100">
 
-    <!-- ===== HEADER (weight 8) ===== -->
+    <!-- ===== HEADER (weight 6) ===== -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="8"
+        android:layout_weight="6"
         android:orientation="vertical"
         android:gravity="center">
 
@@ -46,11 +46,11 @@
             android:layout_marginTop="2dp"/>
     </LinearLayout>
 
-    <!-- ===== START / STOP (weight 8) ===== -->
+    <!-- ===== START / STOP (weight 7) ===== -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="8"
+        android:layout_weight="7"
         android:orientation="horizontal"
         android:gravity="center"
         android:clipChildren="false">
@@ -95,64 +95,69 @@
     </LinearLayout>
 
 
-    <!-- ===== TRADING RISK PRESETS ===== -->
+    <!-- ===== TRADING RISK PRESETS (compact) ===== -->
     <LinearLayout
         android:id="@+id/riskCard"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:layout_marginTop="6dp"
-        android:padding="8dp"
+        android:layout_marginTop="4dp"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
         android:background="@drawable/card_signal_bg">
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Trading Risk"
+            android:text="Risk"
             android:textStyle="bold"
             android:textColor="#FFFFFF"
-            android:textSize="13sp"/>
+            android:textSize="11sp"/>
 
         <RadioGroup
             android:id="@+id/riskPresetGroup"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:orientation="horizontal">
 
             <RadioButton
                 android:id="@+id/riskConservative"
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="Conservative — 0.5x Lot Size"
+                android:layout_weight="1"
+                android:text="0.5×"
                 android:textColor="#E2E8F0"
-                android:textSize="12sp"/>
+                android:textSize="11sp"/>
 
             <RadioButton
                 android:id="@+id/riskStandard"
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="Standard — 1.0x Lot Size"
+                android:layout_weight="1"
+                android:text="1.0×"
                 android:textColor="#E2E8F0"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:checked="true"/>
 
             <RadioButton
                 android:id="@+id/riskAggressive"
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="Aggressive — 1.5x Lot Size (capped by plan)"
+                android:layout_weight="1"
+                android:text="1.5×"
                 android:textColor="#E2E8F0"
-                android:textSize="12sp"/>
+                android:textSize="11sp"/>
         </RadioGroup>
 
         <TextView
             android:id="@+id/riskLockedInfo"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="SL: 100pts | TP: 180pts | Locked by Strategy"
+            android:text="SL/TP locked · server lot"
             android:textColor="#94A3B8"
-            android:textSize="11sp"
-            android:layout_marginTop="4dp"/>
+            android:textSize="10sp"/>
 
         <TextView
             android:id="@+id/riskMaxLotInfo"
@@ -160,14 +165,14 @@
             android:layout_height="wrap_content"
             android:text=""
             android:textColor="#FBBF24"
-            android:textSize="11sp"/>
+            android:textSize="10sp"/>
     </LinearLayout>
 
-    <!-- ===== LAST CAPTURE (weight 22) — smaller than data ===== -->
+    <!-- ===== LAST CAPTURE (weight 16) ===== -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="22"
+        android:layout_weight="16"
         android:layout_marginTop="6dp"
         android:background="@drawable/card_signal_bg">
 
@@ -201,14 +206,14 @@
             android:gravity="center"/>
     </FrameLayout>
 
-    <!-- ===== DATA PANEL (weight 30) — larger than capture ===== -->
+    <!-- ===== DATA PANEL (weight 38) — full analysis ===== -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="30"
+        android:layout_weight="38"
         android:orientation="vertical"
-        android:layout_marginTop="8dp"
-        android:padding="8dp"
+        android:layout_marginTop="4dp"
+        android:padding="6dp"
         android:background="@drawable/card_diag_bg">
 
         <TextView
@@ -219,23 +224,13 @@
             android:textStyle="bold"
             android:textColor="@color/aegis_gold"
             android:letterSpacing="0.08"
-            android:layout_marginBottom="4dp"/>
-
-        <TextView
-            android:id="@+id/detailsText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textColor="@color/aegis_text"
-            android:textSize="12sp"
-            android:maxLines="3"
-            android:ellipsize="end"
-            android:text="Waiting for analysis…"/>
+            android:layout_marginBottom="2dp"/>
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginTop="4dp">
+            android:layout_marginBottom="2dp">
 
             <TextView
                 android:id="@+id/confidenceText"
@@ -244,6 +239,7 @@
                 android:layout_weight="1"
                 android:textColor="@color/aegis_teal"
                 android:textSize="11sp"
+                android:textStyle="bold"
                 android:text="Confidence: —"/>
 
             <TextView
@@ -257,6 +253,23 @@
                 android:ellipsize="end"
                 android:text=""/>
         </LinearLayout>
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:fillViewport="true"
+            android:scrollbars="vertical">
+
+            <TextView
+                android:id="@+id/detailsText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/aegis_text"
+                android:textSize="12sp"
+                android:lineSpacingExtra="2dp"
+                android:text="Waiting for analysis…\nSignal, rule, pair and reason will appear here."/>
+        </ScrollView>
 
         <TextView
             android:id="@+id/healthText"
@@ -283,11 +296,11 @@
             android:text="Diagnostics…"/>
     </LinearLayout>
 
-    <!-- ===== ACTION GRID (weight 32) — four equal rows fill bottom ===== -->
+    <!-- ===== ACTION GRID (weight 28) ===== -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="32"
+        android:layout_weight="28"
         android:orientation="vertical"
         android:layout_marginTop="8dp"
         android:clipChildren="false">
