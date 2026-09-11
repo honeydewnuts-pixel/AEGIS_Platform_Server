@@ -41,7 +41,7 @@ object PrefKeys {
 // Default Render URL when Settings has never been saved.
 // Override in Settings with your real service hostname.
 const val DEFAULT_SERVER_URL =
-    "https://aegis-api-0z1p.onrender.com"
+    "https://aegis-api-0z1p.onrender.com/"
 
 const val DEFAULT_MIN_CONFIDENCE = 0.70f
 const val DEFAULT_CAPTURE_INTERVAL_SEC = 5

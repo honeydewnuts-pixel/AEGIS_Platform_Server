@@ -295,7 +295,7 @@ class FloatingHudService : Service() {
             }
             val res = SignalRepository.latestResult.value
             detailView.text = res?.let {
-                val conf = (it.confidence.toFloat() * 100f).toInt()
+                val conf = (it.confidence * 100f).toInt()
                 val rule = it.rule_name ?: ""
                 "$rule · ${conf}%"
             } ?: "Waiting…"
@@ -368,7 +368,7 @@ class FloatingHudService : Service() {
     }
     private val resultObserver = androidx.lifecycle.Observer<com.aegis.mobile.models.AnalysisResponse?> { res ->
         if (res == null) return@Observer
-        val conf = (res.confidence.toFloat() * 100f).toInt()
+        val conf = (res.confidence * 100f).toInt()
         val rule = res.rule_name ?: ""
         val line = "$rule · ${conf}%"
         if (collapsed) {

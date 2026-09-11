@@ -1,5 +1,9 @@
 package com.aegis.mobile.models
 
+/**
+ * Response from POST /aegis/analyze.
+ * Optional fields are filled when the V46 brain returns them.
+ */
 data class AnalysisResponse(
     val signal: String = "HOLD",
     val confidence: Float = 0f,
@@ -10,12 +14,10 @@ data class AnalysisResponse(
     val pair: String? = null,
     val instrument: String? = null,
     val timeframe: String? = null,
-    val frames_in_history: Int? = null,
     val contraction: Int? = null,
     val expansion: Int? = null,
     val neural_confidence: Float? = null,
     val neural_mode: String? = null,
-    val neural_signal: String? = null,
     val executed: Boolean? = null,
     val execution_status: String? = null,
 )

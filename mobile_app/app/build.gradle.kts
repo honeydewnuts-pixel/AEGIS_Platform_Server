@@ -37,8 +37,8 @@ android {
         applicationId = "com.aegis.mobile"
         minSdk = 26
         targetSdk = 34
-        versionCode = 21
-        versionName = "1.9.4"
+        versionCode = 22
+        versionName = "1.9.5"
     }
 
     signingConfigs {
@@ -64,8 +64,6 @@ android {
             }
         }
         debug {
-            applicationIdSuffix = ".debug"
-            versionNameSuffix = "-debug"
         }
     }
 

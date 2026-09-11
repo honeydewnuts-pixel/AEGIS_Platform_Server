@@ -7,105 +7,78 @@ import com.aegis.mobile.data.dataStore
 import com.google.gson.GsonBuilder
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import okhttp3.Interceptor
 import okhttp3.OkHttpClient
-import okhttp3.Request
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicReference
 
-/**
- * Proven upload client pattern (matches older working sideload builds):
- * - Preferences loaded ONCE when building the client (not inside OkHttp threads)
- * - No runBlocking on the interceptor path (that caused NETWORK failures / hangs)
- * - No host-rewrite
- */
 object RetrofitClient {
 
-    private val cachedApiKey = AtomicReference("")
-    private val cachedBaseUrl = AtomicReference(
-        if (DEFAULT_SERVER_URL.endsWith("/")) DEFAULT_SERVER_URL else "$DEFAULT_SERVER_URL/"
-    )
+    /**
+     * Resolves the base URL to hit. Prefers the new SERVER_URL pref (a
+     * full "https://your-app.onrender.com/" style URL). Falls back to
+     * the legacy SERVER_IP pref (bare LAN IP) wrapped as
+     * "http://ip:5000/" ONLY for backward compatibility with devices
+     * that saved settings before this update - Render itself is never
+     * reachable that way (it terminates HTTPS on 443, not a raw
+     * IP:5000, and Android blocks cleartext http by default).
+     */
+    private suspend fun resolveBaseUrl(context: Context): String {
+        val prefs = context.dataStore.data.first()
 
-    fun currentBaseUrl(): String = cachedBaseUrl.get()
-    fun currentApiKeyMasked(): String {
-        val k = cachedApiKey.get()
-        if (k.isBlank()) return "(empty)"
-        if (k.length <= 8) return "***"
-        return k.take(4) + "…" + k.takeLast(4)
-    }
-
-    private fun normalizeBaseUrl(raw: String): String {
-        var u = raw.trim()
-        if (u.isEmpty()) {
-            u = DEFAULT_SERVER_URL
-        }
-        if (!u.startsWith("http://") && !u.startsWith("https://")) {
-            u = "https://$u"
-        }
-        // Strip path accidents like .../api or website paths
-        u = u.trimEnd('/')
-        // If user pasted website domain without api host, force API default
-        val host = u.substringAfter("://").substringBefore("/")
-        if (host.equals("leveragefx.co", true) ||
-            host.equals("www.leveragefx.co", true) ||
-            host.equals("leveragefx-website.vercel.app", true)
-        ) {
-            u = DEFAULT_SERVER_URL.trimEnd('/')
-        }
-        return "$u/"
-    }
-
-    /** Call from coroutine or service thread before creating client. */
-    fun loadPreferences(context: Context) {
-        val appCtx = context.applicationContext
-        runBlocking {
-            val prefs = appCtx.dataStore.data.first()
-            val url = prefs[PrefKeys.SERVER_URL]?.trim().orEmpty()
-            val ip = prefs[PrefKeys.SERVER_IP]?.trim().orEmpty()
-            val key = prefs[PrefKeys.API_KEY]?.trim().orEmpty()
-            cachedApiKey.set(key)
-            val base = when {
-                url.isNotBlank() -> normalizeBaseUrl(url)
-                ip.isNotBlank() -> "http://${ip.trim()}:5000/"
-                else -> normalizeBaseUrl(DEFAULT_SERVER_URL)
+        prefs[PrefKeys.SERVER_URL]?.let { url ->
+            if (url.isNotBlank()) {
+                return if (url.endsWith("/")) url else "$url/"
             }
-            cachedBaseUrl.set(base)
         }
+
+        prefs[PrefKeys.SERVER_IP]?.let { ip ->
+            if (ip.isNotBlank()) {
+                return "http://$ip:5000/"
+            }
+        }
+
+        return DEFAULT_SERVER_URL
     }
 
     fun getApiService(context: Context): ApiService {
-        loadPreferences(context)
-        val baseUrl = cachedBaseUrl.get()
+        val baseUrl = runBlocking { resolveBaseUrl(context) }
+
+        val apiKey = runBlocking {
+            context.dataStore.data.first()[PrefKeys.API_KEY] ?: ""
+        }
 
         val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BASIC
+            level = HttpLoggingInterceptor.Level.BODY
         }
 
-        // Header only — never touch DataStore / runBlocking here
-        val authInterceptor = Interceptor { chain ->
-            val key = cachedApiKey.get()
-            val req = if (key.isNotBlank()) {
-                chain.request().newBuilder().header("X-API-Key", key).build()
-            } else {
-                chain.request()
-            }
-            chain.proceed(req)
+        val authInterceptor = okhttp3.Interceptor { chain ->
+            val newRequest = chain.request().newBuilder()
+                .addHeader("X-API-Key", apiKey)
+                .build()
+
+            chain.proceed(newRequest)
         }
 
+        // Timeouts sized for Render free-tier cold starts (container wake
+        // + Postgres/Redis + first OpenCV load can exceed 30s). Live
+        // captures after the service is warm finish well under these.
         val client = OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
             .addInterceptor(logging)
             .connectTimeout(45, TimeUnit.SECONDS)
             .readTimeout(90, TimeUnit.SECONDS)
             .writeTimeout(90, TimeUnit.SECONDS)
-            .callTimeout(120, TimeUnit.SECONDS)
+            .callTimeout(150, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
+            // Keep connections ready on flaky mobile networks
+            .pingInterval(15, TimeUnit.SECONDS)
             .build()
 
-        val gson = GsonBuilder().setLenient().create()
+        val gson = GsonBuilder()
+            .setLenient()
+            .create()
 
         return Retrofit.Builder()
             .baseUrl(baseUrl)
@@ -113,31 +86,5 @@ object RetrofitClient {
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
             .create(ApiService::class.java)
-    }
-
-    /**
-     * Lightweight reachability probe (no Retrofit). Returns null on success,
-     * or a short error string on failure.
-     */
-    fun pingBackend(context: Context): String? {
-        return try {
-            loadPreferences(context)
-            val base = cachedBaseUrl.get().trimEnd('/')
-            val client = OkHttpClient.Builder()
-                .connectTimeout(20, TimeUnit.SECONDS)
-                .readTimeout(20, TimeUnit.SECONDS)
-                .retryOnConnectionFailure(true)
-                .build()
-            // Prefer /health then /
-            for (path in listOf("/health", "/")) {
-                val req = Request.Builder().url("$base$path").get().build()
-                client.newCall(req).execute().use { resp ->
-                    if (resp.isSuccessful) return null
-                }
-            }
-            "HTTP non-2xx from $base"
-        } catch (e: Exception) {
-            "${e.javaClass.simpleName}: ${e.message}"
-        }
     }
 }
