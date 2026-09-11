@@ -48,6 +48,27 @@ async def report_issue(body: ReportIssueBody, request: Request):
         session.add(ticket)
         await session.commit()
         tid = ticket.id
+    # Notify operators (email / Telegram / Slack if env configured)
+    try:
+        alerts = getattr(request.app.state, "alert_service", None)
+        if alerts is None:
+            from app.services.alert_service import AlertService
+            alerts = AlertService()
+        await alerts.send(
+            subject=f"Support ticket #{tid}: {body.subject[:80]}",
+            body=(
+                f"Ticket ID: {tid}\n"
+                f"Account: {body.account_id or 'n/a'}\n"
+                f"Email: {body.email or 'n/a'}\n"
+                f"HTTP: {body.last_http_code}\n"
+                f"Device: {body.device_model or 'n/a'}\n\n"
+                f"{msg[:2000]}"
+            ),
+            severity="info",
+            channels=["email", "telegram", "slack"],
+        )
+    except Exception:
+        pass
     return {
         "ticket_id": tid,
         "status": "open",
