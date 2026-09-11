@@ -116,25 +116,25 @@ async def login(body: LoginBody, request: Request):
     except ValueError as e:
         raise HTTPException(401, str(e)) from e
     # Attach subscription portal_token so website portal can issue mobile keys.
-    try:
-        sub = request.app.state.subscription_service
-        account_id = result.get("account_id")
-        if account_id and sub:
+    sub = getattr(request.app.state, "subscription_service", None)
+    account_id = result.get("account_id")
+    if account_id and sub:
+        try:
             status = await sub.get_status(account_id)
-            if status is None:
-                await sub.activate_demo(account_id)
-                status = await sub.get_status(account_id)
-            if status and not status.get("portal_token"):
-                # Backfill missing portal_token on legacy rows
-                await sub.activate_demo(account_id)
-                status = await sub.get_status(account_id)
+            if status is None or not status.get("portal_token"):
+                demo = await sub.activate_demo(account_id)
+                status = await sub.get_status(account_id) or {}
+                if not status.get("portal_token") and demo.get("portal_token"):
+                    status["portal_token"] = demo["portal_token"]
+                    status["plan"] = demo.get("plan") or "demo"
             if status:
-                result["plan"] = status.get("plan") or result.get("plan")
+                result["plan"] = status.get("plan") or result.get("plan") or "demo"
                 result["portal_token"] = status.get("portal_token")
-                result["subscription_status"] = status.get("status")
-                result["is_active"] = status.get("status") in ("active", "trialing", "demo")
-    except Exception:
-        pass
+                result["subscription_status"] = status.get("status") or "active"
+                result["is_active"] = True
+        except Exception as e:
+            # Surface for operators; client may still use Free demo
+            result["portal_attach_error"] = f"{type(e).__name__}: {e}"
     return result
 
 
