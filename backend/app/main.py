@@ -50,6 +50,7 @@ from app.api.signal_router import router as signal_router
 from app.api.config_router import router as config_router
 from app.api.template_router import router as template_router
 from app.api.registry_router import router as registry_router
+from app.api.router_acceptance_router import router as router_acceptance_router
 from app.api.auth_router import router as auth_router
 from app.api.support_router import router as support_router
 from app.api.status_router import router as status_router
@@ -116,6 +117,7 @@ app.add_middleware(
 app.include_router(telemetry_router)
 app.include_router(template_router)
 app.include_router(registry_router)
+app.include_router(router_acceptance_router)
 app.include_router(auth_router)
 app.include_router(support_router)
 app.include_router(status_router)
