@@ -124,6 +124,12 @@ async def portal_issue_mobile_key(
     """
     record = await _authenticate(request, account_id, token)
     if not record.get("is_active"):
+        try:
+            await request.app.state.subscription_service.activate_demo(account_id)
+            record = await _authenticate(request, account_id, token)
+        except Exception:
+            pass
+    if not record.get("is_active"):
         raise HTTPException(
             status_code=402,
             detail="Subscription is not active. Start a free demo or complete payment first.",

@@ -404,6 +404,7 @@ class SubscriptionService:
                     provider="demo",
                     status="active",
                     plan="demo",
+                    risk_preset="standard",
                     max_devices=1,
                     max_trades_per_day=5,
                     portal_token=portal_token,
@@ -431,14 +432,19 @@ class SubscriptionService:
             existing_key = row is not None
 
         mobile_api_key = None
+        key_error = None
         if not existing_key:
-            mobile_api_key = await issue_api_key(
-                account_id=account_id,
-                is_admin=False,
-                label=f"demo mobile key for {account_id}",
-                issued_by="demo_signup",
-            )
-        return {
+            try:
+                mobile_api_key = await issue_api_key(
+                    account_id=account_id,
+                    is_admin=False,
+                    label=f"demo mobile key for {account_id}",
+                    issued_by="demo_signup",
+                )
+            except Exception as e:
+                key_error = f"{type(e).__name__}: {e}"
+                self.logger.exception("demo issue_api_key failed for %s", account_id)
+        out = {
             "account_id": account_id,
             "portal_token": portal_token,
             "mobile_api_key": mobile_api_key,  # null if key already exists — use Connect mobile to rotate
@@ -451,6 +457,9 @@ class SubscriptionService:
                 else "Copy mobile_api_key into the app with this account_id."
             ),
         }
+        if key_error:
+            out["key_error"] = key_error
+        return out
 
     # ------------------------------------------------------------
     # Risk presets (server is source of truth for lot size)

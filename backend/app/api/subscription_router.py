@@ -226,23 +226,60 @@ async def demo_signup(body: DemoSignupRequest, request: Request):
     """
     account_id = (body.account_id or "").strip() or f"DEMO-{uuid.uuid4().hex[:10].upper()}"
     sub = request.app.state.subscription_service
-    issued = await sub.activate_demo(account_id)
-    token = await request.app.state.device_bindings.issue_download_token(
-        account_id=account_id, plan="demo", max_uses=1, ttl_hours=72
-    )
-    base = str(request.base_url).rstrip("/")
-    if hasattr(request.app.state, "audit_service"):
-        await request.app.state.audit_service.record(
-            action="subscription.demo_signup",
-            actor_type="system",
-            account_id=account_id,
-            detail="demo plan activated",
-            ip=request.client.host if request.client else None,
-        )
+    try:
+        issued = await sub.activate_demo(account_id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Demo activation failed: {type(e).__name__}: {e}",
+        ) from e
+
+    # Download token is optional — never fail the whole signup if APK token table errors
+    download_url = None
+    download_token = None
+    try:
+        bindings = getattr(request.app.state, "device_bindings", None)
+        if bindings is not None:
+            download_token = await bindings.issue_download_token(
+                account_id=account_id, plan="demo", max_uses=1, ttl_hours=72
+            )
+            base = str(request.base_url).rstrip("/")
+            download_url = f"{base}/api/download/apk?token={download_token}"
+    except Exception:
+        download_url = "https://www.leveragefx.co/downloads/aegis-mobile.apk?v=1.9.0"
+
+    try:
+        audit = getattr(request.app.state, "audit_service", None)
+        if audit is not None:
+            await audit.record(
+                action="subscription.demo_signup",
+                actor_type="system",
+                account_id=account_id,
+                detail="demo plan activated",
+                ip=request.client.host if request.client else None,
+            )
+    except Exception:
+        pass
+
+    # Always ensure a mobile key is present for first-time demo users
+    if not issued.get("mobile_api_key"):
+        try:
+            from app.security import issue_api_key
+            issued["mobile_api_key"] = await issue_api_key(
+                account_id=account_id,
+                is_admin=False,
+                label=f"demo mobile key for {account_id}",
+                issued_by="demo_signup_ensure",
+            )
+            issued["key_reused"] = False
+            issued["note"] = "Copy mobile_api_key into the app with this account_id."
+        except Exception as e:
+            issued["key_error"] = f"{type(e).__name__}: {e}"
+
     return {
         **issued,
-        "download_url": f"{base}/api/download/apk?token={token}",
-        "download_token": token,
+        "download_url": download_url,
+        "download_token": download_token,
         "limits": {
             "brain_analysis": True,
             "live_trading": False,
