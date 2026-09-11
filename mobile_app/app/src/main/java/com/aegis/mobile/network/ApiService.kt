@@ -1,11 +1,11 @@
 package com.aegis.mobile.network
 
-import com.aegis.mobile.models.AnalysisResponse
 import com.aegis.mobile.models.CaptureRoi
 import com.aegis.mobile.models.HeartbeatRequest
 import com.aegis.mobile.models.Mt5ConnectRequest
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
+import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -24,7 +24,7 @@ interface ApiService {
         @Part("account_id") accountId: RequestBody,
         @Part("captured_at_ms") capturedAtMs: RequestBody,
         @Part("symbol") symbol: RequestBody
-    ): Response<AnalysisResponse>
+    ): Response<ResponseBody>
 
     @POST("/api/devices/heartbeat")
     suspend fun sendHeartbeat(@Body heartbeat: HeartbeatRequest): Response<Unit>

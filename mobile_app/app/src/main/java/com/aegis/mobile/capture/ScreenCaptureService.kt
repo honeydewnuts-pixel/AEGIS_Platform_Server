@@ -34,6 +34,7 @@ import com.aegis.mobile.data.PrefKeys
 import com.aegis.mobile.data.SignalRepository
 import com.aegis.mobile.data.dataStore
 import com.aegis.mobile.models.AnalysisResponse
+import org.json.JSONObject
 import com.aegis.mobile.models.HeartbeatRequest
 import com.aegis.mobile.network.RetrofitClient
 import kotlinx.coroutines.*
@@ -429,27 +430,27 @@ class ScreenCaptureService : Service() {
     private suspend fun trySendOnce(file: File, accountId: String, capturedAtMs: Long, symbol: String): Boolean {
         val t0 = System.currentTimeMillis()
         return try {
-            // Rebuild client so Settings (URL/key) changes apply without restarting service
+            // Fresh client picks up Settings; same simple stack as working builds
             apiService = RetrofitClient.getApiService(applicationContext)
             val requestFile = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
-            // Explicit filename + content type helps proxies that strip part headers.
             val body = MultipartBody.Part.createFormData("image", "capture.jpg", requestFile)
             val accountIdBody: RequestBody = accountId.toRequestBody("text/plain".toMediaTypeOrNull())
             val capturedAtBody: RequestBody = capturedAtMs.toString().toRequestBody("text/plain".toMediaTypeOrNull())
             val symbolBody: RequestBody = symbol.toRequestBody("text/plain".toMediaTypeOrNull())
 
             val response = apiService.analyzeScreenshot(body, accountIdBody, capturedAtBody, symbolBody)
+            val code = response.code()
             if (response.isSuccessful) {
-                val result: AnalysisResponse? = response.body()
-                Log.d("AEGIS", "Brain Response: ${result?.signal} - ${result?.confidence}")
-                result?.let {
-                    SignalRepository.latestResult.postValue(it)
-                    SignalRepository.latestSignal.postValue(it.signal)
-                }
-                HealthStatus.recordCaptureSuccess(httpCode = response.code(), latencyMs = System.currentTimeMillis() - t0)
+                // Parse JSON manually so extra neural fields never fail the upload
+                val raw = try { response.body()?.string().orEmpty() } catch (_: Exception) { "" }
+                val result = parseAnalysisJson(raw)
+                Log.d("AEGIS", "Brain Response HTTP $code: ${result.signal} conf=${result.confidence} rule=${result.rule_name}")
+                SignalRepository.latestResult.postValue(result)
+                SignalRepository.latestSignal.postValue(result.signal)
+                HealthStatus.recordCaptureSuccess(httpCode = code, latencyMs = System.currentTimeMillis() - t0)
                 val pending = cacheManager.pendingCount()
                 val suffix = if (pending > 0) " ($pending queued)" else ""
-                updateNotification("Last signal: ${result?.signal ?: "HOLD"} @ ${timeNow()}$suffix")
+                updateNotification("Last signal: ${result.signal} @ ${timeNow()}$suffix")
                 true
             } else {
                 val errBody = try {
@@ -457,14 +458,46 @@ class ScreenCaptureService : Service() {
                 } catch (_: Exception) {
                     null
                 }
-                Log.e("AEGIS", "Brain Error: ${response.code()} body=${errBody ?: "(empty)"}")
-                HealthStatus.recordCaptureFailure(httpCode = response.code(), networkError = false, latencyMs = System.currentTimeMillis() - t0)
+                Log.e("AEGIS", "Brain Error: $code body=${errBody ?: "(empty)"}")
+                HealthStatus.recordCaptureFailure(httpCode = code, networkError = false, latencyMs = System.currentTimeMillis() - t0)
                 false
             }
         } catch (e: Exception) {
             Log.e("AEGIS", "Send failed: ${e.javaClass.simpleName}: ${e.message}")
             HealthStatus.recordCaptureFailure(httpCode = null, networkError = true, latencyMs = System.currentTimeMillis() - t0)
             false
+        }
+    }
+
+    /** Lenient parse — never throws; HTTP 200 always counts as upload success. */
+    private fun parseAnalysisJson(raw: String): AnalysisResponse {
+        if (raw.isBlank()) {
+            return AnalysisResponse(signal = "HOLD", details = "empty body")
+        }
+        return try {
+            val o = JSONObject(raw)
+            fun str(key: String): String? =
+                if (o.has(key) && !o.isNull(key)) o.optString(key).takeIf { it.isNotBlank() } else null
+            AnalysisResponse(
+                signal = o.optString("signal", "HOLD").ifBlank { "HOLD" },
+                confidence = o.optDouble("confidence", 0.0).toFloat(),
+                details = o.optString("details", o.optString("reason", "")),
+                timestamp = o.optLong("timestamp", 0L),
+                rule_name = str("rule_name"),
+                reason = str("reason"),
+                pair = str("pair"),
+                instrument = str("instrument"),
+                timeframe = str("timeframe"),
+                frames_in_history = if (o.has("frames_in_history")) o.optInt("frames_in_history") else null,
+                neural_mode = str("neural_mode"),
+                neural_signal = str("neural_signal"),
+                neural_confidence = if (o.has("neural_score")) o.optDouble("neural_score").toFloat() else null,
+                executed = if (o.has("executed")) o.optBoolean("executed") else null,
+                execution_status = str("execution_status"),
+            )
+        } catch (e: Exception) {
+            Log.w("AEGIS", "parseAnalysisJson soft-fail: ${e.message}")
+            AnalysisResponse(signal = "HOLD", details = raw.take(200))
         }
     }
 
