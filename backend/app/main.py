@@ -82,7 +82,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="AEGIS API",
     description="Autonomous Enterprise Global Intelligence System",
-    version="3.0.1",
+    version="3.0.2",
     debug=settings.DEBUG,  # was previously defined in config but never actually wired up
     lifespan=lifespan,
 )
