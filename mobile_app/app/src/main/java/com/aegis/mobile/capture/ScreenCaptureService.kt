@@ -90,6 +90,19 @@ class ScreenCaptureService : Service() {
     override fun onCreate() {
         super.onCreate()
         apiService = RetrofitClient.getApiService(this)
+        HealthStatus.resolvedBaseUrl.postValue(RetrofitClient.currentBaseUrl())
+        scope.launch {
+            val err = RetrofitClient.pingBackend(this@ScreenCaptureService)
+            if (err == null) {
+                HealthStatus.backendReachable.postValue(true)
+                HealthStatus.lastNetworkError.postValue(null)
+                Log.i("AEGIS", "Backend ping OK url=${RetrofitClient.currentBaseUrl()}")
+            } else {
+                HealthStatus.backendReachable.postValue(false)
+                HealthStatus.lastNetworkError.postValue(err)
+                Log.e("AEGIS", "Backend ping FAIL: $err url=${RetrofitClient.currentBaseUrl()}")
+            }
+        }
         mediaProjectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         cacheManager = ScreenshotCacheManager(this)
@@ -463,8 +476,14 @@ class ScreenCaptureService : Service() {
                 false
             }
         } catch (e: Exception) {
-            Log.e("AEGIS", "Send failed: ${e.javaClass.simpleName}: ${e.message}")
-            HealthStatus.recordCaptureFailure(httpCode = null, networkError = true, latencyMs = System.currentTimeMillis() - t0)
+            val detail = "${e.javaClass.simpleName}: ${e.message}"
+            Log.e("AEGIS", "Send failed: $detail")
+            HealthStatus.recordCaptureFailure(
+                httpCode = null,
+                networkError = true,
+                latencyMs = System.currentTimeMillis() - t0,
+                errorDetail = detail,
+            )
             false
         }
     }
@@ -529,15 +548,13 @@ class ScreenCaptureService : Service() {
                 .build()
             val cb = object : ConnectivityManager.NetworkCallback() {
                 override fun onAvailable(network: Network) {
-                    Log.i("AEGIS", "Network available — drain offline queue")
-                    HealthStatus.backendReachable.postValue(true)
-                    // Kick drain sooner than the normal interval
+                    Log.i("AEGIS", "Device network available — drain offline queue")
+                    // Do NOT set backendReachable=true here — that requires a real API ping/upload
                     handler.removeCallbacks(cacheDrainRunnable)
                     handler.post(cacheDrainRunnable)
                 }
                 override fun onLost(network: Network) {
-                    Log.w("AEGIS", "Network lost — will queue captures offline")
-                    HealthStatus.backendReachable.postValue(false)
+                    Log.w("AEGIS", "Device network lost — will queue captures offline")
                 }
             }
             networkCallback = cb

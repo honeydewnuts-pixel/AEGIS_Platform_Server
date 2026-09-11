@@ -246,6 +246,9 @@ class MainActivity : AppCompatActivity() {
             val histN = HealthStatus.historySnapshot().size
             val frames = HealthStatus.localFrameCount.value ?: 0L
             val uploadsOk = HealthStatus.captureCount.value ?: 0L
+            val netErr = HealthStatus.lastNetworkError.value
+            val baseUrl = HealthStatus.resolvedBaseUrl.value
+                ?: com.aegis.mobile.network.RetrofitClient.currentBaseUrl()
             diagText.text = """
 Frames captured: $frames
 Uploads OK: $uploadsOk
@@ -253,6 +256,9 @@ Backend Reachable: $reachStr
 Last Upload: $uploadStatus
 Last HTTP Code: $httpStr
 Last Upload Time: $uploadTimeStr
+Server URL: $baseUrl
+Network error: ${netErr ?: "—"}
+API key: ${com.aegis.mobile.network.RetrofitClient.currentApiKeyMasked()}
 Cached Screenshots: $pendingCache
 MT5 Foreground: $mt5Fg
 History (local): $histN / 100
@@ -261,6 +267,10 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
 """.trimIndent()
         }
         HealthStatus.lastCaptureTimeMs.observe(this) { refreshHealth() }
+        HealthStatus.lastNetworkError.observe(this) { refreshHealth() }
+        HealthStatus.resolvedBaseUrl.observe(this) { refreshHealth() }
+        HealthStatus.backendReachable.observe(this) { refreshHealth() }
+        HealthStatus.lastUploadStatus.observe(this) { refreshHealth() }
         HealthStatus.consecutiveFailures.observe(this) { refreshHealth() }
         
         HealthStatus.lastPreviewBitmap.observe(this) { bmp ->

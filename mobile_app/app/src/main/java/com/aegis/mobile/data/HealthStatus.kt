@@ -18,6 +18,9 @@ object HealthStatus {
     val pendingCacheCount = MutableLiveData<Int>(0)
 
     val backendReachable = MutableLiveData<Boolean?>(null)
+    /** Last transport error (UnknownHost, SSL, timeout, …). */
+    val lastNetworkError = MutableLiveData<String?>()
+    val resolvedBaseUrl = MutableLiveData<String?>()
     val lastHttpCode = MutableLiveData<Int?>(null)
     val lastUploadStatus = MutableLiveData<String>("—")
     val lastUploadTimeMs = MutableLiveData<Long>(0L)
@@ -56,19 +59,23 @@ object HealthStatus {
         consecutiveFailures.postValue(0)
         captureCount.postValue((captureCount.value ?: 0L) + 1)
         backendReachable.postValue(true)
+        lastNetworkError.postValue(null)
         lastHttpCode.postValue(httpCode)
         lastUploadStatus.postValue("SUCCESS")
         lastUploadTimeMs.postValue(now)
         pushHistory(UploadRecord(now, true, httpCode, latencyMs, "SUCCESS"))
     }
 
-    fun recordCaptureFailure(httpCode: Int? = null, networkError: Boolean = false, latencyMs: Long? = null) {
+    fun recordCaptureFailure(httpCode: Int? = null, networkError: Boolean = false, latencyMs: Long? = null, errorDetail: String? = null) {
         val now = System.currentTimeMillis()
         lastCaptureSucceeded.postValue(false)
         consecutiveFailures.postValue((consecutiveFailures.value ?: 0) + 1)
         val status = if (networkError) "NETWORK" else "FAILED"
         lastUploadStatus.postValue(status)
         lastUploadTimeMs.postValue(now)
+        if (errorDetail != null) {
+            lastNetworkError.postValue(errorDetail.take(180))
+        }
         if (httpCode != null) {
             lastHttpCode.postValue(httpCode)
             backendReachable.postValue(httpCode in 100..599)

@@ -9,61 +9,99 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
+import okhttp3.Request
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 /**
- * Network client matching the working sideload builds.
- * - Simple base URL from Settings (or DEFAULT_SERVER_URL)
- * - API key header read live from DataStore on each request
- * - No host-rewrite tricks (those broke uploads on some devices)
+ * Proven upload client pattern (matches older working sideload builds):
+ * - Preferences loaded ONCE when building the client (not inside OkHttp threads)
+ * - No runBlocking on the interceptor path (that caused NETWORK failures / hangs)
+ * - No host-rewrite
  */
 object RetrofitClient {
 
-    private suspend fun resolveBaseUrl(context: Context): String {
-        val prefs = context.dataStore.data.first()
-        prefs[PrefKeys.SERVER_URL]?.trim()?.takeIf { it.isNotBlank() }?.let { url ->
-            var u = url
-            if (!u.startsWith("http://") && !u.startsWith("https://")) {
-                u = "https://$u"
+    private val cachedApiKey = AtomicReference("")
+    private val cachedBaseUrl = AtomicReference(
+        if (DEFAULT_SERVER_URL.endsWith("/")) DEFAULT_SERVER_URL else "$DEFAULT_SERVER_URL/"
+    )
+
+    fun currentBaseUrl(): String = cachedBaseUrl.get()
+    fun currentApiKeyMasked(): String {
+        val k = cachedApiKey.get()
+        if (k.isBlank()) return "(empty)"
+        if (k.length <= 8) return "***"
+        return k.take(4) + "…" + k.takeLast(4)
+    }
+
+    private fun normalizeBaseUrl(raw: String): String {
+        var u = raw.trim()
+        if (u.isEmpty()) {
+            u = DEFAULT_SERVER_URL
+        }
+        if (!u.startsWith("http://") && !u.startsWith("https://")) {
+            u = "https://$u"
+        }
+        // Strip path accidents like .../api or website paths
+        u = u.trimEnd('/')
+        // If user pasted website domain without api host, force API default
+        val host = u.substringAfter("://").substringBefore("/")
+        if (host.equals("leveragefx.co", true) ||
+            host.equals("www.leveragefx.co", true) ||
+            host.equals("leveragefx-website.vercel.app", true)
+        ) {
+            u = DEFAULT_SERVER_URL.trimEnd('/')
+        }
+        return "$u/"
+    }
+
+    /** Call from coroutine or service thread before creating client. */
+    fun loadPreferences(context: Context) {
+        val appCtx = context.applicationContext
+        runBlocking {
+            val prefs = appCtx.dataStore.data.first()
+            val url = prefs[PrefKeys.SERVER_URL]?.trim().orEmpty()
+            val ip = prefs[PrefKeys.SERVER_IP]?.trim().orEmpty()
+            val key = prefs[PrefKeys.API_KEY]?.trim().orEmpty()
+            cachedApiKey.set(key)
+            val base = when {
+                url.isNotBlank() -> normalizeBaseUrl(url)
+                ip.isNotBlank() -> "http://${ip.trim()}:5000/"
+                else -> normalizeBaseUrl(DEFAULT_SERVER_URL)
             }
-            return if (u.endsWith("/")) u else "$u/"
+            cachedBaseUrl.set(base)
         }
-        prefs[PrefKeys.SERVER_IP]?.trim()?.takeIf { it.isNotBlank() }?.let { ip ->
-            return "http://$ip:5000/"
-        }
-        val d = DEFAULT_SERVER_URL
-        return if (d.endsWith("/")) d else "$d/"
     }
 
     fun getApiService(context: Context): ApiService {
-        val appCtx = context.applicationContext
-        val baseUrl = runBlocking { resolveBaseUrl(appCtx) }
+        loadPreferences(context)
+        val baseUrl = cachedBaseUrl.get()
 
         val logging = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BASIC
         }
 
+        // Header only — never touch DataStore / runBlocking here
         val authInterceptor = Interceptor { chain ->
-            val key = runBlocking {
-                appCtx.dataStore.data.first()[PrefKeys.API_KEY]?.trim().orEmpty()
+            val key = cachedApiKey.get()
+            val req = if (key.isNotBlank()) {
+                chain.request().newBuilder().header("X-API-Key", key).build()
+            } else {
+                chain.request()
             }
-            val b = chain.request().newBuilder()
-            if (key.isNotBlank()) {
-                b.header("X-API-Key", key)
-            }
-            chain.proceed(b.build())
+            chain.proceed(req)
         }
 
         val client = OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
             .addInterceptor(logging)
-            .connectTimeout(60, TimeUnit.SECONDS)
-            .readTimeout(120, TimeUnit.SECONDS)
-            .writeTimeout(120, TimeUnit.SECONDS)
-            .callTimeout(180, TimeUnit.SECONDS)
+            .connectTimeout(45, TimeUnit.SECONDS)
+            .readTimeout(90, TimeUnit.SECONDS)
+            .writeTimeout(90, TimeUnit.SECONDS)
+            .callTimeout(120, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
             .build()
 
@@ -75,5 +113,31 @@ object RetrofitClient {
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
             .create(ApiService::class.java)
+    }
+
+    /**
+     * Lightweight reachability probe (no Retrofit). Returns null on success,
+     * or a short error string on failure.
+     */
+    fun pingBackend(context: Context): String? {
+        return try {
+            loadPreferences(context)
+            val base = cachedBaseUrl.get().trimEnd('/')
+            val client = OkHttpClient.Builder()
+                .connectTimeout(20, TimeUnit.SECONDS)
+                .readTimeout(20, TimeUnit.SECONDS)
+                .retryOnConnectionFailure(true)
+                .build()
+            // Prefer /health then /
+            for (path in listOf("/health", "/")) {
+                val req = Request.Builder().url("$base$path").get().build()
+                client.newCall(req).execute().use { resp ->
+                    if (resp.isSuccessful) return null
+                }
+            }
+            "HTTP non-2xx from $base"
+        } catch (e: Exception) {
+            "${e.javaClass.simpleName}: ${e.message}"
+        }
     }
 }
