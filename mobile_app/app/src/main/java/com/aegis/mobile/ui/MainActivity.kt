@@ -191,16 +191,16 @@ class MainActivity : AppCompatActivity() {
                 else -> null
             }
             if (regime != null) lines.add(regime)
-            result.neural_confidence?.let {
+            result.neural_confidence?.let { nc ->
                 val mode = result.neural_mode?.takeIf { m -> m.isNotBlank() } ?: "neural"
-                lines.add("Neural ($mode): ${"%.0f".format(it * 100)}%")
+                val nPct = "%.0f".format(nc * 100)
+                lines.add("Neural ($mode): ${nPct}%")
             }
             when {
                 result.executed == true -> lines.add("Execution: submitted")
                 result.execution_status != null -> lines.add("Execution: ${result.execution_status}")
             }
-            detailsText.text = lines.joinToString("
-")
+            detailsText.text = lines.joinToString("\n")
         }
 
         val refreshHealth = {
