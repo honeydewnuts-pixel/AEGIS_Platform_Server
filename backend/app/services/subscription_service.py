@@ -377,14 +377,20 @@ class SubscriptionService:
         self.logger.info("Mode set for %s -> %s (plan=%s) by %s", account_id, mode_norm, plan_meta["code"], actor)
         return {"account_id": account_id, "mode": mode_norm, "plan": plan_meta["code"]}
 
+
     async def activate_demo(self, account_id: str) -> dict[str, str]:
+        """Create/refresh a 14-day demo subscription and ensure a mobile API key exists."""
         from datetime import datetime, timedelta, timezone
         import secrets as sec
+        from sqlalchemy import select as sa_select
+        from app.db.models import ApiKey
+
         now = datetime.now(timezone.utc)
         portal_token = sec.token_urlsafe(24)
+
         async with async_session_factory() as session:
             result = await session.execute(
-                select(Subscription).where(Subscription.account_id == account_id)
+                sa_select(Subscription).where(Subscription.account_id == account_id)
             )
             existing = result.scalar_one_or_none()
             if existing:
@@ -399,31 +405,28 @@ class SubscriptionService:
                 else:
                     portal_token = existing.portal_token
             else:
-                session.add(Subscription(
-                    account_id=account_id,
-                    provider="demo",
-                    status="active",
-                    plan="demo",
-                    risk_preset="standard",
-                    max_devices=1,
-                    max_trades_per_day=5,
-                    portal_token=portal_token,
-                    current_period_end=now + timedelta(days=14),
-                    updated_at=now,
-                ))
+                session.add(
+                    Subscription(
+                        account_id=account_id,
+                        provider="demo",
+                        status="active",
+                        plan="demo",
+                        risk_preset="standard",
+                        max_devices=1,
+                        max_trades_per_day=5,
+                        portal_token=portal_token,
+                        current_period_end=now + timedelta(days=14),
+                        updated_at=now,
+                    )
+                )
             await session.commit()
-        # Do NOT mint a new mobile key on every demo click — that caused
-        # portal/mobile mismatch (user keeps old key or wrong Account ID).
-        # Fresh key only when none exist; portal "Connect mobile" rotates explicitly.
-        # NOTE: do not re-import sqlalchemy.select here — it shadows the module-level
-        # import and raises UnboundLocalError on the earlier select() in this function.
-        from app.db.models import ApiKey
 
+        # Mint mobile key only when none exists (Connect mobile rotates explicitly).
         existing_key = False
         async with async_session_factory() as session:
             row = (
                 await session.execute(
-                    select(ApiKey).where(
+                    sa_select(ApiKey).where(
                         ApiKey.account_id == account_id,
                         ApiKey.is_admin == False,  # noqa: E712
                         ApiKey.revoked == False,  # noqa: E712
@@ -445,10 +448,11 @@ class SubscriptionService:
             except Exception as e:
                 key_error = f"{type(e).__name__}: {e}"
                 self.logger.exception("demo issue_api_key failed for %s", account_id)
-        out = {
+
+        out: dict[str, str | bool | None] = {
             "account_id": account_id,
             "portal_token": portal_token,
-            "mobile_api_key": mobile_api_key,  # null if key already exists — use Connect mobile to rotate
+            "mobile_api_key": mobile_api_key,
             "plan": "demo",
             "key_reused": existing_key,
             "note": (
@@ -460,7 +464,8 @@ class SubscriptionService:
         }
         if key_error:
             out["key_error"] = key_error
-        return out
+        return out  # type: ignore[return-value]
+
 
     # ------------------------------------------------------------
     # Risk presets (server is source of truth for lot size)
