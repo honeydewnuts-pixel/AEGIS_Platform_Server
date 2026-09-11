@@ -14,5 +14,5 @@ class StatusViewModel : ViewModel() {
     // Convenience streams derived from currentResult, used directly by MainActivity
     val signal: LiveData<String> = currentResult.map { it.signal }
     val details: LiveData<String> = currentResult.map { it.details }
-    val confidence: LiveData<Float> = currentResult.map { it.confidence }
+    val confidence: LiveData<Float> = currentResult.map { it.confidence.toFloat() }
 }

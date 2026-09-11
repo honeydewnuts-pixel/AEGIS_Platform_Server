@@ -429,6 +429,8 @@ class ScreenCaptureService : Service() {
     private suspend fun trySendOnce(file: File, accountId: String, capturedAtMs: Long, symbol: String): Boolean {
         val t0 = System.currentTimeMillis()
         return try {
+            // Rebuild client so Settings (URL/key) changes apply without restarting service
+            apiService = RetrofitClient.getApiService(applicationContext)
             val requestFile = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
             // Explicit filename + content type helps proxies that strip part headers.
             val body = MultipartBody.Part.createFormData("image", "capture.jpg", requestFile)
