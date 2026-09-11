@@ -37,11 +37,22 @@ class RegistryService:
     def reload(self) -> None:
         self._rulebooks = self._load_rulebooks()
         self._instruments = self._load_instruments()
+        rb_csv = REGISTRY_DIR / "AEGIS_V40_RULEBOOK_REGISTRY.csv"
+        inst_csv = REGISTRY_DIR / "AEGIS_V40_INSTRUMENT_REGISTRY.csv"
         self.logger.info(
-            "Registry loaded: %s rulebooks, %s instruments",
+            "Registry loaded: %s rulebooks, %s instruments (dir=%s rb_csv=%s inst_csv=%s)",
             len(self._rulebooks),
             len(self._instruments),
+            REGISTRY_DIR,
+            rb_csv.exists(),
+            inst_csv.exists(),
         )
+        if not rb_csv.exists() or not inst_csv.exists():
+            self.logger.warning(
+                "V40 registry CSV missing under %s — founding_registry fallback only. "
+                "Ensure Docker image COPYs registry/ (see docker/Dockerfile).",
+                REGISTRY_DIR,
+            )
 
     def _load_csv(self, path: Path) -> list[dict[str, str]]:
         if not path.exists():

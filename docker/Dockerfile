@@ -28,6 +28,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend ./backend
+# V40/V46 authoritative rulebook + instrument registries (required at runtime).
+# Without this, RegistryService falls back to founding_registry only (2 rulebooks / 1 instrument).
+COPY registry ./registry
+# Optional governance mirrors used by some research/docs paths
+COPY governance ./governance
 COPY release ./release
 COPY admin_dashboard ./admin_dashboard
 COPY client_portal ./client_portal
