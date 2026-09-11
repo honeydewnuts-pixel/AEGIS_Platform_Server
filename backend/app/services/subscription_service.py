@@ -415,8 +415,9 @@ class SubscriptionService:
         # Do NOT mint a new mobile key on every demo click — that caused
         # portal/mobile mismatch (user keeps old key or wrong Account ID).
         # Fresh key only when none exist; portal "Connect mobile" rotates explicitly.
+        # NOTE: do not re-import sqlalchemy.select here — it shadows the module-level
+        # import and raises UnboundLocalError on the earlier select() in this function.
         from app.db.models import ApiKey
-        from sqlalchemy import select
 
         existing_key = False
         async with async_session_factory() as session:
