@@ -2,79 +2,105 @@ package com.aegis.mobile.ui
 
 import android.os.Bundle
 import android.widget.Button
-import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.aegis.mobile.R
 import com.aegis.mobile.network.RetrofitClient
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
- * Shows tradeable pairs + rulebook registry.
- * MT5 charts do NOT need indicator templates installed.
+ * Full pairs + rulebook registry viewer.
+ * Shows tradeable and non-tradeable instruments so operators see the complete V40 registry.
  */
-open class RegistryActivity : AppCompatActivity() {
+class RegistryActivity : AppCompatActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val scroll = ScrollView(this)
-        val body = TextView(this).apply {
-            setPadding(32, 32, 32, 32)
-            textSize = 13f
-            text = "Loading registry…"
-        }
-        val refresh = Button(this).apply { text = "Refresh" }
-        val markDone = Button(this).apply { text = "OK — no indicators needed" }
-        val root = android.widget.LinearLayout(this).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
-            addView(refresh)
-            addView(markDone)
-            addView(body)
-        }
-        scroll.addView(root)
-        setContentView(scroll)
-        title = "Pairs & Rulebooks"
+        setContentView(R.layout.activity_registry)
+
+        val body = findViewById<TextView>(R.id.registryBody)
+        val refresh = findViewById<Button>(R.id.registryRefresh)
+        val markDone = findViewById<Button>(R.id.registryDone)
 
         fun load() {
+            body.text = "Loading full registry…"
             lifecycleScope.launch {
                 try {
                     val api = RetrofitClient.getApiService(this@RegistryActivity)
-                    val data = withContext(Dispatchers.IO) {
-                        val resp = try {
-                            api.getRegistryActive()
-                        } catch (_: Exception) {
-                            api.getActiveTemplates()
-                        }
-                        resp.body() ?: emptyMap()
-                    }
+                    // Full instrument list (includes rejected / disabled)
+                    val pairsResp = api.getRegistryPairs(tradeableOnly = false)
+                    val activeResp = api.getRegistryActive()
+
                     val sb = StringBuilder()
-                    sb.append("AEGIS does NOT require MT5 indicators.\n")
-                    sb.append("Use a plain price chart. Pair selection is registry-driven.\n\n")
-                    val pairs = (data["tradeable_pairs"] as? List<*>) ?: emptyList<Any>()
-                    sb.append("Tradeable pairs (${pairs.size}):\n")
-                    pairs.forEach { sb.append("  • $it\n") }
-                    sb.append("\n")
-                    val instruments = data["instruments"] as? List<*>
-                    if (instruments != null) {
-                        sb.append("Instrument detail:\n")
-                        for (row in instruments) {
-                            val m = row as? Map<*, *> ?: continue
-                            sb.append("  ${m["instrument"]}  ${m["router_status"]}  ${m["registry_status"]}\n")
-                            val books = m["eligible_rulebooks"] as? List<*>
-                            if (!books.isNullOrEmpty()) sb.append("    rules: ${books.joinToString()}\n")
+                    sb.append("AEGIS registry (full)\n")
+                    sb.append("Plain MT5 price chart only — no indicator pack.\n\n")
+
+                    if (!pairsResp.isSuccessful) {
+                        sb.append("Pairs HTTP ${pairsResp.code()}\n")
+                    } else {
+                        val data = pairsResp.body() ?: emptyMap()
+                        val pairs = (data["pairs"] as? List<*>) ?: emptyList<Any>()
+                        val tradeable = pairs.filterIsInstance<Map<*, *>>().filter {
+                            it["tradeable"] == true
+                        }
+                        val blocked = pairs.filterIsInstance<Map<*, *>>().filter {
+                            it["tradeable"] != true
+                        }
+
+                        sb.append("Tradeable / research-eligible (${tradeable.size})\n")
+                        for (m in tradeable) {
+                            val inst = m["instrument"] ?: "?"
+                            val tf = m["timeframe"] ?: ""
+                            val rs = m["router_status"] ?: ""
+                            val reg = m["registry_status"] ?: ""
+                            val reason = (m["reason"] as? String)?.take(80) ?: ""
+                            val books = (m["eligible_rulebooks"] as? List<*>)?.map { it.toString() } ?: emptyList()
+                            sb.append("  ✓ $inst $tf\n")
+                            sb.append("      $rs · $reg\n")
+                            if (reason.isNotBlank()) sb.append("      $reason\n")
+                            if (books.isNotEmpty()) sb.append("      rules: ${books.joinToString()}\n")
+                        }
+
+                        sb.append("\nNot tradeable / blocked (${blocked.size})\n")
+                        for (m in blocked) {
+                            val inst = m["instrument"] ?: "?"
+                            val tf = m["timeframe"] ?: ""
+                            val rs = m["router_status"] ?: ""
+                            val reg = m["registry_status"] ?: ""
+                            val reason = (m["reason"] as? String)?.take(100) ?: ""
+                            sb.append("  ✗ $inst $tf\n")
+                            sb.append("      $rs · $reg\n")
+                            if (reason.isNotBlank()) sb.append("      $reason\n")
+                        }
+
+                        if (pairs.isEmpty()) {
+                            sb.append("(no instruments returned)\n")
                         }
                     }
-                    val active = data["active"] as? Map<*, *>
-                    if (active != null) {
-                        sb.append("\nActive: rulebook=${active["rulebook_version"]} registry=${active["registry_version"]}\n")
+
+                    if (activeResp.isSuccessful) {
+                        val data = activeResp.body()
+                        val active = data?.get("active") as? Map<*, *>
+                        if (active != null) {
+                            sb.append(
+                                "\nProfile: rulebook=${active["rulebook_version"]} " +
+                                    "registry=${active["registry_version"]}\n"
+                            )
+                        }
+                        val rc = data?.get("rulebook_count")
+                        val ic = data?.get("instrument_count")
+                        if (rc != null || ic != null) {
+                            sb.append("Counts: rulebooks=$rc instruments=$ic\n")
+                        }
                     }
-                    sb.append("\nRulebooks are evaluated on the server from chart screenshots.\n")
+
+                    sb.append("\nRulebooks run on the server from chart screenshots.\n")
                     body.text = sb.toString()
                 } catch (e: Exception) {
-                    body.text = "Error loading registry: ${e.message}\n\nNo MT5 indicators are required."
+                    body.text =
+                        "Error loading registry: ${e.message}\n\nNo MT5 indicators are required."
                 }
             }
         }
@@ -84,7 +110,7 @@ open class RegistryActivity : AppCompatActivity() {
             getSharedPreferences("aegis_prefs", MODE_PRIVATE)
                 .edit()
                 .putBoolean("registry_confirmed", true)
-                .putBoolean("indicator_template_confirmed", true) // legacy flag so old checks pass
+                .putBoolean("indicator_template_confirmed", true)
                 .putLong("registry_confirmed_at", System.currentTimeMillis())
                 .apply()
             Toast.makeText(this, "Registry acknowledged", Toast.LENGTH_SHORT).show()

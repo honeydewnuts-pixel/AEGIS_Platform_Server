@@ -172,15 +172,23 @@ class RegistryService:
     def get_active_bundle(self) -> dict[str, Any]:
         """What mobile/portal used to call 'active templates' — now registry snapshot."""
         ptr = self.get_active_pointer()
-        tradeable = self.list_instruments(tradeable_only=True)
+        all_inst = self.list_instruments(tradeable_only=False)
+        tradeable = [r for r in all_inst if r.get("tradeable")]
+        blocked = [r for r in all_inst if not r.get("tradeable")]
         return {
             "mode": "rulebook_and_pairs_registry",
             "indicators_required": False,
             "indicator_stack": None,
-            "message": "No MT5 indicators required. Charts are plain price. Pair is selected from the tradeable registry; rulebooks are server-side.",
+            "message": (
+                "No MT5 indicators required. Charts are plain price. "
+                "Full instrument registry is listed; only tradeable pairs may execute research/live paths."
+            ),
             "active": ptr,
             "tradeable_pairs": [t["instrument"] for t in tradeable],
-            "instruments": tradeable,
+            "blocked_pairs": [t["instrument"] for t in blocked],
+            "instruments": all_inst,
+            "instrument_count": len(all_inst),
+            "tradeable_count": len(tradeable),
             "rulebook_count": len(self._rulebooks),
         }
 
