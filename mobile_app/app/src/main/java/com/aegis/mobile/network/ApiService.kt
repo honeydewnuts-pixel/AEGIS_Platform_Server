@@ -23,7 +23,7 @@ interface ApiService {
         @Part image: MultipartBody.Part,
         @Part("account_id") accountId: RequestBody,
         @Part("captured_at_ms") capturedAtMs: RequestBody,
-        @Part("symbol") symbol: RequestBody
+        @Part("symbol") symbol: RequestBody?
     ): Response<AnalysisResponse>
 
     @POST("/api/devices/heartbeat")

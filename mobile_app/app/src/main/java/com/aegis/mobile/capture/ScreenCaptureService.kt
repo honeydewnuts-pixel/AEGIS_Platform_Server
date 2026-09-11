@@ -36,7 +36,10 @@ import com.aegis.mobile.data.dataStore
 import com.aegis.mobile.models.AnalysisResponse
 import com.aegis.mobile.models.HeartbeatRequest
 import com.aegis.mobile.network.RetrofitClient
+import com.aegis.mobile.network.UploadPolicy
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.first
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -65,6 +68,14 @@ class ScreenCaptureService : Service() {
     @Volatile private var captureIntervalMs: Long = DEFAULT_CAPTURE_INTERVAL_MS
     private lateinit var cacheManager: ScreenshotCacheManager
 
+    // The symbol field is optional. We only send it when the backend confirms
+    // that this account currently has a connected MT5 worker. This preserves
+    // the core screenshot-analysis path when MT5 is unavailable.
+    @Volatile private var mt5WorkerReadyUntilMs: Long = 0L
+    @Volatile private var mt5WorkerReady: Boolean = false
+    private val mt5WorkerStateLock = Any()
+    private val uploadMutex = Mutex()
+
     // Defaults to "no crop" (send the full frame) until a real ROI is
     // fetched - safe fallback if the config endpoint is unreachable, since
     // sending too much is a bandwidth cost, sending too little could crop
@@ -84,6 +95,7 @@ class ScreenCaptureService : Service() {
         private const val MAX_DRAIN_PER_CYCLE = 5        // catch up gradually, not in one burst, after reconnecting
         private const val ROI_REFRESH_INTERVAL = 6 * 60 * 60 * 1000L  // 6 hours - config rarely changes
         private const val WAKELOCK_TIMEOUT_MS = 10000L  // safety cap so a stuck capture can't hold the lock forever
+        private const val MT5_HEALTH_CACHE_MS = 15_000L
     }
 
     override fun onCreate() {
@@ -279,13 +291,24 @@ class ScreenCaptureService : Service() {
                 continue
             }
             val (capturedAtMs, accountId, cachedSymbol) = parsed
-            val symbol = cachedSymbol.ifBlank { applicationContext.dataStore.data.first()[PrefKeys.MT5_SYMBOL]?.trim().orEmpty() }
-            val sent = trySend(file, accountId, capturedAtMs, symbol)
-            if (sent) {
+            val configuredSymbol = cachedSymbol.ifBlank {
+                applicationContext.dataStore.data.first()[PrefKeys.MT5_SYMBOL]?.trim().orEmpty()
+            }
+            val symbol = resolveUploadSymbol(accountId, configuredSymbol)
+            val result = uploadMutex.withLock {
+                trySend(file, accountId, capturedAtMs, symbol)
+            }
+            if (result.success) {
                 cacheManager.remove(file)
                 HealthStatus.pendingCacheCount.postValue(cacheManager.pendingCount())
+            } else if (result.retryable) {
+                break  // transient failure - try again next cycle
             } else {
-                break  // still offline - stop draining, try again next cycle
+                // Permanent client-side/API rejection cannot be repaired by
+                // repeatedly replaying the same file. Drop it after recording
+                // the failure instead of creating an endless offline queue.
+                cacheManager.remove(file)
+                HealthStatus.pendingCacheCount.postValue(cacheManager.pendingCount())
             }
         }
     }
@@ -366,21 +389,30 @@ class ScreenCaptureService : Service() {
 
             scope.launch {
                 val accountId = resolveAccountId()
-                val tempFile = File(cacheDir, "live_capture_tmp.jpg")
+                val tempFile = File(cacheDir, "live_capture_${capturedAtMs}.jpg")
                 FileOutputStream(tempFile).use { out ->
                     croppedBitmap.compress(Bitmap.CompressFormat.JPEG, 80, out)
                 }
+                try { if (croppedBitmap !== bitmap) croppedBitmap.recycle() } catch (_: Exception) {}
+                try { bitmap.recycle() } catch (_: Exception) {}
 
-                val symbol = applicationContext.dataStore.data.first()[PrefKeys.MT5_SYMBOL]?.trim().orEmpty()
-                val sent = trySend(tempFile, accountId, capturedAtMs, symbol)
-                if (!sent) {
-                    // Backend unreachable - queue it instead of losing it. The
-                    // drain loop will retry this (in correct chronological
-                    // order relative to other cached frames) once connectivity
-                    // returns.
-                    cacheManager.cache(croppedBitmap, capturedAtMs, accountId, symbol)
+                // Only send the MT5 symbol when the server confirms a live
+                // worker. A configured symbol alone must never make screenshot
+                // analysis fail.
+                val configuredSymbol = applicationContext.dataStore.data.first()[PrefKeys.MT5_SYMBOL]
+                    ?.trim().orEmpty()
+                val symbol = resolveUploadSymbol(accountId, configuredSymbol)
+                val result = uploadMutex.withLock {
+                    trySend(tempFile, accountId, capturedAtMs, symbol)
+                }
+                if (!result.success && result.retryable) {
+                    // Queue only transient failures. Permanent 4xx responses
+                    // are operator/configuration errors and must not be retried
+                    // forever. Reuse the encoded JPEG rather than retaining or
+                    // recompressing the large capture bitmap.
+                    cacheManager.cacheFile(tempFile, capturedAtMs, accountId, configuredSymbol)
                     HealthStatus.pendingCacheCount.postValue(cacheManager.pendingCount())
-                    updateNotification("Offline - ${cacheManager.pendingCount()} screenshots queued")
+                    updateNotification("Upload unavailable - ${cacheManager.pendingCount()} screenshots queued")
                 }
                 tempFile.delete()
             }
@@ -410,139 +442,124 @@ class ScreenCaptureService : Service() {
         return Bitmap.createBitmap(bitmap, 0, top, bitmap.width, bottom - top)
     }
 
+    /** Result of one upload attempt. retryable=true means the frame may be
+     * safely placed in the offline queue for a later retry. */
+    private data class SendResult(
+        val success: Boolean,
+        val httpCode: Int? = null,
+        val retryable: Boolean = false,
+        val errorDetail: String? = null
+    )
+
     /**
      * Shared send path for both live captures and replayed cached ones.
-     * One quick retry on transient failures (Render cold start, brief
-     * network blip). Persistent errors fall through to the offline cache.
+     * Retries are reserved for transient transport/server failures. Permanent
+     * 4xx responses are not retried and are not placed in the offline queue.
      */
-
-    /**
-     * Old working APKs sent no symbol (empty). Non-empty symbol forces the
-     * backend MT5 worker path and returns HTTP 400 if the worker is offline.
-     * Only attach symbol when GET /api/trading/health says the worker is up.
-     */
-    private suspend fun resolveSymbolForUpload(accountId: String, preferred: String): String {
-        val want = preferred.trim()
-        if (want.isEmpty()) return ""
-        return try {
-            val health = apiService.tradingHealth(accountId)
-            if (!health.isSuccessful) {
-                Log.w("AEGIS", "MT5 health HTTP ${health.code()} — upload without symbol")
-                return ""
-            }
-            val body = health.body() ?: emptyMap()
-            // Backend trading_router returns connected=false when no worker.
-            fun truthy(v: Any?): Boolean = when (v) {
-                is Boolean -> v
-                is Number -> v.toInt() != 0
-                is String -> v.equals("true", true) || v == "1" || v.equals("yes", true)
-                else -> false
-            }
-            val running = truthy(body["connected"]) ||
-                truthy(body["healthy"]) ||
-                truthy(body["worker_running"]) ||
-                truthy(body["is_running"]) ||
-                truthy(body["running"])
-            if (running) {
-                Log.i("AEGIS", "MT5 worker up — attaching symbol=$want")
-                want
-            } else {
-                Log.w("AEGIS", "MT5 worker not connected — upload without symbol (visual analysis only)")
-                ""
-            }
-        } catch (e: Exception) {
-            Log.w("AEGIS", "MT5 health check failed (${e.message}) — upload without symbol")
-            ""
-        }
-    }
-
-    private suspend fun trySend(file: File, accountId: String, capturedAtMs: Long, symbol: String): Boolean {
+    private suspend fun trySend(
+        file: File,
+        accountId: String,
+        capturedAtMs: Long,
+        symbol: String
+    ): SendResult {
+        var last = SendResult(false, retryable = true, errorDetail = "No response")
         repeat(2) { attempt ->
-            val ok = trySendOnce(file, accountId, capturedAtMs, symbol)
-            if (ok) return true
-            if (attempt == 0) {
-                delay(2_500)
-            }
+            last = trySendOnce(file, accountId, capturedAtMs, symbol)
+            if (last.success || !last.retryable || attempt == 1) return last
+            delay(2_500)
         }
-        return false
+        return last
     }
 
-    private suspend fun trySendOnce(file: File, accountId: String, capturedAtMs: Long, symbol: String): Boolean {
+    private suspend fun trySendOnce(
+        file: File,
+        accountId: String,
+        capturedAtMs: Long,
+        symbol: String
+    ): SendResult {
         val t0 = System.currentTimeMillis()
         return try {
-            // Critical: never send a non-empty symbol unless MT5 worker is up.
-            // Non-empty symbol forces backend MT5 sync → HTTP 400 if worker offline
-            // (old working APK always sent empty symbol → visual analysis → 200).
-            val safeSymbol = resolveSymbolForUpload(accountId, symbol)
-
             val requestFile = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
             val body = MultipartBody.Part.createFormData("image", "capture.jpg", requestFile)
             val accountIdBody: RequestBody = accountId.toRequestBody("text/plain".toMediaTypeOrNull())
             val capturedAtBody: RequestBody = capturedAtMs.toString().toRequestBody("text/plain".toMediaTypeOrNull())
-            val symbolBody: RequestBody = safeSymbol.toRequestBody("text/plain".toMediaTypeOrNull())
+            val symbolBody: RequestBody? = symbol.takeIf { it.isNotBlank() }
+                ?.toRequestBody("text/plain".toMediaTypeOrNull())
 
             val response = apiService.analyzeScreenshot(body, accountIdBody, capturedAtBody, symbolBody)
             if (response.isSuccessful) {
                 val result: AnalysisResponse? = response.body()
-                Log.d("AEGIS", "Brain Response: ${result?.signal} - ${result?.confidence} (symbol='$safeSymbol')")
+                Log.d("AEGIS", "Brain Response: ${result?.signal} - ${result?.confidence}")
                 result?.let {
                     SignalRepository.latestResult.postValue(it)
                     SignalRepository.latestSignal.postValue(it.signal)
                 }
-                HealthStatus.recordCaptureSuccess(httpCode = response.code(), latencyMs = System.currentTimeMillis() - t0)
+                HealthStatus.recordCaptureSuccess(
+                    httpCode = response.code(),
+                    latencyMs = System.currentTimeMillis() - t0
+                )
                 val pending = cacheManager.pendingCount()
                 val suffix = if (pending > 0) " ($pending queued)" else ""
                 updateNotification("Last signal: ${result?.signal ?: "HOLD"} @ ${timeNow()}$suffix")
-                true
+                SendResult(true, response.code(), false)
             } else {
-                val errBody = try {
-                    response.errorBody()?.string()?.take(500)
-                } catch (_: Exception) {
-                    null
-                }
-                Log.e("AEGIS", "Brain Error: ${response.code()} body=${errBody ?: "(empty)"} symbol='$safeSymbol'")
-                // If failure was still symbol-related, retry once with forced empty symbol
-                if (safeSymbol.isNotEmpty() && response.code() in listOf(400, 402, 503)) {
-                    Log.w("AEGIS", "Retrying upload with empty symbol after ${response.code()}")
-                    val emptySym = "".toRequestBody("text/plain".toMediaTypeOrNull())
-                    val retry = apiService.analyzeScreenshot(body, accountIdBody, capturedAtBody, emptySym)
-                    if (retry.isSuccessful) {
-                        val result = retry.body()
-                        result?.let {
-                            SignalRepository.latestResult.postValue(it)
-                            SignalRepository.latestSignal.postValue(it.signal)
-                        }
-                        HealthStatus.recordCaptureSuccess(httpCode = retry.code(), latencyMs = System.currentTimeMillis() - t0)
-                        return true
-                    }
-                    val retryErr = try { retry.errorBody()?.string()?.take(300) } catch (_: Exception) { null }
-                    Log.e("AEGIS", "Retry also failed: ${retry.code()} $retryErr")
-                    HealthStatus.recordCaptureFailure(
-                        httpCode = retry.code(),
-                        networkError = false,
-                        latencyMs = System.currentTimeMillis() - t0,
-                        errorDetail = retryErr,
-                    )
-                    return false
-                }
+                val errBody = try { response.errorBody()?.string()?.take(500) } catch (_: Exception) { null }
+                val detail = errBody ?: "HTTP ${response.code()}"
+                Log.e("AEGIS", "Brain Error: ${response.code()} body=$detail")
+                val retryable = UploadPolicy.isRetryableHttp(response.code())
                 HealthStatus.recordCaptureFailure(
                     httpCode = response.code(),
                     networkError = false,
                     latencyMs = System.currentTimeMillis() - t0,
-                    errorDetail = errBody,
+                    errorDetail = detail
                 )
-                false
+                SendResult(false, response.code(), retryable, detail)
             }
         } catch (e: Exception) {
-            Log.e("AEGIS", "Send failed: ${e.javaClass.simpleName}: ${e.message}")
+            val detail = "${e.javaClass.simpleName}: ${e.message ?: "unknown error"}"
+            Log.e("AEGIS", "Send failed: $detail")
             HealthStatus.recordCaptureFailure(
                 httpCode = null,
                 networkError = true,
                 latencyMs = System.currentTimeMillis() - t0,
-                errorDetail = "${e.javaClass.simpleName}: ${e.message}",
+                errorDetail = detail
             )
+            SendResult(false, null, true, detail)
+        }
+    }
+
+    /**
+     * Resolve whether synchronized MT5 data can be requested. The result is
+     * cached briefly to avoid adding a health request before every screenshot.
+     * Any health-check failure conservatively falls back to an image-only
+     * upload, which is the core AEGIS capability.
+     */
+    private suspend fun resolveUploadSymbol(accountId: String, configuredSymbol: String): String {
+        if (configuredSymbol.isBlank() || accountId.isBlank()) return ""
+        val now = System.currentTimeMillis()
+        if (now < mt5WorkerReadyUntilMs) {
+            return if (mt5WorkerReady) configuredSymbol else ""
+        }
+        synchronized(mt5WorkerStateLock) {
+            if (System.currentTimeMillis() < mt5WorkerReadyUntilMs) {
+                return if (mt5WorkerReady) configuredSymbol else ""
+            }
+        }
+        val ready = try {
+            val response = apiService.tradingHealth(accountId)
+            if (response.isSuccessful) {
+                val connected = response.body()?.get("connected")
+                connected == true || connected?.toString()?.equals("true", ignoreCase = true) == true
+            } else false
+        } catch (e: Exception) {
+            Log.w("AEGIS", "MT5 health check unavailable; using image-only upload: ${e.message}")
             false
         }
+        synchronized(mt5WorkerStateLock) {
+            mt5WorkerReady = ready
+            mt5WorkerReadyUntilMs = System.currentTimeMillis() + MT5_HEALTH_CACHE_MS
+        }
+        return if (UploadPolicy.shouldSendSymbol(configuredSymbol, accountId, ready)) configuredSymbol else ""
     }
 
 

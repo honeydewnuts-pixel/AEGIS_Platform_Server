@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
+import java.io.FileInputStream
 
 /**
  * Disk-backed FIFO cache for screenshots that couldn't be sent (backend
@@ -44,6 +45,24 @@ class ScreenshotCacheManager(context: Context) {
             Log.d(TAG, "Cached screenshot (${pendingCount()} pending)")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to cache screenshot: ${e.message}")
+        }
+    }
+
+    /** Copies an already-encoded JPEG into the queue without re-encoding the
+     * bitmap. This is used by the live upload path so large Bitmaps can be
+     * released before a slow network retry. */
+    fun cacheFile(source: File, capturedAtMs: Long, accountId: String, symbol: String) {
+        try {
+            enforceCapBeforeInsert()
+            val file = fileFor(capturedAtMs, accountId, symbol)
+            FileInputStream(source).use { input ->
+                FileOutputStream(file).use { output ->
+                    input.copyTo(output)
+                }
+            }
+            Log.d(TAG, "Cached encoded screenshot (${pendingCount()} pending)")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to cache encoded screenshot: ${e.message}")
         }
     }
 
