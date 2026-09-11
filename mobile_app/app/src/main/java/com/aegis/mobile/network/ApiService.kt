@@ -60,7 +60,9 @@ interface ApiService {
     suspend fun getRegistryActive(): Response<Map<String, @JvmSuppressWildcards Any>>
 
     @GET("/api/registry/pairs")
-    suspend fun getRegistryPairs(): Response<Map<String, @JvmSuppressWildcards Any>>
+    suspend fun getRegistryPairs(
+        @Query("tradeable_only") tradeableOnly: Boolean = false
+    ): Response<Map<String, @JvmSuppressWildcards Any>>
 
     @POST("/api/support/report")
     suspend fun reportIssue(@Body body: Map<String, @JvmSuppressWildcards Any?>): Response<Map<String, Any>>
