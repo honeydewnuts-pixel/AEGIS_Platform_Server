@@ -415,6 +415,47 @@ class ScreenCaptureService : Service() {
      * One quick retry on transient failures (Render cold start, brief
      * network blip). Persistent errors fall through to the offline cache.
      */
+
+    /**
+     * Old working APKs sent no symbol (empty). Non-empty symbol forces the
+     * backend MT5 worker path and returns HTTP 400 if the worker is offline.
+     * Only attach symbol when GET /api/trading/health says the worker is up.
+     */
+    private suspend fun resolveSymbolForUpload(accountId: String, preferred: String): String {
+        val want = preferred.trim()
+        if (want.isEmpty()) return ""
+        return try {
+            val health = apiService.tradingHealth(accountId)
+            if (!health.isSuccessful) {
+                Log.w("AEGIS", "MT5 health HTTP ${health.code()} — upload without symbol")
+                return ""
+            }
+            val body = health.body() ?: emptyMap()
+            // Backend trading_router returns connected=false when no worker.
+            fun truthy(v: Any?): Boolean = when (v) {
+                is Boolean -> v
+                is Number -> v.toInt() != 0
+                is String -> v.equals("true", true) || v == "1" || v.equals("yes", true)
+                else -> false
+            }
+            val running = truthy(body["connected"]) ||
+                truthy(body["healthy"]) ||
+                truthy(body["worker_running"]) ||
+                truthy(body["is_running"]) ||
+                truthy(body["running"])
+            if (running) {
+                Log.i("AEGIS", "MT5 worker up — attaching symbol=$want")
+                want
+            } else {
+                Log.w("AEGIS", "MT5 worker not connected — upload without symbol (visual analysis only)")
+                ""
+            }
+        } catch (e: Exception) {
+            Log.w("AEGIS", "MT5 health check failed (${e.message}) — upload without symbol")
+            ""
+        }
+    }
+
     private suspend fun trySend(file: File, accountId: String, capturedAtMs: Long, symbol: String): Boolean {
         repeat(2) { attempt ->
             val ok = trySendOnce(file, accountId, capturedAtMs, symbol)
@@ -429,17 +470,21 @@ class ScreenCaptureService : Service() {
     private suspend fun trySendOnce(file: File, accountId: String, capturedAtMs: Long, symbol: String): Boolean {
         val t0 = System.currentTimeMillis()
         return try {
+            // Critical: never send a non-empty symbol unless MT5 worker is up.
+            // Non-empty symbol forces backend MT5 sync → HTTP 400 if worker offline
+            // (old working APK always sent empty symbol → visual analysis → 200).
+            val safeSymbol = resolveSymbolForUpload(accountId, symbol)
+
             val requestFile = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
-            // Explicit filename + content type helps proxies that strip part headers.
             val body = MultipartBody.Part.createFormData("image", "capture.jpg", requestFile)
             val accountIdBody: RequestBody = accountId.toRequestBody("text/plain".toMediaTypeOrNull())
             val capturedAtBody: RequestBody = capturedAtMs.toString().toRequestBody("text/plain".toMediaTypeOrNull())
-            val symbolBody: RequestBody = symbol.toRequestBody("text/plain".toMediaTypeOrNull())
+            val symbolBody: RequestBody = safeSymbol.toRequestBody("text/plain".toMediaTypeOrNull())
 
             val response = apiService.analyzeScreenshot(body, accountIdBody, capturedAtBody, symbolBody)
             if (response.isSuccessful) {
                 val result: AnalysisResponse? = response.body()
-                Log.d("AEGIS", "Brain Response: ${result?.signal} - ${result?.confidence}")
+                Log.d("AEGIS", "Brain Response: ${result?.signal} - ${result?.confidence} (symbol='$safeSymbol')")
                 result?.let {
                     SignalRepository.latestResult.postValue(it)
                     SignalRepository.latestSignal.postValue(it.signal)
@@ -455,13 +500,47 @@ class ScreenCaptureService : Service() {
                 } catch (_: Exception) {
                     null
                 }
-                Log.e("AEGIS", "Brain Error: ${response.code()} body=${errBody ?: "(empty)"}")
-                HealthStatus.recordCaptureFailure(httpCode = response.code(), networkError = false, latencyMs = System.currentTimeMillis() - t0)
+                Log.e("AEGIS", "Brain Error: ${response.code()} body=${errBody ?: "(empty)"} symbol='$safeSymbol'")
+                // If failure was still symbol-related, retry once with forced empty symbol
+                if (safeSymbol.isNotEmpty() && response.code() in listOf(400, 402, 503)) {
+                    Log.w("AEGIS", "Retrying upload with empty symbol after ${response.code()}")
+                    val emptySym = "".toRequestBody("text/plain".toMediaTypeOrNull())
+                    val retry = apiService.analyzeScreenshot(body, accountIdBody, capturedAtBody, emptySym)
+                    if (retry.isSuccessful) {
+                        val result = retry.body()
+                        result?.let {
+                            SignalRepository.latestResult.postValue(it)
+                            SignalRepository.latestSignal.postValue(it.signal)
+                        }
+                        HealthStatus.recordCaptureSuccess(httpCode = retry.code(), latencyMs = System.currentTimeMillis() - t0)
+                        return true
+                    }
+                    val retryErr = try { retry.errorBody()?.string()?.take(300) } catch (_: Exception) { null }
+                    Log.e("AEGIS", "Retry also failed: ${retry.code()} $retryErr")
+                    HealthStatus.recordCaptureFailure(
+                        httpCode = retry.code(),
+                        networkError = false,
+                        latencyMs = System.currentTimeMillis() - t0,
+                        errorDetail = retryErr,
+                    )
+                    return false
+                }
+                HealthStatus.recordCaptureFailure(
+                    httpCode = response.code(),
+                    networkError = false,
+                    latencyMs = System.currentTimeMillis() - t0,
+                    errorDetail = errBody,
+                )
                 false
             }
         } catch (e: Exception) {
             Log.e("AEGIS", "Send failed: ${e.javaClass.simpleName}: ${e.message}")
-            HealthStatus.recordCaptureFailure(httpCode = null, networkError = true, latencyMs = System.currentTimeMillis() - t0)
+            HealthStatus.recordCaptureFailure(
+                httpCode = null,
+                networkError = true,
+                latencyMs = System.currentTimeMillis() - t0,
+                errorDetail = "${e.javaClass.simpleName}: ${e.message}",
+            )
             false
         }
     }
