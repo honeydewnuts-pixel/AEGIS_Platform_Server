@@ -218,6 +218,9 @@ class SubscriptionService:
             "current_period_end": row.current_period_end.isoformat() if row.current_period_end else None,
             "grace_period_ends_at": row.grace_period_ends_at.isoformat() if row.grace_period_ends_at else None,
             "updated_at": row.updated_at.isoformat(),
+            # Required for website portal session (BFF stores this after email login).
+            # Not a mobile API key — only validates /api/portal/* with account_id.
+            "portal_token": row.portal_token,
         }
 
     async def list_all(self) -> list[dict[str, Any]]:

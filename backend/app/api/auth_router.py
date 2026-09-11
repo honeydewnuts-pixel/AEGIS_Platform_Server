@@ -115,7 +115,7 @@ async def login(body: LoginBody, request: Request):
         )
     except ValueError as e:
         raise HTTPException(401, str(e)) from e
-    # Attach subscription portal_token so website portal can load without "Not found"
+    # Attach subscription portal_token so website portal can issue mobile keys.
     try:
         sub = request.app.state.subscription_service
         account_id = result.get("account_id")
@@ -124,10 +124,15 @@ async def login(body: LoginBody, request: Request):
             if status is None:
                 await sub.activate_demo(account_id)
                 status = await sub.get_status(account_id)
+            if status and not status.get("portal_token"):
+                # Backfill missing portal_token on legacy rows
+                await sub.activate_demo(account_id)
+                status = await sub.get_status(account_id)
             if status:
                 result["plan"] = status.get("plan") or result.get("plan")
                 result["portal_token"] = status.get("portal_token")
                 result["subscription_status"] = status.get("status")
+                result["is_active"] = status.get("status") in ("active", "trialing", "demo")
     except Exception:
         pass
     return result
