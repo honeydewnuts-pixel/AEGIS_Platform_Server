@@ -14,7 +14,7 @@ import kotlinx.coroutines.launch
  * Full pairs + rulebook registry viewer.
  * Shows tradeable and non-tradeable instruments so operators see the complete V40 registry.
  */
-class RegistryActivity : AppCompatActivity() {
+open class RegistryActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
