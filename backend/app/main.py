@@ -165,7 +165,7 @@ if portal_dir.exists():
 async def root():
     return {
         "service": "AEGIS API",
-        "version": "3.0.1",
+        "version": "3.0.2",
         "status": "online",
         "modules": ["upload", "preprocessing", "chart_detection", "trading", "brain", "subscriptions", "download", "devices", "admin", "portal"],
     }
@@ -198,6 +198,6 @@ async def health(request: Request):
             "status": status,
             "redis": redis_ok,
             "service": "AEGIS API",
-            "version": "3.0.1",
+            "version": "3.0.2",
         },
     )
