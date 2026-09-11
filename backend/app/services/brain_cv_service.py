@@ -207,45 +207,85 @@ class BrainCVService:
     # ------------------------------------------------------------
 
     def extract_frame_state(self, image: np.ndarray) -> dict[str, Any]:
+        """Extract frame features for the rule/neural engines.
+
+        V46 plain-chart mode may leave config["indicators"] empty. Fall back to
+        indicators_legacy so analysis never KeyErrors and uploads can succeed
+        (rules may still return no_rule_matched / insufficient_history).
+        """
         indicator_panel = self._crop_panel(image, "indicator_panel")
         price_panel = self._crop_panel(image, "price_panel")
 
         hsv_indicator = cv2.cvtColor(indicator_panel, cv2.COLOR_BGR2HSV)
         hsv_price = cv2.cvtColor(price_panel, cv2.COLOR_BGR2HSV)
 
-        ind = self.config["indicators"]
-        price_ind = self.config.get("price_panel_indicators", {})
-
-        band1_pts = self._find_color_points(hsv_indicator, ind["#1"]["rgb"], ind["#1"]["hsv_tolerance"])
-        ma4_pts = self._find_color_points(hsv_indicator, ind["#4"]["rgb"], ind["#4"]["hsv_tolerance"])
-        rsi6_pts = self._find_color_points(hsv_indicator, ind["#6"]["rgb"], ind["#6"]["hsv_tolerance"])
+        ind = self.config.get("indicators") or {}
+        if not ind:
+            ind = self.config.get("indicators_legacy") or {}
+        price_ind = self.config.get("price_panel_indicators") or self.config.get(
+            "price_panel_indicators_legacy"
+        ) or {}
 
         w_ind = indicator_panel.shape[1]
+        h_ind = indicator_panel.shape[0]
         frame_state: dict[str, Any] = {
-            "band1": self._band_ulm(band1_pts, w_ind, indicator_panel.shape[0]),
-            "ma4": self._single_line_y(ma4_pts, w_ind, indicator_panel.shape[0]),
-            "rsi6": self._single_line_y(rsi6_pts, w_ind, indicator_panel.shape[0]),
+            "band1": None,
+            "ma4": None,
+            "rsi6": None,
             "_indicator_top": 0.0,
-            "_indicator_bottom": float(indicator_panel.shape[0] - 1),
+            "_indicator_bottom": float(max(0, h_ind - 1)),
+            "vision_mode": "plain_chart_v46" if not ind else "indicator_colors",
         }
 
-        # Price panel #7/#8, if mapped
+        # Safe optional color extraction — never crash the upload path
+        try:
+            if ind.get("#1") and ind["#1"].get("rgb"):
+                band1_pts = self._find_color_points(
+                    hsv_indicator, ind["#1"]["rgb"], ind["#1"].get("hsv_tolerance") or {}
+                )
+                frame_state["band1"] = self._band_ulm(band1_pts, w_ind, h_ind)
+            if ind.get("#4") and ind["#4"].get("rgb"):
+                ma4_pts = self._find_color_points(
+                    hsv_indicator, ind["#4"]["rgb"], ind["#4"].get("hsv_tolerance") or {}
+                )
+                frame_state["ma4"] = self._single_line_y(ma4_pts, w_ind, h_ind)
+            if ind.get("#6") and ind["#6"].get("rgb"):
+                rsi6_pts = self._find_color_points(
+                    hsv_indicator, ind["#6"]["rgb"], ind["#6"].get("hsv_tolerance") or {}
+                )
+                frame_state["rsi6"] = self._single_line_y(rsi6_pts, w_ind, h_ind)
+        except Exception as e:
+            self.logger.warning("indicator color extract soft-fail: %s", e)
+
         w_price = price_panel.shape[1]
-        if price_ind.get("#7"):
-            pts7 = self._find_color_points(hsv_price, price_ind["#7"]["rgb"], price_ind["#7"]["hsv_tolerance"])
-            frame_state["price_band7"] = self._band_ulm(pts7, w_price, price_panel.shape[0])
-        if price_ind.get("#8"):
-            pts8 = self._find_color_points(hsv_price, price_ind["#8"]["rgb"], price_ind["#8"]["hsv_tolerance"])
-            frame_state["price_band8"] = self._band_ulm(pts8, w_price, price_panel.shape[0])
+        try:
+            if price_ind.get("#7") and price_ind["#7"].get("rgb"):
+                pts7 = self._find_color_points(
+                    hsv_price, price_ind["#7"]["rgb"], price_ind["#7"].get("hsv_tolerance") or {}
+                )
+                frame_state["price_band7"] = self._band_ulm(pts7, w_price, price_panel.shape[0])
+            if price_ind.get("#8") and price_ind["#8"].get("rgb"):
+                pts8 = self._find_color_points(
+                    hsv_price, price_ind["#8"]["rgb"], price_ind["#8"].get("hsv_tolerance") or {}
+                )
+                frame_state["price_band8"] = self._band_ulm(pts8, w_price, price_panel.shape[0])
+        except Exception as e:
+            self.logger.warning("price panel extract soft-fail: %s", e)
 
         # Approximate price close from rightmost candle body pixels.
-        candle_cfg = self.config.get("candle_colors", {})
-        bull_rgb = candle_cfg.get("bullish_rgb", DEFAULT_BULLISH_RGB)
-        bear_rgb = candle_cfg.get("bearish_rgb", DEFAULT_BEARISH_RGB)
-        bull_pts = self._find_color_points(hsv_price, bull_rgb, {"hue": 15})
-        bear_pts = self._find_color_points(hsv_price, bear_rgb, {"hue": 15})
-        all_candle_pts = bull_pts + bear_pts
-        frame_state["price_close"] = self._single_line_y(all_candle_pts, w_price, price_panel.shape[0])
+        try:
+            candle_cfg = self.config.get("candle_colors", {})
+            bull_rgb = candle_cfg.get("bullish_rgb", DEFAULT_BULLISH_RGB)
+            bear_rgb = candle_cfg.get("bearish_rgb", DEFAULT_BEARISH_RGB)
+            bull_pts = self._find_color_points(hsv_price, bull_rgb, {"hue": 15})
+            bear_pts = self._find_color_points(hsv_price, bear_rgb, {"hue": 15})
+            all_candle_pts = bull_pts + bear_pts
+            frame_state["price_close"] = self._single_line_y(
+                all_candle_pts, w_price, price_panel.shape[0]
+            )
+        except Exception as e:
+            self.logger.warning("price_close extract soft-fail: %s", e)
+            frame_state["price_close"] = None
 
         return frame_state
 

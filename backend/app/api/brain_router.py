@@ -172,7 +172,10 @@ async def analyze_screenshot(
                 error_code="analysis_failed",
             )
         brain.logger.exception("Screenshot analysis failed for account %s", account_id)
-        raise HTTPException(status_code=500, detail="Analysis failed.") from exc
+        raise HTTPException(
+            status_code=500,
+            detail=f"Analysis failed: {type(exc).__name__}: {exc}",
+        ) from exc
 
     latency_ms = (time.perf_counter() - t0) * 1000
     if upload_diag:

@@ -82,7 +82,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="AEGIS API",
     description="Autonomous Enterprise Global Intelligence System",
-    version="3.0.2",
+    version="3.0.3",
     debug=settings.DEBUG,  # was previously defined in config but never actually wired up
     lifespan=lifespan,
 )
@@ -165,7 +165,7 @@ if portal_dir.exists():
 async def root():
     return {
         "service": "AEGIS API",
-        "version": "3.0.2",
+        "version": "3.0.3",
         "status": "online",
         "modules": ["upload", "preprocessing", "chart_detection", "trading", "brain", "subscriptions", "download", "devices", "admin", "portal"],
     }
@@ -198,6 +198,6 @@ async def health(request: Request):
             "status": status,
             "redis": redis_ok,
             "service": "AEGIS API",
-            "version": "3.0.2",
+            "version": "3.0.3",
         },
     )
