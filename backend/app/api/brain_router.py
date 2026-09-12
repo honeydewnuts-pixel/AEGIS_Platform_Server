@@ -37,6 +37,8 @@ async def analyze_screenshot(
     account_id: str = Form(""),
     captured_at_ms: int | None = Form(None),
     symbol: str = Form(""),
+    timeframe: str = Form("M5"),
+    engine: str = Form(""),  # empty = V40 universal (default); legacy_v3 = old indicator path
     auth: AuthContext = Depends(verify_api_key),
 ):
     # Client mobile keys: account is defined by the key, not the form field.
@@ -112,31 +114,48 @@ async def analyze_screenshot(
         # account's Windows worker. No external broker market-data API is used.
         market_snapshot = None
         pair_artifact = None
-        if symbol.strip():
-            if captured_at_ms is None:
-                raise ValueError("captured_at_ms is required when symbol is supplied.")
-            if not await worker_pool.is_running(account_id):
-                raise ValueError("MT5 worker is not connected for this account.")
-            snapshot_job = await job_queue.submit_and_wait(
-                account_id,
-                "get_m1_ohlc_at",
-                {"symbol": symbol.strip(), "captured_at_ms": int(captured_at_ms)},
-                timeout_seconds=10,
-            )
-            if snapshot_job is None or not snapshot_job.get("success"):
-                raise ValueError(snapshot_job.get("message", "MT5 market snapshot unavailable.") if snapshot_job else "MT5 market snapshot timed out.")
-            market_snapshot = snapshot_job.get("result")
-            if not isinstance(market_snapshot, dict):
-                raise ValueError("Invalid MT5 market snapshot response.")
-            # Rule engine's price comparisons now use authoritative MT5 close
-            # mapped to the existing price coordinate system. The pixel extractor
-            # remains available for visual diagnostics; it is not authoritative.
-            frame_state["market_ohlc"] = market_snapshot
-            frame_state["price_close"] = float(market_snapshot["close"])
+        # Optional MT5 OHLC sync — never fail the screenshot upload if worker is down
+        if symbol.strip() and await worker_pool.is_running(account_id):
+            try:
+                if captured_at_ms is not None:
+                    snapshot_job = await job_queue.submit_and_wait(
+                        account_id,
+                        "get_m1_ohlc_at",
+                        {"symbol": symbol.strip(), "captured_at_ms": int(captured_at_ms)},
+                        timeout_seconds=10,
+                    )
+                    if snapshot_job and snapshot_job.get("success"):
+                        market_snapshot = snapshot_job.get("result")
+                        if isinstance(market_snapshot, dict) and "close" in market_snapshot:
+                            frame_state["market_ohlc"] = market_snapshot
+                            try:
+                                frame_state["price_close"] = float(market_snapshot["close"])
+                            except (TypeError, ValueError):
+                                pass
+            except Exception as snap_exc:
+                brain.logger.warning("MT5 snapshot soft-fail for %s: %s", account_id, snap_exc)
 
         await history_service.append_frame(account_id, frame_state, captured_at_ms)
         history = await history_service.get_history(account_id)
-        result = brain.evaluate(history)
+
+        # --- V47: Universal Router is the primary analysis path ---
+        # V3 indicator engine is legacy only (engine=legacy_v3).
+        engine_mode = (engine or "").strip().lower()
+        if engine_mode in ("legacy_v3", "v3", "indicator_v3"):
+            result = brain.evaluate(history)
+            result["analysis_path"] = "legacy_v3"
+        else:
+            from app.services.universal_analysis_service import UniversalAnalysisService
+            uni = UniversalAnalysisService()
+            result = uni.analyze(
+                instrument=symbol.strip(),
+                timeframe=(timeframe or "M5").strip() or "M5",
+                market_snapshot=market_snapshot if isinstance(market_snapshot, dict) else None,
+                frame_state=frame_state,
+            )
+            # Attach lightweight frame diagnostics without forcing V3 rules
+            if frame_state.get("price_close") is not None:
+                result.setdefault("price_close_px", frame_state.get("price_close"))
 
         if market_snapshot is not None and captured_at_ms is not None:
             from app.services.capture_pair_service import CapturePairService
