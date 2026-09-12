@@ -183,7 +183,11 @@ class MainActivity : AppCompatActivity() {
             if (pair != null) {
                 val tf = result.timeframe?.takeIf { it.isNotBlank() }
                 lines.add(if (tf != null) "Pair: $pair · $tf" else "Pair: $pair")
+            } else {
+                lines.add("Pair: (set Trade pair in Settings, e.g. GBPUSD)")
             }
+            result.analysis_path?.takeIf { it.isNotBlank() }?.let { lines.add("Path: $it") }
+            result.router_state?.takeIf { it.isNotBlank() }?.let { lines.add("Router: $it") }
             if (rule != null) lines.add("Rule: $rule")
             val regime = when {
                 result.expansion == 1 -> "Regime: EXPANSION"

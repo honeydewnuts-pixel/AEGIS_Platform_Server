@@ -534,32 +534,37 @@ class ScreenCaptureService : Service() {
      * Any health-check failure conservatively falls back to an image-only
      * upload, which is the core AEGIS capability.
      */
+    /**
+     * V47: always attach the Settings chart symbol when set so the Universal
+     * Router can select the instrument (GBPUSD, AUDUSD, …).
+     * Backend OHLC sync is optional and soft-fails if the worker is offline.
+     * (Older backends required a worker for any non-empty symbol; V47 does not.)
+     */
     private suspend fun resolveUploadSymbol(accountId: String, configuredSymbol: String): String {
-        if (configuredSymbol.isBlank() || accountId.isBlank()) return ""
-        val now = System.currentTimeMillis()
-        if (now < mt5WorkerReadyUntilMs) {
-            return if (mt5WorkerReady) configuredSymbol else ""
+        val sym = configuredSymbol.trim().uppercase()
+        if (sym.isEmpty()) {
+            Log.w("AEGIS", "No MT5 Chart Symbol in Settings — router cannot pick a pair")
+            return ""
         }
-        synchronized(mt5WorkerStateLock) {
-            if (System.currentTimeMillis() < mt5WorkerReadyUntilMs) {
-                return if (mt5WorkerReady) configuredSymbol else ""
+        // Best-effort health cache for diagnostics only; does not block symbol.
+        try {
+            val now = System.currentTimeMillis()
+            if (now >= mt5WorkerReadyUntilMs && accountId.isNotBlank()) {
+                val response = apiService.tradingHealth(accountId)
+                val connected = response.isSuccessful && (
+                    response.body()?.get("connected") == true ||
+                        response.body()?.get("connected")?.toString()?.equals("true", true) == true
+                )
+                synchronized(mt5WorkerStateLock) {
+                    mt5WorkerReady = connected
+                    mt5WorkerReadyUntilMs = System.currentTimeMillis() + MT5_HEALTH_CACHE_MS
+                }
+                Log.i("AEGIS", "Upload symbol=$sym worker_connected=$connected")
             }
-        }
-        val ready = try {
-            val response = apiService.tradingHealth(accountId)
-            if (response.isSuccessful) {
-                val connected = response.body()?.get("connected")
-                connected == true || connected?.toString()?.equals("true", ignoreCase = true) == true
-            } else false
         } catch (e: Exception) {
-            Log.w("AEGIS", "MT5 health check unavailable; using image-only upload: ${e.message}")
-            false
+            Log.w("AEGIS", "MT5 health probe soft-fail: ${e.message}")
         }
-        synchronized(mt5WorkerStateLock) {
-            mt5WorkerReady = ready
-            mt5WorkerReadyUntilMs = System.currentTimeMillis() + MT5_HEALTH_CACHE_MS
-        }
-        return if (UploadPolicy.shouldSendSymbol(configuredSymbol, accountId, ready)) configuredSymbol else ""
+        return sym
     }
 
 
