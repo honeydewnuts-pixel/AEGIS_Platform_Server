@@ -37,8 +37,8 @@ android {
         applicationId = "com.aegis.mobile"
         minSdk = 26
         targetSdk = 34
-        versionCode = 26
-        versionName = "2.1.1"
+        versionCode = 27
+        versionName = "2.1.2"
     }
 
     signingConfigs {

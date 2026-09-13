@@ -295,9 +295,9 @@ class FloatingHudService : Service() {
             }
             val res = SignalRepository.latestResult.value
             detailView.text = res?.let {
-                val conf = (it.confidence * 100f).toInt()
+                val conf = if (it.confidence_available == false || it.acquisition_state == "WAITING_FOR_OHLC") -1 else (it.confidence * 100f).toInt()
                 val rule = it.rule_name ?: ""
-                "$rule · ${conf}%"
+                "$rule · ${if (conf < 0) "N/A" else "$conf%"}"
             } ?: "Waiting…"
         } else {
             body.visibility = View.VISIBLE
@@ -368,9 +368,9 @@ class FloatingHudService : Service() {
     }
     private val resultObserver = androidx.lifecycle.Observer<com.aegis.mobile.models.AnalysisResponse?> { res ->
         if (res == null) return@Observer
-        val conf = (res.confidence * 100f).toInt()
+        val conf = if (res.confidence_available == false || res.acquisition_state == "WAITING_FOR_OHLC") -1 else (res.confidence * 100f).toInt()
         val rule = res.rule_name ?: ""
-        val line = "$rule · ${conf}%"
+        val line = "$rule · ${if (conf < 0) "N/A" else "$conf%"}"
         if (collapsed) {
             detailView.text = line
             refreshChipCounts()

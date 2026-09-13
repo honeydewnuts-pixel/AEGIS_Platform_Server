@@ -161,3 +161,58 @@ def derive_acquisition_state(
         "checklist": checklist,
         "summary": summary,
     }
+
+
+def confidence_presentation(
+    *,
+    acquisition_state: str | None,
+    router_state: str | None,
+    rule_name: str | None,
+    confidence: float | None,
+) -> dict:
+    """Avoid showing 0% when no evaluation has occurred."""
+    state = (acquisition_state or "").upper()
+    rs = (router_state or "").upper()
+    rn = (rule_name or "").lower()
+
+    not_evaluated = state in {
+        "WAITING_FOR_OHLC",
+        "WAITING_FOR_CAPTURE",
+        "INSTRUMENT_BLOCKED",
+    } or rn in {
+        "v40_research_awaiting_ohlc",
+        "instrument_unspecified",
+        "trading_disabled",
+        "no_qualified_rulebook",
+        "unknown_instrument",
+        "production_authorization_required",
+    } or rs in {
+        "TRADING_DISABLED",
+        "NO_QUALIFIED_RULEBOOK",
+        "UNKNOWN_INSTRUMENT",
+        "PRODUCTION_AUTHORIZATION_REQUIRED",
+    }
+
+    if not_evaluated:
+        reason = {
+            "WAITING_FOR_OHLC": "WAITING FOR SYNCHRONIZED OHLC",
+            "WAITING_FOR_CAPTURE": "WAITING FOR NEXT CAPTURE",
+            "INSTRUMENT_BLOCKED": "NO ELIGIBLE RULEBOOK / ROUTER BLOCKED",
+        }.get(state, "NOT EVALUATED")
+        if rn == "v40_research_awaiting_ohlc":
+            reason = "WAITING FOR SYNCHRONIZED OHLC"
+        return {
+            "confidence_available": False,
+            "confidence_display": "N/A",
+            "confidence_status": reason,
+            # Keep numeric field for backward-compatible clients; UI should use display
+            "confidence": 0.0,
+        }
+
+    c = float(confidence or 0.0)
+    return {
+        "confidence_available": True,
+        "confidence_display": f"{c * 100:.0f}%",
+        "confidence_status": "EVALUATED",
+        "confidence": c,
+    }

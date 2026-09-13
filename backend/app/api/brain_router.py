@@ -121,6 +121,7 @@ async def analyze_screenshot(
         build_ohlc_from_form,
         validate_observation,
         derive_acquisition_state,
+        confidence_presentation,
         floor_to_m5_ms,
         next_m5_boundary_ms,
     )
@@ -217,6 +218,13 @@ async def analyze_screenshot(
             # Keep legacy rule_name; surface clearer details for OHLC wait
             if acq["acquisition_state"] == "WAITING_FOR_OHLC" and result.get("rule_name") == "v40_research_awaiting_ohlc":
                 result["details"] = acq["summary"] + " " + (result.get("details") or "")
+            conf = confidence_presentation(
+                acquisition_state=result.get("acquisition_state"),
+                router_state=result.get("router_state"),
+                rule_name=result.get("rule_name"),
+                confidence=result.get("confidence"),
+            )
+            result.update(conf)
 
             # Attach lightweight frame diagnostics without forcing V3 rules
             if frame_state.get("price_close") is not None:

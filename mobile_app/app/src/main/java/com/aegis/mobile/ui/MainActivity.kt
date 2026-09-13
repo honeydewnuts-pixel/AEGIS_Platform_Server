@@ -162,8 +162,18 @@ class MainActivity : AppCompatActivity() {
         // Full analysis panel — signal, reason, rule, pair, regime, neural, execution
         viewModel.currentResult.observe(this) { result ->
             if (result == null) return@observe
-            val confPct = "%.0f".format(result.confidence * 100)
-            confidenceText.text = "Confidence: ${confPct}%"
+            val confAvailable = result.confidence_available != false &&
+                result.acquisition_state != "WAITING_FOR_OHLC" &&
+                result.acquisition_state != "WAITING_FOR_CAPTURE" &&
+                result.acquisition_state != "INSTRUMENT_BLOCKED" &&
+                result.rule_name != "v40_research_awaiting_ohlc"
+            confidenceText.text = when {
+                result.confidence_display != null && result.confidence_available == false ->
+                    "Confidence: N/A — ${result.confidence_status ?: "NOT EVALUATED"}"
+                !confAvailable ->
+                    "Confidence: N/A — ${result.confidence_status ?: result.acquisition_state ?: "WAITING FOR SYNCHRONIZED OHLC"}"
+                else -> "Confidence: ${"%.0f".format(result.confidence * 100)}%"
+            }
             val rule = result.rule_name?.takeIf { it.isNotBlank() }
             ruleText.text = rule?.let { "Rule: $it" } ?: ""
 

@@ -3,6 +3,9 @@ package com.aegis.mobile.models
 data class AnalysisResponse(
     val signal: String = "HOLD",
     val confidence: Float = 0f,
+    val confidence_available: Boolean? = null,
+    val confidence_display: String? = null,
+    val confidence_status: String? = null,
     val details: String = "",
     val timestamp: Long = 0L,
     val rule_name: String? = null,
