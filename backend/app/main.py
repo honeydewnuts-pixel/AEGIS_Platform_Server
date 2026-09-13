@@ -56,6 +56,7 @@ from app.api.support_router import router as support_router
 from app.api.status_router import router as status_router
 from app.api.rulebook_router import router as rulebook_router
 from app.api.transfer_router import router as transfer_router
+from app.api.ohlc_router import router as ohlc_router
 
 logger = configure_logging(__name__)
 
@@ -139,6 +140,7 @@ app.include_router(signal_router)
 app.include_router(config_router)
 app.include_router(rulebook_router)
 app.include_router(transfer_router)
+app.include_router(ohlc_router)
 
 # /metrics - HTTP request counts/latencies auto-instrumented, plus custom
 # business gauges from app.core.metrics (populated by a background loop

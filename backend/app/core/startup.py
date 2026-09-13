@@ -98,6 +98,10 @@ async def on_startup(app: FastAPI) -> None:
     app.state.templates = RegistryService()
     app.state.registry = app.state.templates  # alias
 
+    from app.services.ohlc_stream_service import OhlcStreamService
+    app.state.ohlc_stream = OhlcStreamService()
+    logger.info("OHLC stream service ready (independent of screenshots)")
+
     app.state.subscription_sweep_task = asyncio.create_task(_subscription_sweep_loop(app))
     app.state.metrics_task = asyncio.create_task(refresh_metrics_loop(app))
 

@@ -191,6 +191,37 @@ async def analyze_screenshot(
                     brain.logger.warning("MT5 snapshot soft-fail for %s: %s", account_id, snap_exc)
                     ohlc_missing_reason = f"MT5 snapshot error: {snap_exc}"
 
+        # Independent OHLC stream (MT5 EA / continuous worker) — preferred over one-shot job
+        ohlc_stream = getattr(request.app.state, "ohlc_stream", None)
+        stream_payload = None
+        if ohlc_stream is not None and symbol.strip():
+            stream_payload = ohlc_stream.get(account_id, symbol.strip(), (timeframe or "M5").strip() or "M5")
+            if stream_payload and not stream_payload.get("stale"):
+                market_snapshot = {
+                    "open": stream_payload.get("open"),
+                    "high": stream_payload.get("high"),
+                    "low": stream_payload.get("low"),
+                    "close": stream_payload.get("close"),
+                    "bars": stream_payload.get("bars"),
+                    "bar_count": stream_payload.get("bar_count"),
+                    "source": stream_payload.get("source"),
+                    "received_at_ms": stream_payload.get("received_at_ms"),
+                    "closed_bar": stream_payload.get("closed_bar"),
+                    "current_bar": stream_payload.get("current_bar"),
+                }
+                frame_state["market_ohlc"] = market_snapshot
+                try:
+                    frame_state["price_close"] = float(market_snapshot["close"])
+                except (TypeError, ValueError):
+                    pass
+                ohlc_missing_reason = None
+                worker_connected = True  # stream implies MT5 data path alive
+            elif stream_payload and stream_payload.get("stale"):
+                ohlc_missing_reason = ohlc_missing_reason or (
+                    f"OHLC stream stale (age_ms={stream_payload.get('age_ms')}). "
+                    "MT5 EA should POST /api/mt5/ohlc/stream on each new M5 bar."
+                )
+
         await history_service.append_frame(account_id, frame_state, captured_at_ms)
         history = await history_service.get_history(account_id)
 
@@ -260,6 +291,28 @@ async def analyze_screenshot(
             )
             result.update(hold)
             result["worker_connected"] = worker_connected
+            # Server-side features from OHLC history (never from screenshot pixels)
+            try:
+                from app.services.feature_engine import compute_features
+                bars = None
+                if isinstance(effective_snapshot, dict):
+                    bars = effective_snapshot.get("bars")
+                if isinstance(bars, list) and len(bars) >= 5:
+                    feats = compute_features(bars)
+                    result["features"] = feats
+                    result["feature_engine"] = "ready" if feats.get("ready") else "insufficient_bars"
+                    if feats.get("ready") and result.get("acquisition_state") == "CAPTURE_COMPLETE":
+                        # Research bias only — does not authorize production
+                        bias = feats.get("bias")
+                        if bias and result.get("confidence_available") is not True:
+                            result["details"] = (
+                                (result.get("details") or "")
+                                + f" Features ready (bars={feats.get('bar_count')}, bias={bias})."
+                            ).strip()
+                else:
+                    result["feature_engine"] = "no_history"
+            except Exception as fe:
+                result["feature_engine"] = f"error:{type(fe).__name__}"
             if ohlc_missing_reason:
                 result.setdefault("observation", {})
                 if isinstance(result.get("observation"), dict):
