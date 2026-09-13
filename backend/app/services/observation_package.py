@@ -216,3 +216,75 @@ def confidence_presentation(
         "confidence_status": "EVALUATED",
         "confidence": c,
     }
+
+
+def derive_hold_reason(
+    *,
+    acquisition_state: str | None,
+    router_state: str | None,
+    rule_name: str | None,
+    signal: str | None,
+    confidence_available: bool | None = None,
+    confidence: float | None = None,
+    confidence_threshold: float = 0.55,
+    ohlc_missing_reason: str | None = None,
+) -> dict:
+    """Discriminate why the decision is HOLD (or not)."""
+    sig = (signal or "HOLD").upper()
+    state = (acquisition_state or "").upper()
+    rs = (router_state or "").upper()
+    rn = (rule_name or "").lower()
+
+    if sig in ("BUY", "SELL"):
+        return {
+            "hold_reason": None,
+            "decision": "EXECUTE_CANDIDATE",
+            "decision_detail": f"Signal {sig} pending risk gates.",
+        }
+
+    if state == "WAITING_FOR_OHLC" or rn == "v40_research_awaiting_ohlc":
+        detail = ohlc_missing_reason or "Synchronized MT5 OHLC not available."
+        return {
+            "hold_reason": "WAITING_FOR_OHLC",
+            "decision": "HOLD",
+            "decision_detail": detail,
+        }
+
+    if state == "WAITING_FOR_CAPTURE":
+        return {
+            "hold_reason": "WAITING_FOR_CAPTURE",
+            "decision": "HOLD",
+            "decision_detail": "Next M5 acquisition not yet due.",
+        }
+
+    if state == "INSTRUMENT_BLOCKED" or rs in {
+        "TRADING_DISABLED",
+        "NO_QUALIFIED_RULEBOOK",
+        "UNKNOWN_INSTRUMENT",
+        "PRODUCTION_AUTHORIZATION_REQUIRED",
+    }:
+        return {
+            "hold_reason": "NO_ELIGIBLE_RULEBOOK",
+            "decision": "HOLD",
+            "decision_detail": f"Router state {rs or rn} — fail-closed.",
+        }
+
+    if confidence_available and confidence is not None and float(confidence) < confidence_threshold:
+        return {
+            "hold_reason": "CONFIDENCE_BELOW_THRESHOLD",
+            "decision": "HOLD",
+            "decision_detail": f"Confidence {float(confidence):.2f} below threshold {confidence_threshold}.",
+        }
+
+    if rn and "risk" in rn:
+        return {
+            "hold_reason": "RISK_GATE",
+            "decision": "HOLD",
+            "decision_detail": rn,
+        }
+
+    return {
+        "hold_reason": "NO_QUALIFIED_SIGNAL",
+        "decision": "HOLD",
+        "decision_detail": rn or "Rule evaluated; no qualified entry.",
+    }

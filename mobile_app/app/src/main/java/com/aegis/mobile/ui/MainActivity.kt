@@ -185,6 +185,17 @@ class MainActivity : AppCompatActivity() {
             result.acquisition_state?.takeIf { it.isNotBlank() }?.let {
                 lines.add("Acquisition: $it")
             }
+            result.hold_reason?.takeIf { it.isNotBlank() }?.let {
+                lines.add("HOLD reason: $it")
+            }
+            result.decision_detail?.takeIf { it.isNotBlank() }?.let {
+                lines.add(it)
+            }
+            when (result.worker_connected) {
+                true -> lines.add("MT5 worker: connected")
+                false -> lines.add("MT5 worker: not connected (OHLC needs Windows/desktop worker)")
+                null -> {}
+            }
             result.next_capture_at_ms?.let { n ->
                 if (n > 0L) {
                     val waitSec = ((n - System.currentTimeMillis()) / 1000).coerceAtLeast(0)

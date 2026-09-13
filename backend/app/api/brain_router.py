@@ -122,6 +122,7 @@ async def analyze_screenshot(
         validate_observation,
         derive_acquisition_state,
         confidence_presentation,
+        derive_hold_reason,
         floor_to_m5_ms,
         next_m5_boundary_ms,
     )
@@ -146,15 +147,29 @@ async def analyze_screenshot(
         # account's Windows worker. No external broker market-data API is used.
         market_snapshot = None
         pair_artifact = None
+        ohlc_missing_reason = None
+        worker_connected = False
         # Optional MT5 OHLC sync — never fail the screenshot upload if worker is down
-        if symbol.strip() and await worker_pool.is_running(account_id):
+        if not symbol.strip():
+            ohlc_missing_reason = "No symbol in observation; set Trade pair in Settings (e.g. GBPUSD)."
+        else:
             try:
-                if captured_at_ms is not None:
+                worker_connected = bool(await worker_pool.is_running(account_id))
+            except Exception:
+                worker_connected = False
+            if not worker_connected:
+                ohlc_missing_reason = (
+                    "MT5 worker not connected for this account. "
+                    "Link Windows/desktop MT5 worker (MT5 LINK) so the server can read OHLC ticks."
+                )
+            else:
+                try:
+                    ts = int(captured_at_ms) if captured_at_ms is not None else int(__import__("time").time() * 1000)
                     snapshot_job = await job_queue.submit_and_wait(
                         account_id,
                         "get_m1_ohlc_at",
-                        {"symbol": symbol.strip(), "captured_at_ms": int(captured_at_ms)},
-                        timeout_seconds=10,
+                        {"symbol": symbol.strip(), "captured_at_ms": ts},
+                        timeout_seconds=12,
                     )
                     if snapshot_job and snapshot_job.get("success"):
                         market_snapshot = snapshot_job.get("result")
@@ -164,8 +179,17 @@ async def analyze_screenshot(
                                 frame_state["price_close"] = float(market_snapshot["close"])
                             except (TypeError, ValueError):
                                 pass
-            except Exception as snap_exc:
-                brain.logger.warning("MT5 snapshot soft-fail for %s: %s", account_id, snap_exc)
+                            ohlc_missing_reason = None
+                        else:
+                            ohlc_missing_reason = "Worker returned success but OHLC payload missing close."
+                    else:
+                        msg = None
+                        if isinstance(snapshot_job, dict):
+                            msg = snapshot_job.get("message") or snapshot_job.get("error")
+                        ohlc_missing_reason = msg or "MT5 OHLC job failed or timed out."
+                except Exception as snap_exc:
+                    brain.logger.warning("MT5 snapshot soft-fail for %s: %s", account_id, snap_exc)
+                    ohlc_missing_reason = f"MT5 snapshot error: {snap_exc}"
 
         await history_service.append_frame(account_id, frame_state, captured_at_ms)
         history = await history_service.get_history(account_id)
@@ -225,6 +249,22 @@ async def analyze_screenshot(
                 confidence=result.get("confidence"),
             )
             result.update(conf)
+            hold = derive_hold_reason(
+                acquisition_state=result.get("acquisition_state"),
+                router_state=result.get("router_state"),
+                rule_name=result.get("rule_name"),
+                signal=result.get("signal"),
+                confidence_available=result.get("confidence_available"),
+                confidence=result.get("confidence"),
+                ohlc_missing_reason=ohlc_missing_reason,
+            )
+            result.update(hold)
+            result["worker_connected"] = worker_connected
+            if ohlc_missing_reason:
+                result.setdefault("observation", {})
+                if isinstance(result.get("observation"), dict):
+                    result["observation"]["ohlc_missing_reason"] = ohlc_missing_reason
+                    result["observation"]["worker_connected"] = worker_connected
 
             # Attach lightweight frame diagnostics without forcing V3 rules
             if frame_state.get("price_close") is not None:
