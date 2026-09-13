@@ -172,6 +172,15 @@ class MainActivity : AppCompatActivity() {
             lines.add("Last HTTP code: ${httpCode?.toString() ?: "—"}")
             val uploadSt = HealthStatus.lastUploadStatus.value
             if (uploadSt != null) lines.add("Last upload: $uploadSt")
+            result.acquisition_state?.takeIf { it.isNotBlank() }?.let {
+                lines.add("Acquisition: $it")
+            }
+            result.next_capture_at_ms?.let { n ->
+                if (n > 0L) {
+                    val waitSec = ((n - System.currentTimeMillis()) / 1000).coerceAtLeast(0)
+                    lines.add("Next capture in: ${waitSec}s (M5)")
+                }
+            }
             val detail = result.details?.takeIf { it.isNotBlank() }
             val reason = result.reason?.takeIf { it.isNotBlank() }
             when {

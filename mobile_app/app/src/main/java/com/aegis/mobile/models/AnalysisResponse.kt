@@ -12,6 +12,7 @@ data class AnalysisResponse(
     val timeframe: String? = null,
     val analysis_path: String? = null,
     val router_state: String? = null,
+    val acquisition_state: String? = null,
     val next_capture_at_ms: Long? = null,
     val contraction: Int? = null,
     val expansion: Int? = null,

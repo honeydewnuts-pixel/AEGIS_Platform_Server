@@ -1,9 +1,15 @@
-"""AEGIS Market Observation Package — validation helpers (V47.1)."""
+"""AEGIS Market Observation Package — validation + acquisition states (V47.2)."""
 
 from __future__ import annotations
 
 from typing import Any
 import time
+
+# Explicit acquisition states (mobile + server share vocabulary)
+WAITING_FOR_CAPTURE = "WAITING_FOR_CAPTURE"
+WAITING_FOR_OHLC = "WAITING_FOR_OHLC"
+CAPTURE_COMPLETE = "CAPTURE_COMPLETE"
+INSTRUMENT_BLOCKED = "INSTRUMENT_BLOCKED"
 
 
 def floor_to_m5_ms(ts_ms: int) -> int:
@@ -76,15 +82,82 @@ def validate_observation(
         "screenshot_valid": bool(screenshot_bytes) and len(screenshot_bytes) > 100,
         "instrument_valid": bool((instrument or "").strip()),
         "timeframe_valid": bool((timeframe or "").strip()),
-        "ohlc_valid": ohlc is not None and all(k in ohlc for k in ("open", "high", "low", "close")),
+        "ohlc_valid": ohlc is not None and all(
+            k in (ohlc or {}) for k in ("open", "high", "low", "close")
+        ),
         "timestamp_aligned": False,
         "sync_skew_ms": None,
     }
     if device_ts_ms is not None and candle_ts_ms is not None:
         skew = abs(int(device_ts_ms) - int(candle_ts_ms))
         flags["sync_skew_ms"] = skew
-        flags["timestamp_aligned"] = skew <= 60_000  # within 1 minute
+        flags["timestamp_aligned"] = skew <= 60_000
     elif candle_ts_ms is not None:
         flags["timestamp_aligned"] = True
         flags["sync_skew_ms"] = 0
     return flags
+
+
+def derive_acquisition_state(
+    *,
+    obs_flags: dict[str, Any],
+    router_state: str | None,
+    rule_name: str | None,
+) -> dict[str, Any]:
+    """
+    Map validation + router outcome to an explicit acquisition state.
+
+    WAITING_FOR_OHLC  — screenshot accepted, instrument OK, OHLC not yet synced
+    CAPTURE_COMPLETE  — screenshot + OHLC (+ optional time align) present
+    INSTRUMENT_BLOCKED — router refused trading (e.g. TRADING_DISABLED)
+    """
+    checklist = {
+        "screenshot": bool(obs_flags.get("screenshot_valid")),
+        "ohlc": bool(obs_flags.get("ohlc_valid")),
+        "timestamp": bool(obs_flags.get("timestamp_aligned")) or bool(obs_flags.get("candle_ts_ms")),
+        "symbol": bool(obs_flags.get("instrument_valid")),
+        "m5_sync": bool(obs_flags.get("timestamp_aligned")),
+    }
+
+    blocked_states = {
+        "TRADING_DISABLED",
+        "NO_QUALIFIED_RULEBOOK",
+        "UNKNOWN_INSTRUMENT",
+        "UNKNOWN_TIMEFRAME",
+        "INSUFFICIENT_SPREAD_DATA",
+        "RULEBOOK_INTEGRITY_FAILURE",
+        "MODEL_LINEAGE_FAILURE",
+        "PRODUCTION_AUTHORIZATION_REQUIRED",
+    }
+    rs = (router_state or "").upper()
+    rn = (rule_name or "").lower()
+
+    if rs in blocked_states or rn in {
+        "trading_disabled",
+        "no_qualified_rulebook",
+        "unknown_instrument",
+        "instrument_unspecified",
+    }:
+        state = INSTRUMENT_BLOCKED
+        summary = "Instrument/router blocked — observation stored but not tradeable."
+    elif checklist["screenshot"] and checklist["ohlc"] and checklist["symbol"]:
+        state = CAPTURE_COMPLETE
+        summary = "Screenshot + OHLC + symbol synchronized."
+    elif checklist["screenshot"] and checklist["symbol"] and not checklist["ohlc"]:
+        state = WAITING_FOR_OHLC
+        summary = (
+            "Screenshot accepted; synchronized MT5 OHLC not yet available "
+            "(worker offline or chart not ready). Fail-safe — not forced through."
+        )
+    elif checklist["screenshot"]:
+        state = WAITING_FOR_OHLC
+        summary = "Screenshot accepted; set Trade pair in Settings and/or connect MT5 worker for OHLC."
+    else:
+        state = WAITING_FOR_OHLC
+        summary = "Incomplete observation package."
+
+    return {
+        "acquisition_state": state,
+        "checklist": checklist,
+        "summary": summary,
+    }

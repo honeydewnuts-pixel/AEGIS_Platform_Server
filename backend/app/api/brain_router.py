@@ -120,6 +120,7 @@ async def analyze_screenshot(
     from app.services.observation_package import (
         build_ohlc_from_form,
         validate_observation,
+        derive_acquisition_state,
         floor_to_m5_ms,
         next_m5_boundary_ms,
     )
@@ -192,6 +193,14 @@ async def analyze_screenshot(
                 device_ts_ms=obs_device_ts,
                 candle_ts_ms=obs_candle_ts,
             )
+            acq = derive_acquisition_state(
+                obs_flags={
+                    **obs_flags,
+                    "candle_ts_ms": obs_candle_ts,
+                },
+                router_state=result.get("router_state"),
+                rule_name=result.get("rule_name"),
+            )
             result["observation"] = {
                 **obs_flags,
                 "sequence": sequence,
@@ -201,8 +210,13 @@ async def analyze_screenshot(
                     "mt5_worker" if isinstance(market_snapshot, dict) else
                     ("client" if client_ohlc else None)
                 ),
+                **acq,
             }
+            result["acquisition_state"] = acq["acquisition_state"]
             result["next_capture_at_ms"] = next_m5_boundary_ms()
+            # Keep legacy rule_name; surface clearer details for OHLC wait
+            if acq["acquisition_state"] == "WAITING_FOR_OHLC" and result.get("rule_name") == "v40_research_awaiting_ohlc":
+                result["details"] = acq["summary"] + " " + (result.get("details") or "")
 
             # Attach lightweight frame diagnostics without forcing V3 rules
             if frame_state.get("price_close") is not None:
