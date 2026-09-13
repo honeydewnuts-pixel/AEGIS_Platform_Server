@@ -23,7 +23,11 @@ interface ApiService {
         @Part image: MultipartBody.Part,
         @Part("account_id") accountId: RequestBody,
         @Part("captured_at_ms") capturedAtMs: RequestBody,
-        @Part("symbol") symbol: RequestBody?
+        @Part("symbol") symbol: RequestBody?,
+        @Part("timeframe") timeframe: RequestBody? = null,
+        @Part("candle_ts_ms") candleTsMs: RequestBody? = null,
+        @Part("device_ts_ms") deviceTsMs: RequestBody? = null,
+        @Part("sequence") sequence: RequestBody? = null
     ): Response<AnalysisResponse>
 
     @POST("/api/devices/heartbeat")

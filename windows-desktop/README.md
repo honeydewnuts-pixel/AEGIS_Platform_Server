@@ -33,3 +33,8 @@ pyinstaller aegis_capture.spec
 - `GET /api/registry/pairs` · `/rulebooks` · `/active`  
 - `POST /api/account/risk_preset`  
 - `POST /api/devices/heartbeat`
+
+
+## Observation Package (V47.1)
+
+See `docs/V47_1_OBSERVATION_PACKAGE.md`. Align captures to M5; upload screenshot + symbol + candle_ts_ms; OHLC from worker preferred.

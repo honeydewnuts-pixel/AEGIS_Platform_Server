@@ -168,6 +168,10 @@ class MainActivity : AppCompatActivity() {
             ruleText.text = rule?.let { "Rule: $it" } ?: ""
 
             val lines = mutableListOf<String>()
+            val httpCode = HealthStatus.lastHttpCode.value
+            lines.add("Last HTTP code: ${httpCode?.toString() ?: "—"}")
+            val uploadSt = HealthStatus.lastUploadStatus.value
+            if (uploadSt != null) lines.add("Last upload: $uploadSt")
             val detail = result.details?.takeIf { it.isNotBlank() }
             val reason = result.reason?.takeIf { it.isNotBlank() }
             when {

@@ -39,6 +39,17 @@ async def analyze_screenshot(
     symbol: str = Form(""),
     timeframe: str = Form("M5"),
     engine: str = Form(""),  # empty = V40 universal (default); legacy_v3 = old indicator path
+    # Observation package (optional numerical layer)
+    candle_ts_ms: int | None = Form(None),
+    device_ts_ms: int | None = Form(None),
+    sequence: int | None = Form(None),
+    ohlc_open: str = Form(""),
+    ohlc_high: str = Form(""),
+    ohlc_low: str = Form(""),
+    ohlc_close: str = Form(""),
+    ohlc_volume: str = Form(""),
+    quote_bid: str = Form(""),
+    quote_ask: str = Form(""),
     auth: AuthContext = Depends(verify_api_key),
 ):
     # Client mobile keys: account is defined by the key, not the form field.
@@ -106,6 +117,25 @@ async def analyze_screenshot(
             detail=f"Image too large ({len(image_bytes)} bytes). Max is {MAX_UPLOAD_SIZE} bytes.",
         )
 
+    from app.services.observation_package import (
+        build_ohlc_from_form,
+        validate_observation,
+        floor_to_m5_ms,
+        next_m5_boundary_ms,
+    )
+    client_ohlc = build_ohlc_from_form(
+        open_=ohlc_open or None,
+        high=ohlc_high or None,
+        low=ohlc_low or None,
+        close=ohlc_close or None,
+        volume=ohlc_volume or None,
+        bid=quote_bid or None,
+        ask=quote_ask or None,
+        candle_ts_ms=candle_ts_ms or captured_at_ms,
+    )
+    obs_device_ts = device_ts_ms or captured_at_ms
+    obs_candle_ts = candle_ts_ms or (floor_to_m5_ms(int(captured_at_ms)) if captured_at_ms else None)
+
     try:
         cv_image = brain.decode_image(image_bytes)
         frame_state = brain.extract_frame_state(cv_image)
@@ -147,12 +177,33 @@ async def analyze_screenshot(
         else:
             from app.services.universal_analysis_service import UniversalAnalysisService
             uni = UniversalAnalysisService()
+            effective_snapshot = market_snapshot if isinstance(market_snapshot, dict) else client_ohlc
             result = uni.analyze(
                 instrument=symbol.strip(),
                 timeframe=(timeframe or "M5").strip() or "M5",
-                market_snapshot=market_snapshot if isinstance(market_snapshot, dict) else None,
+                market_snapshot=effective_snapshot,
                 frame_state=frame_state,
             )
+            obs_flags = validate_observation(
+                instrument=symbol.strip(),
+                timeframe=(timeframe or "M5").strip() or "M5",
+                screenshot_bytes=image_bytes,
+                ohlc=effective_snapshot if isinstance(effective_snapshot, dict) else None,
+                device_ts_ms=obs_device_ts,
+                candle_ts_ms=obs_candle_ts,
+            )
+            result["observation"] = {
+                **obs_flags,
+                "sequence": sequence,
+                "candle_ts_ms": obs_candle_ts,
+                "device_ts_ms": obs_device_ts,
+                "ohlc_source": (
+                    "mt5_worker" if isinstance(market_snapshot, dict) else
+                    ("client" if client_ohlc else None)
+                ),
+            }
+            result["next_capture_at_ms"] = next_m5_boundary_ms()
+
             # Attach lightweight frame diagnostics without forcing V3 rules
             if frame_state.get("price_close") is not None:
                 result.setdefault("price_close_px", frame_state.get("price_close"))

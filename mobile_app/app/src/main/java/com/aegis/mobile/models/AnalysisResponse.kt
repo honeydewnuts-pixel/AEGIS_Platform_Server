@@ -1,8 +1,5 @@
 package com.aegis.mobile.models
 
-/**
- * Response from POST /aegis/analyze (V47 universal path + legacy V3).
- */
 data class AnalysisResponse(
     val signal: String = "HOLD",
     val confidence: Float = 0f,
@@ -15,6 +12,7 @@ data class AnalysisResponse(
     val timeframe: String? = null,
     val analysis_path: String? = null,
     val router_state: String? = null,
+    val next_capture_at_ms: Long? = null,
     val contraction: Int? = null,
     val expansion: Int? = null,
     val neural_confidence: Float? = null,

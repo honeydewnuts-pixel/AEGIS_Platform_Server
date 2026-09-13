@@ -66,6 +66,8 @@ class ScreenCaptureService : Service() {
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     @Volatile private var keepNetworkAlive: Boolean = true
     @Volatile private var captureIntervalMs: Long = DEFAULT_CAPTURE_INTERVAL_MS
+    @Volatile private var observationSequence: Long = 0L
+    @Volatile private var useM5BoundarySchedule: Boolean = true
     private lateinit var cacheManager: ScreenshotCacheManager
 
     // The symbol field is optional. We only send it when the backend confirms
@@ -225,7 +227,7 @@ class ScreenCaptureService : Service() {
     private val captureRunnable = object : Runnable {
         override fun run() {
             captureAndSend()
-            handler.postDelayed(this, captureIntervalMs)
+            handler.postDelayed(this, delayUntilNextCaptureMs())
         }
     }
 
@@ -456,6 +458,18 @@ class ScreenCaptureService : Service() {
      * Retries are reserved for transient transport/server failures. Permanent
      * 4xx responses are not retried and are not placed in the offline queue.
      */
+
+    /** Align captures to M5 candle boundaries for low-power acquisition. */
+    private fun delayUntilNextCaptureMs(): Long {
+        if (!useM5BoundarySchedule) return captureIntervalMs
+        val step = 5L * 60L * 1000L
+        val now = System.currentTimeMillis()
+        val next = ((now / step) + 1) * step
+        val wait = (next - now).coerceIn(2_000L, step + 5_000L)
+        // Small pad so candle is closed on the feed
+        return wait + 1_500L
+    }
+
     private suspend fun trySend(
         file: File,
         accountId: String,
@@ -485,8 +499,18 @@ class ScreenCaptureService : Service() {
             val capturedAtBody: RequestBody = capturedAtMs.toString().toRequestBody("text/plain".toMediaTypeOrNull())
             val symbolBody: RequestBody? = symbol.takeIf { it.isNotBlank() }
                 ?.toRequestBody("text/plain".toMediaTypeOrNull())
+            val tfBody: RequestBody = "M5".toRequestBody("text/plain".toMediaTypeOrNull())
+            val step = 5L * 60L * 1000L
+            val candleTs = (capturedAtMs / step) * step
+            val candleBody: RequestBody = candleTs.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+            val deviceBody: RequestBody = System.currentTimeMillis().toString().toRequestBody("text/plain".toMediaTypeOrNull())
+            observationSequence += 1
+            val seqBody: RequestBody = observationSequence.toString().toRequestBody("text/plain".toMediaTypeOrNull())
 
-            val response = apiService.analyzeScreenshot(body, accountIdBody, capturedAtBody, symbolBody)
+            val response = apiService.analyzeScreenshot(
+                body, accountIdBody, capturedAtBody, symbolBody,
+                tfBody, candleBody, deviceBody, seqBody
+            )
             if (response.isSuccessful) {
                 val result: AnalysisResponse? = response.body()
                 Log.d("AEGIS", "Brain Response: ${result?.signal} - ${result?.confidence}")
