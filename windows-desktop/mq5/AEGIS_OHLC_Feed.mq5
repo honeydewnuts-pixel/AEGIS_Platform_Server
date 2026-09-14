@@ -75,12 +75,28 @@ bool PostOhlc()
    }
    bars += "]";
 
+   // rates[0]=CURRENT forming, rates[1]=last CLOSED
+   string cur = StringFormat(
+      "{\"time\":%d,\"open\":%.5f,\"high\":%.5f,\"low\":%.5f,\"close\":%.5f,\"tick_volume\":%d,\"spread\":%d,\"bar_status\":\"CURRENT\"}",
+      (int)rates[0].time, rates[0].open, rates[0].high, rates[0].low, rates[0].close,
+      (int)rates[0].tick_volume, (int)rates[0].spread
+   );
+   string closed = cur;
+   if(n >= 2)
+      closed = StringFormat(
+         "{\"time\":%d,\"open\":%.5f,\"high\":%.5f,\"low\":%.5f,\"close\":%.5f,\"tick_volume\":%d,\"spread\":%d,\"bar_status\":\"CLOSED\"}",
+         (int)rates[1].time, rates[1].open, rates[1].high, rates[1].low, rates[1].close,
+         (int)rates[1].tick_volume, (int)rates[1].spread
+      );
+
    string body = StringFormat(
-      "{\"account_id\":\"%s\",\"symbol\":\"%s\",\"timeframe\":\"%s\",\"source\":\"mt5_ea\",\"bars\":%s}",
+      "{\"account_id\":\"%s\",\"symbol\":\"%s\",\"timeframe\":\"%s\",\"source\":\"mt5_ea\",\"bars\":%s,\"current_bar\":%s,\"closed_bar\":%s}",
       JsonEscape(InpAccountId),
       JsonEscape(_Symbol),
       TfString(),
-      bars
+      bars,
+      cur,
+      closed
    );
 
    string url = InpServerUrl;
