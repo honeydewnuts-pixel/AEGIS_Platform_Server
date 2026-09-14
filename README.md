@@ -154,3 +154,6 @@ The former template slot is now the **rulebook registry** + **tradeable pairs re
 - `GET /api/templates/active` — kept for backward compatibility; same payload, no install checklist
 
 CSV sources: `registry/v40/AEGIS_V40_RULEBOOK_REGISTRY.csv`, `AEGIS_V40_INSTRUMENT_REGISTRY.csv`.
+
+## V48 OHLC Feed
+Compile `windows-desktop/mq5/AEGIS_OHLC_Feed.mq5` and allow WebRequest to your API. Website downloads: LeverageFx `/downloads/AEGIS_OHLC_Feed.mq5`.
