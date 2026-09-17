@@ -50,6 +50,24 @@ class MainActivity : AppCompatActivity() {
     private lateinit var badgeLive: TextView
     private lateinit var badgeBackend: TextView
     private var captureExpanded = false
+    private var panelHome: android.view.View? = null
+    private var panelAnalysis: android.view.View? = null
+    private var panelTrade: android.view.View? = null
+    private var panelReports: android.view.View? = null
+    private var panelSettings: android.view.View? = null
+    private var navHome: TextView? = null
+    private var navAnalysis: TextView? = null
+    private var navTrade: TextView? = null
+    private var navReports: TextView? = null
+    private var navSettings: TextView? = null
+    private var aiConfidenceLabel: TextView? = null
+    private var activeStrategyText: TextView? = null
+    private var riskLevelText: TextView? = null
+    private var dailyPlText: TextView? = null
+    private var systemStatusText: TextView? = null
+    private var signalPriceText: TextView? = null
+    private var tpText: TextView? = null
+    private var slText: TextView? = null
     private lateinit var startBtn: Button
     private lateinit var stopBtn: Button
     private lateinit var settingsBtn: Button
@@ -110,13 +128,48 @@ class MainActivity : AppCompatActivity() {
         badgeOnline = findViewById(R.id.badgeOnline)
         badgeLive = findViewById(R.id.badgeLive)
         badgeBackend = findViewById(R.id.badgeBackend)
-        val captureToggle = findViewById<TextView>(R.id.captureToggle)
-        val capturePanel = findViewById<android.view.View>(R.id.capturePanel)
-        captureToggle.setOnClickListener {
-            captureExpanded = !captureExpanded
-            capturePanel.visibility = if (captureExpanded) android.view.View.VISIBLE else android.view.View.GONE
-            captureToggle.text = if (captureExpanded) "▲ CAPTURE & PREVIEW" else "▼ CAPTURE & PREVIEW"
+        panelHome = findViewById(R.id.panelHome)
+        panelAnalysis = findViewById(R.id.panelAnalysis)
+        panelTrade = findViewById(R.id.panelTrade)
+        panelReports = findViewById(R.id.panelReports)
+        panelSettings = findViewById(R.id.panelSettings)
+        navHome = findViewById(R.id.navHome)
+        navAnalysis = findViewById(R.id.navAnalysis)
+        navTrade = findViewById(R.id.navTrade)
+        navReports = findViewById(R.id.navReports)
+        navSettings = findViewById(R.id.navSettings)
+        aiConfidenceLabel = findViewById(R.id.aiConfidenceLabel)
+        activeStrategyText = findViewById(R.id.activeStrategyText)
+        riskLevelText = findViewById(R.id.riskLevelText)
+        dailyPlText = findViewById(R.id.dailyPlText)
+        systemStatusText = findViewById(R.id.systemStatusText)
+        signalPriceText = findViewById(R.id.signalPriceText)
+        tpText = findViewById(R.id.tpText)
+        slText = findViewById(R.id.slText)
+        fun showPanel(which: String) {
+            panelHome?.visibility = if (which == "home") android.view.View.VISIBLE else android.view.View.GONE
+            panelAnalysis?.visibility = if (which == "analysis") android.view.View.VISIBLE else android.view.View.GONE
+            panelTrade?.visibility = if (which == "trade") android.view.View.VISIBLE else android.view.View.GONE
+            panelReports?.visibility = if (which == "reports") android.view.View.VISIBLE else android.view.View.GONE
+            panelSettings?.visibility = if (which == "settings") android.view.View.VISIBLE else android.view.View.GONE
+            val muted = Color.parseColor("#8BA3B8")
+            val active = Color.parseColor("#00B4FF")
+            navHome?.setTextColor(if (which == "home") active else muted)
+            navAnalysis?.setTextColor(if (which == "analysis") active else muted)
+            navTrade?.setTextColor(if (which == "trade") active else muted)
+            navReports?.setTextColor(if (which == "reports") active else muted)
+            navSettings?.setTextColor(if (which == "settings") active else muted)
         }
+        navHome?.setOnClickListener { showPanel("home") }
+        navAnalysis?.setOnClickListener { showPanel("analysis") }
+        navTrade?.setOnClickListener { showPanel("trade") }
+        navReports?.setOnClickListener { showPanel("reports") }
+        navSettings?.setOnClickListener { showPanel("settings") }
+        findViewById<TextView?>(R.id.viewAllPairs)?.setOnClickListener {
+            startActivity(Intent(this, RegistryActivity::class.java))
+        }
+        findViewById<TextView?>(R.id.menuBtn)?.setOnClickListener { showPanel("settings") }
+        showPanel("home")
         startBtn = findViewById(R.id.startBtn)
         stopBtn = findViewById(R.id.stopBtn)
         // Keep custom green/red drawables (Material theme would otherwise tint them)
@@ -164,6 +217,18 @@ class MainActivity : AppCompatActivity() {
                 "BUY" -> statusText.setBackgroundColor(Color.parseColor("#15803D"))
                 "SELL" -> statusText.setBackgroundColor(Color.parseColor("#B91C1C"))
                 else -> statusText.setBackgroundColor(Color.parseColor("#334155"))
+            try {
+                activeStrategyText?.text = ruleText.text?.toString()?.removePrefix("Rule:")?.trim()?.take(28) ?: "—"
+                val conf = confidenceText.text?.toString() ?: ""
+                val digits = conf.filter { it.isDigit() }.take(3).toIntOrNull()
+                aiConfidenceLabel?.text = when {
+                    conf.contains("N/A", true) || conf.contains("WAITING", true) -> "AI Confidence: Waiting"
+                    digits == null -> "AI Confidence: —"
+                    digits >= 70 -> "AI Confidence: High"
+                    digits >= 40 -> "AI Confidence: Medium"
+                    else -> "AI Confidence: Low"
+                }
+            } catch (_: Exception) { }
             }
 
             // Automatic execution is now server-side and authoritative.
@@ -317,6 +382,10 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
                 badgeOnline.setTextColor(android.graphics.Color.parseColor(if (online) "#00FF88" else "#94A3B8"))
                 badgeBackend.text = if (online) "API OK" else "API —"
                 badgeBackend.setTextColor(android.graphics.Color.parseColor(if (online) "#00D4FF" else "#94A3B8"))
+                systemStatusText?.text = if (online) "Normal" else "Degraded"
+                systemStatusText?.setTextColor(android.graphics.Color.parseColor(if (online) "#00E676" else "#FFC107"))
+                badgeOnline.text = if (online) "● ONLINE" else "● OFFLINE"
+                badgeOnline.setTextColor(android.graphics.Color.parseColor(if (online) "#00E676" else "#8BA3B8"))
             } catch (_: Exception) { }
         }
         HealthStatus.lastCaptureTimeMs.observe(this) { refreshHealth() }
@@ -630,7 +699,7 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
         try {
             if (running) {
                 badgeLive.text = "● LIVE"
-                badgeLive.setTextColor(Color.parseColor("#00D4FF"))
+                badgeLive.setTextColor(Color.parseColor("#00E676"))
             } else {
                 badgeLive.text = "○ IDLE"
                 badgeLive.setTextColor(Color.parseColor("#94A3B8"))
@@ -810,6 +879,11 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
     private fun setupRiskPresets() {
         riskPresetGroup.setOnCheckedChangeListener { _, checkedId ->
             if (riskLoadingFromServer) return@setOnCheckedChangeListener
+            riskLevelText?.text = when (checkedId) {
+                R.id.riskConservative -> "Conservative"
+                R.id.riskAggressive -> "Aggressive"
+                else -> "Medium"
+            }
             val preset = when (checkedId) {
                 R.id.riskConservative -> "conservative"
                 R.id.riskAggressive -> "aggressive"
