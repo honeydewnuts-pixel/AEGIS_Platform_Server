@@ -217,6 +217,7 @@ class MainActivity : AppCompatActivity() {
                 "BUY" -> statusText.setBackgroundColor(Color.parseColor("#15803D"))
                 "SELL" -> statusText.setBackgroundColor(Color.parseColor("#B91C1C"))
                 else -> statusText.setBackgroundColor(Color.parseColor("#334155"))
+            }
             try {
                 activeStrategyText?.text = ruleText.text?.toString()?.removePrefix("Rule:")?.trim()?.take(28) ?: "—"
                 val conf = confidenceText.text?.toString() ?: ""
@@ -229,7 +230,6 @@ class MainActivity : AppCompatActivity() {
                     else -> "AI Confidence: Low"
                 }
             } catch (_: Exception) { }
-            }
 
             // Automatic execution is now server-side and authoritative.
             // Do NOT execute through Android Accessibility here: doing so can
