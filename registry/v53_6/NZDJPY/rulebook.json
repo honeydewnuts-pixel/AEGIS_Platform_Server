@@ -1,0 +1,58 @@
+{
+  "schema_version": "1.0",
+  "rulebook_id": "AEGIS-RB-V53.6-V31-NZDJPY-5M",
+  "instrument": "NZDJPY",
+  "asset_class": "FOREX",
+  "timeframe": "M5",
+  "status": "QUALIFIED_RESEARCH_CANDIDATE",
+  "qualification_basis": "V53.6 V31 cross-instrument transfer result recorded for this target",
+  "source_rulebook_id": "AEGIS-RB-V31-GBPUSD-5M",
+  "mechanism_family": "12-bar compression + low exhaustion + down-break continuation",
+  "direction": "SHORT",
+  "causal_features": {
+    "atr": "Wilder ATR14 from completed Bid bars",
+    "current_range_atr": "current bar range / ATR14",
+    "structural_range_atr": "preceding 12-bar structural range / ATR14",
+    "compression": "preceding 12-bar mean range / ATR14",
+    "down_break": "causal qualifying-down-break condition with 12-bar event throttle",
+    "exhaustion": "frozen V31 low-exhaustion condition"
+  },
+  "execution": {
+    "entry": "next-bar AskOpen",
+    "initial_stop": "1.5 * ATR14",
+    "break_even": "at +1R",
+    "trailing_stop": "0.75 * ATR14 after break-even",
+    "max_hold_bars": 72,
+    "position_limit": 1,
+    "stop_trigger": "BidHigh for short positions",
+    "cost_policy": "use target historical Bid/Ask spread; never import GBPUSD fixed 0.085R as target absolute cost"
+  },
+  "normalization": {
+    "method": "dimensionless source-1R / source-median-ATR14 ratio",
+    "source_median_atr14": 0.0003873926196750122,
+    "source_1R": 0.001,
+    "source_1R_to_median_ATR_ratio": 2.5813604834261183,
+    "target_median_atr14": 0.04377531882127528,
+    "target_normalized_1R": 0.1129998781546196,
+    "target_median_spread": 0.01,
+    "median_spread_to_atr14": 0.23954670866218686
+  },
+  "qualification": {
+    "validation_trades": 726,
+    "validation_profit_factor": 2.828,
+    "final_test_trades": 705,
+    "final_test_profit_factor": 2.883,
+    "minimum_six_block_profit_factor": 1.742,
+    "validation_gate": true,
+    "final_test_gate": true,
+    "six_block_robustness_gate": true,
+    "final_test_locked": true
+  },
+  "governance": {
+    "production_authorization": false,
+    "historical_research_only": true,
+    "fail_closed_if_rulebook_missing": true,
+    "v35_transfer_status": "NOT_INCLUDED; exact V35 transfer qualification was not closed in the preceding checkpoint",
+    "legacy_rulebook_v3_isolation": "required"
+  }
+}

@@ -196,7 +196,7 @@ class App(tk.Tk):
 
             def ui():
                 self.registry_lbl.set(msg)
-                self.status.set("Registry loaded (V46 pairs + rulebooks).")
+                self.status.set("Registry loaded (V40+V53.6 pairs + rulebooks).")
 
             self.after(0, ui)
 

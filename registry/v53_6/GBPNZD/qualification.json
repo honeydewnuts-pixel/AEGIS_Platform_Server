@@ -1,0 +1,21 @@
+{
+  "rulebook_id": "AEGIS-RB-V53.6-V31-GBPNZD-5M",
+  "instrument": "GBPNZD",
+  "checkpoint": "V53.6",
+  "source": "V31",
+  "result": "PASS",
+  "recorded_metrics": {
+    "validation_trades": 696,
+    "validation_pf": 3.308,
+    "final_test_trades": 666,
+    "final_test_pf": 3.977,
+    "min_6block_pf": 2.529
+  },
+  "target_dataset": "GBPNZD_M5_BIDASK_5Y.csv",
+  "target_rows": 371039,
+  "target_median_atr14": 0.0007989486197300848,
+  "target_median_spread": 0.00051,
+  "target_spread_atr_median_ratio": 0.6594256966246195,
+  "evidence_note": "Metrics are the V53.6 results recorded in the AEGIS working history. This handoff does not manufacture missing trade ledgers.",
+  "repository_role": "qualified research rulebook; not production-authorized"
+}

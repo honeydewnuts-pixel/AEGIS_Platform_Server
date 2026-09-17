@@ -1,0 +1,21 @@
+{
+  "rulebook_id": "AEGIS-RB-V53.6-V31-NZDJPY-5M",
+  "instrument": "NZDJPY",
+  "checkpoint": "V53.6",
+  "source": "V31",
+  "result": "PASS",
+  "recorded_metrics": {
+    "validation_trades": 726,
+    "validation_pf": 2.828,
+    "final_test_trades": 705,
+    "final_test_pf": 2.883,
+    "min_6block_pf": 1.742
+  },
+  "target_dataset": "NZDJPY_M5_BIDASK_5Y.csv",
+  "target_rows": 373507,
+  "target_median_atr14": 0.04377531882127528,
+  "target_median_spread": 0.01,
+  "target_spread_atr_median_ratio": 0.23954670866218686,
+  "evidence_note": "Metrics are the V53.6 results recorded in the AEGIS working history. This handoff does not manufacture missing trade ledgers.",
+  "repository_role": "qualified research rulebook; not production-authorized"
+}

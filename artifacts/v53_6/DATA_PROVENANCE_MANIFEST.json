@@ -1,0 +1,80 @@
+{
+  "checkpoint": "V53.6",
+  "source_rulebook": "AEGIS-RB-V31-GBPUSD-5M",
+  "source_dataset_sha256": "6e962ec23023f9c747514bed17077a9bc7dadc4b42591feb1e29140c1e580ed5",
+  "source_median_atr14": 0.0003873926196750122,
+  "source_1R": 0.001,
+  "source_1R_to_median_ATR_ratio": 2.5813604834261183,
+  "targets": [
+    {
+      "instrument": "AUDUSD",
+      "dataset_filename": "AUDUSD_M5_BIDASK_5Y.csv",
+      "dataset_sha256": "ce49216e0b17ca5abad4a90fcb150523695b531b74f76a1162234dba62de321b",
+      "rows": 373959,
+      "rulebook_id": "AEGIS-RB-V53.6-V31-AUDUSD-5M"
+    },
+    {
+      "instrument": "EURCHF",
+      "dataset_filename": "EURCHF_M5_BIDASK_5Y.csv",
+      "dataset_sha256": "5835ed0f99b8e41aa293687657c10882afa7d09e1e281e7ad63bdd11ebf45466",
+      "rows": 373387,
+      "rulebook_id": "AEGIS-RB-V53.6-V31-EURCHF-5M"
+    },
+    {
+      "instrument": "EURGBP",
+      "dataset_filename": "EURGBP_M5_BIDASK_5Y.csv",
+      "dataset_sha256": "5193df0255e69acb608d278621a81e8e66c63926dc11c38cfe88742c4fbcead3",
+      "rows": 373933,
+      "rulebook_id": "AEGIS-RB-V53.6-V31-EURGBP-5M"
+    },
+    {
+      "instrument": "GBPJPY",
+      "dataset_filename": "GBPJPY_M5_BIDASK_5Y.csv",
+      "dataset_sha256": "dcd8d926e8a0ee99e8d285c39ad77d5253b170edc1b5a74934a304bed17ddbd7",
+      "rows": 373481,
+      "rulebook_id": "AEGIS-RB-V53.6-V31-GBPJPY-5M"
+    },
+    {
+      "instrument": "GBPNZD",
+      "dataset_filename": "GBPNZD_M5_BIDASK_5Y.csv",
+      "dataset_sha256": "817af5658022f96170fbdda17ef333aef0fb6d14594c2917afdc2f871970e7e2",
+      "rows": 371039,
+      "rulebook_id": "AEGIS-RB-V53.6-V31-GBPNZD-5M"
+    },
+    {
+      "instrument": "NZDCHF",
+      "dataset_filename": "NZDCHF_M5_BIDASK_5Y.csv",
+      "dataset_sha256": "0e9d0868568633c4a19e74289a13b600d3b124cbe4e148bd9dfb04cf5b6ae713",
+      "rows": 373238,
+      "rulebook_id": "AEGIS-RB-V53.6-V31-NZDCHF-5M"
+    },
+    {
+      "instrument": "NZDJPY",
+      "dataset_filename": "NZDJPY_M5_BIDASK_5Y.csv",
+      "dataset_sha256": "67b19a51a846580b753dbe33d0be4f858c0d76bec3df65b295a41ad024dd71bb",
+      "rows": 373507,
+      "rulebook_id": "AEGIS-RB-V53.6-V31-NZDJPY-5M"
+    },
+    {
+      "instrument": "NZDUSD",
+      "dataset_filename": "NZDUSD_M5_BIDASK_5Y.csv",
+      "dataset_sha256": "2463ee056087f758c3deb9efc593741dbdaa8522ed14f7730a05b6a78b7bb553",
+      "rows": 373654,
+      "rulebook_id": "AEGIS-RB-V53.6-V31-NZDUSD-5M"
+    },
+    {
+      "instrument": "USDCAD",
+      "dataset_filename": "USDCAD_M5_BIDASK_5Y.csv",
+      "dataset_sha256": "3916f50316db06d23eb15b2b92d773d1f9923003499c3cbe43f10c2cd82fa667",
+      "rows": 373855,
+      "rulebook_id": "AEGIS-RB-V53.6-V31-USDCAD-5M"
+    },
+    {
+      "instrument": "USDCHF",
+      "dataset_filename": "USDCHF_M5_BIDASK_5Y.csv",
+      "dataset_sha256": "f93d6440dafb3427f7ceffd0ed9265d7bc02a6434864cba4ce288533d805ff97",
+      "rows": 373551,
+      "rulebook_id": "AEGIS-RB-V53.6-V31-USDCHF-5M"
+    }
+  ]
+}

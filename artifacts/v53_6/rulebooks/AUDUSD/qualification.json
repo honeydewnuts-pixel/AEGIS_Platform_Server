@@ -1,0 +1,21 @@
+{
+  "rulebook_id": "AEGIS-RB-V53.6-V31-AUDUSD-5M",
+  "instrument": "AUDUSD",
+  "checkpoint": "V53.6",
+  "source": "V31",
+  "result": "PASS",
+  "recorded_metrics": {
+    "validation_trades": 684,
+    "validation_pf": 1.921,
+    "final_test_trades": 683,
+    "final_test_pf": 1.983,
+    "min_6block_pf": 1.578
+  },
+  "target_dataset": "AUDUSD_M5_BIDASK_5Y.csv",
+  "target_rows": 373959,
+  "target_median_atr14": 0.00030436740573298805,
+  "target_median_spread": 0.0001,
+  "target_spread_atr_median_ratio": 0.3326317626770434,
+  "evidence_note": "Metrics are the V53.6 results recorded in the AEGIS working history. This handoff does not manufacture missing trade ledgers.",
+  "repository_role": "qualified research rulebook; not production-authorized"
+}

@@ -5,3 +5,13 @@ AEGIS-RB-V39-V31-USDCHF-M5,AEGIS-RB-V31,FOREX,USDCHF,M5,12-bar compression + low
 AEGIS-RB-V39-V35-USDCHF-M5,AEGIS-RB-V35,FOREX,USDCHF,M5,12-bar compression + 24/48-bar downside agreement + expansion continuation,QUALIFIED_RESEARCH_CANDIDATE,367,2.819370,335,3.388069,2.282969,true,false
 AEGIS-RB-V39-V31-NZDUSD-M5,AEGIS-RB-V31,FOREX,NZDUSD,M5,12-bar compression + low exhaustion + down break continuation,QUALIFIED_RESEARCH_CANDIDATE,439,2.145246,483,2.482567,2.033992,true,false
 AEGIS-RB-V39-V35-NZDUSD-M5,AEGIS-RB-V35,FOREX,NZDUSD,M5,12-bar compression + 24/48-bar downside agreement + expansion continuation,QUALIFIED_RESEARCH_CANDIDATE,358,2.619170,378,3.305567,1.787691,true,false
+AEGIS-RB-V53.6-V31-AUDUSD-5M,AEGIS-RB-V31-GBPUSD-5M,FOREX,AUDUSD,M5,"12-bar compression + low exhaustion + down-break continuation",QUALIFIED_RESEARCH_CANDIDATE,684,1.921,683,1.983,1.578,true,false
+AEGIS-RB-V53.6-V31-EURCHF-5M,AEGIS-RB-V31-GBPUSD-5M,FOREX,EURCHF,M5,"12-bar compression + low exhaustion + down-break continuation",QUALIFIED_RESEARCH_CANDIDATE,687,2.435,644,3.468,2.177,true,false
+AEGIS-RB-V53.6-V31-EURGBP-5M,AEGIS-RB-V31-GBPUSD-5M,FOREX,EURGBP,M5,"12-bar compression + low exhaustion + down-break continuation",QUALIFIED_RESEARCH_CANDIDATE,644,2.306,603,2.862,1.853,true,false
+AEGIS-RB-V53.6-V31-GBPJPY-5M,AEGIS-RB-V31-GBPUSD-5M,FOREX,GBPJPY,M5,"12-bar compression + low exhaustion + down-break continuation",QUALIFIED_RESEARCH_CANDIDATE,698,1.739,663,2.376,1.182,true,false
+AEGIS-RB-V53.6-V31-GBPNZD-5M,AEGIS-RB-V31-GBPUSD-5M,FOREX,GBPNZD,M5,"12-bar compression + low exhaustion + down-break continuation",QUALIFIED_RESEARCH_CANDIDATE,696,3.308,666,3.977,2.529,true,false
+AEGIS-RB-V53.6-V31-NZDCHF-5M,AEGIS-RB-V31-GBPUSD-5M,FOREX,NZDCHF,M5,"12-bar compression + low exhaustion + down-break continuation",QUALIFIED_RESEARCH_CANDIDATE,725,6.461,636,7.054,3.059,true,false
+AEGIS-RB-V53.6-V31-NZDJPY-5M,AEGIS-RB-V31-GBPUSD-5M,FOREX,NZDJPY,M5,"12-bar compression + low exhaustion + down-break continuation",QUALIFIED_RESEARCH_CANDIDATE,726,2.828,705,2.883,1.742,true,false
+AEGIS-RB-V53.6-V31-NZDUSD-5M,AEGIS-RB-V31-GBPUSD-5M,FOREX,NZDUSD,M5,"12-bar compression + low exhaustion + down-break continuation",QUALIFIED_RESEARCH_CANDIDATE,728,2.281,722,2.523,2.067,true,false
+AEGIS-RB-V53.6-V31-USDCAD-5M,AEGIS-RB-V31-GBPUSD-5M,FOREX,USDCAD,M5,"12-bar compression + low exhaustion + down-break continuation",QUALIFIED_RESEARCH_CANDIDATE,650,1.834,632,1.805,1.299,true,false
+AEGIS-RB-V53.6-V31-USDCHF-5M,AEGIS-RB-V31-GBPUSD-5M,FOREX,USDCHF,M5,"12-bar compression + low exhaustion + down-break continuation",QUALIFIED_RESEARCH_CANDIDATE,729,2.387,735,2.375,1.953,true,false
