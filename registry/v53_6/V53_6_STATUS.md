@@ -1,10 +1,9 @@
 # V53.6 Status
 
-- Checkpoint: **V53.6**
-- Ten target instruments: V31 transfer **PASS** as `QUALIFIED_RESEARCH_CANDIDATE`
-- **production_authorized = false** for all V53.6 books
-- GBPUSD V31/V35 remain **SOURCE_RULEBOOK_FROZEN**
-- V35 target transfers: **not** included
-- Runtime routing still uses `registry/v40/*.csv` (updated to reference V53.6 IDs)
-- Per-instrument JSON under `registry/v53_6/<PAIR>/` (7 of 10 folders present in handoff; EURGBP, GBPJPY, NZDCHF metrics in CSV only)
-- Router must fail closed when no qualified rulebook exists
+- **10/10** target pairs have `rulebook.json` + `qualification.json` + `README.md` under `registry/v53_6/<PAIR>/`
+- Status: `QUALIFIED_RESEARCH_CANDIDATE` only
+- Flags: `production_authorization=false`, `historical_research_only=true`, router **fail-closed** if missing
+- GBPUSD V31/V35 remain **SOURCE_RULEBOOK_FROZEN** (lineage only; not a V53.6 target)
+- Rejected / excluded targets: EURUSD, USDJPY, EURJPY (and GBPUSD as target-transfer)
+- V35 target transfers: not included
+- Runtime CSVs: `registry/v40/AEGIS_V40_*.csv` (eligible IDs point at V53.6 books)

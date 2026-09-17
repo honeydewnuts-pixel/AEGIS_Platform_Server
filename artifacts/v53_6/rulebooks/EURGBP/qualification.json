@@ -1,0 +1,21 @@
+{
+  "rulebook_id": "AEGIS-RB-V53.6-V31-EURGBP-5M",
+  "instrument": "EURGBP",
+  "checkpoint": "V53.6",
+  "source": "V31",
+  "result": "PASS",
+  "recorded_metrics": {
+    "validation_trades": 644,
+    "validation_pf": 2.306,
+    "final_test_trades": 603,
+    "final_test_pf": 2.862,
+    "min_6block_pf": 1.853
+  },
+  "target_dataset": "EURGBP_M5_BIDASK_5Y.csv",
+  "target_rows": 373933,
+  "target_median_atr14": 0.00020794549670422353,
+  "target_median_spread": 9e-05,
+  "target_spread_atr_median_ratio": 0.42789750982463826,
+  "evidence_note": "Metrics are the V53.6 results recorded in the AEGIS working history. This handoff does not manufacture missing trade ledgers.",
+  "repository_role": "qualified research rulebook; not production-authorized"
+}

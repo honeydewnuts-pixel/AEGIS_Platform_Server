@@ -1,0 +1,21 @@
+{
+  "rulebook_id": "AEGIS-RB-V53.6-V31-NZDCHF-5M",
+  "instrument": "NZDCHF",
+  "checkpoint": "V53.6",
+  "source": "V31",
+  "result": "PASS",
+  "recorded_metrics": {
+    "validation_trades": 725,
+    "validation_pf": 6.461,
+    "final_test_trades": 636,
+    "final_test_pf": 7.054,
+    "min_6block_pf": 3.059
+  },
+  "target_dataset": "NZDCHF_M5_BIDASK_5Y.csv",
+  "target_rows": 373238,
+  "target_median_atr14": 0.00024559406161623655,
+  "target_median_spread": 0.00017,
+  "target_spread_atr_median_ratio": 0.7547098180556088,
+  "evidence_note": "Metrics are the V53.6 results recorded in the AEGIS working history. This handoff does not manufacture missing trade ledgers.",
+  "repository_role": "qualified research rulebook; not production-authorized"
+}
