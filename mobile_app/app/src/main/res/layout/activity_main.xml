@@ -1,59 +1,323 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Full-screen weighted layout:
-  header ~ fixed, capture ~ 22%, data ~ 38%, actions ~ rest
-  Scales to fill the device height without scrolling.
+  AEGIS Mobile Monitor UI (V48+)
+  Primary: Online / Live / signal status
+  Secondary: capture preview + tools (expandable)
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@color/aegis_bg"
-    android:paddingStart="10dp"
-    android:paddingEnd="10dp"
-    android:paddingTop="6dp"
-    android:paddingBottom="6dp"
-    android:clipChildren="false"
-    android:clipToPadding="false"
-    android:weightSum="100">
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
 
-    <!-- ===== HEADER (weight 6) ===== -->
+    <!-- HEADER -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="6"
+        android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:gravity="center">
+        android:gravity="center_horizontal">
 
         <TextView
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="AEGIS"
-            android:textSize="20sp"
+            android:textSize="18sp"
             android:textStyle="bold"
-            android:textColor="@color/aegis_gold"
-            android:gravity="center"
-            android:letterSpacing="0.1"/>
+            android:textColor="@color/aegis_cyan"
+            android:letterSpacing="0.15"/>
 
         <TextView
-            android:id="@+id/runningStateText"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="○ Stopped"
-            android:textSize="12sp"
-            android:gravity="center"
+            android:text="COMMAND MONITOR"
+            android:textSize="10sp"
             android:textColor="@color/aegis_muted"
-            android:layout_marginTop="2dp"/>
+            android:letterSpacing="0.12"/>
     </LinearLayout>
 
-    <!-- ===== START / STOP (weight 7) ===== -->
+    <!-- STATUS BADGES: ONLINE · LIVE · BACKEND -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginTop="8dp">
+
+        <TextView
+            android:id="@+id/badgeOnline"
+            android:layout_width="0dp"
+            android:layout_height="28dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="4dp"
+            android:gravity="center"
+            android:text="● OFFLINE"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:textColor="@color/aegis_muted"
+            android:background="@drawable/badge_chip_bg"/>
+
+        <TextView
+            android:id="@+id/badgeLive"
+            android:layout_width="0dp"
+            android:layout_height="28dp"
+            android:layout_weight="1"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
+            android:gravity="center"
+            android:text="○ IDLE"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:textColor="@color/aegis_muted"
+            android:background="@drawable/badge_chip_bg"/>
+
+        <TextView
+            android:id="@+id/badgeBackend"
+            android:layout_width="0dp"
+            android:layout_height="28dp"
+            android:layout_weight="1"
+            android:layout_marginStart="4dp"
+            android:gravity="center"
+            android:text="API —"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:textColor="@color/aegis_muted"
+            android:background="@drawable/badge_chip_bg"/>
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/runningStateText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:gravity="center"
+        android:text="○ Session stopped · tap to minimize"
+        android:textSize="11sp"
+        android:textColor="@color/aegis_muted"/>
+
+    <!-- SIGNAL HERO -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="7"
-        android:orientation="horizontal"
+        android:layout_weight="22"
+        android:orientation="vertical"
         android:gravity="center"
-        android:clipChildren="false">
+        android:layout_marginTop="8dp"
+        android:padding="12dp"
+        android:background="@drawable/monitor_card_bg">
+
+        <TextView
+            android:id="@+id/statusText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="HOLD"
+            android:textSize="36sp"
+            android:textStyle="bold"
+            android:textColor="@android:color/white"
+            android:background="#334155"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp">
+
+            <TextView
+                android:id="@+id/confidenceText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="Confidence: —"
+                android:textSize="12sp"
+                android:textColor="@color/aegis_text"/>
+
+            <TextView
+                android:id="@+id/ruleText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="Rule: —"
+                android:textSize="11sp"
+                android:textColor="@color/aegis_muted"
+                android:maxLines="2"
+                android:ellipsize="end"/>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- DETAILS + HEALTH + DIAG (scrollable middle) -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="28"
+        android:layout_marginTop="6dp"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/detailsText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Pair · path · router"
+                android:textSize="12sp"
+                android:textColor="@color/aegis_text"
+                android:lineSpacingExtra="2dp"/>
+
+            <TextView
+                android:id="@+id/healthText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Health"
+                android:textSize="11sp"
+                android:textColor="@color/aegis_teal"/>
+
+            <TextView
+                android:id="@+id/diagText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Diagnostics"
+                android:textSize="10sp"
+                android:textColor="@color/aegis_muted"
+                android:fontFamily="monospace"
+                android:background="@color/diag_bg"
+                android:padding="6dp"/>
+
+            <!-- CAPTURE SECTION (toggle) -->
+            <TextView
+                android:id="@+id/captureToggle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:padding="8dp"
+                android:gravity="center"
+                android:text="▼ CAPTURE &amp; PREVIEW"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/aegis_cyan"
+                android:background="@drawable/badge_chip_bg"/>
+
+            <LinearLayout
+                android:id="@+id/capturePanel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone"
+                android:layout_marginTop="4dp">
+
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="120dp"
+                    android:background="@color/diag_bg">
+
+                    <ImageView
+                        android:id="@+id/previewImage"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:scaleType="centerCrop"
+                        android:contentDescription="Last capture"/>
+
+                    <TextView
+                        android:id="@+id/previewPlaceholder"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:text="No capture yet\n(MT5 chart when session runs)"
+                        android:textColor="@color/aegis_muted"
+                        android:textSize="12sp"/>
+                </FrameLayout>
+            </LinearLayout>
+
+            <!-- RISK -->
+            <LinearLayout
+                android:id="@+id/riskCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginTop="8dp"
+                android:padding="8dp"
+                android:background="@drawable/monitor_card_bg">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Risk preset"
+                    android:textStyle="bold"
+                    android:textColor="@color/aegis_text"
+                    android:textSize="11sp"/>
+
+                <RadioGroup
+                    android:id="@+id/riskPresetGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <RadioButton
+                        android:id="@+id/riskConservative"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Safe"
+                        android:textSize="11sp"
+                        android:textColor="@color/aegis_text"/>
+
+                    <RadioButton
+                        android:id="@+id/riskStandard"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Std"
+                        android:textSize="11sp"
+                        android:textColor="@color/aegis_text"
+                        android:checked="true"/>
+
+                    <RadioButton
+                        android:id="@+id/riskAggressive"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Agg"
+                        android:textSize="11sp"
+                        android:textColor="@color/aegis_text"/>
+                </RadioGroup>
+
+                <TextView
+                    android:id="@+id/riskLockedInfo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="10sp"
+                    android:textColor="@color/aegis_muted"
+                    android:text="SL/TP locked on server"/>
+
+                <TextView
+                    android:id="@+id/riskMaxLotInfo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="10sp"
+                    android:textColor="@color/aegis_muted"
+                    android:text="Max lot: —"/>
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- START / STOP -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:orientation="horizontal"
+        android:layout_marginTop="6dp">
 
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/startBtn"
@@ -61,18 +325,13 @@
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:layout_marginEnd="6dp"
-            android:layout_marginTop="2dp"
-            android:layout_marginBottom="2dp"
             android:text="START"
             android:textSize="15sp"
             android:textStyle="bold"
             android:textColor="#FFFFFF"
             android:background="@drawable/btn_start_bg"
             android:insetTop="0dp"
-            android:insetBottom="0dp"
-            android:minHeight="0dp"
-            android:gravity="center"
-            android:stateListAnimator="@null"/>
+            android:insetBottom="0dp"/>
 
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/stopBtn"
@@ -80,421 +339,112 @@
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:layout_marginStart="6dp"
-            android:layout_marginTop="2dp"
-            android:layout_marginBottom="2dp"
             android:text="STOP"
             android:textSize="15sp"
             android:textStyle="bold"
             android:textColor="#FFFFFF"
             android:background="@drawable/btn_stop_bg"
             android:insetTop="0dp"
-            android:insetBottom="0dp"
-            android:minHeight="0dp"
-            android:gravity="center"
-            android:stateListAnimator="@null"/>
+            android:insetBottom="0dp"/>
     </LinearLayout>
 
-
-    <!-- ===== TRADING RISK PRESETS (compact) ===== -->
-    <LinearLayout
-        android:id="@+id/riskCard"
+    <!-- TOOLS GRID -->
+    <GridLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:layout_marginTop="4dp"
-        android:paddingStart="6dp"
-        android:paddingEnd="6dp"
-        android:paddingTop="4dp"
-        android:paddingBottom="4dp"
-        android:background="@drawable/card_signal_bg">
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Risk"
-            android:textStyle="bold"
-            android:textColor="#FFFFFF"
-            android:textSize="11sp"/>
-
-        <RadioGroup
-            android:id="@+id/riskPresetGroup"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <RadioButton
-                android:id="@+id/riskConservative"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="0.5×"
-                android:textColor="#E2E8F0"
-                android:textSize="11sp"/>
-
-            <RadioButton
-                android:id="@+id/riskStandard"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="1.0×"
-                android:textColor="#E2E8F0"
-                android:textSize="11sp"
-                android:checked="true"/>
-
-            <RadioButton
-                android:id="@+id/riskAggressive"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="1.5×"
-                android:textColor="#E2E8F0"
-                android:textSize="11sp"/>
-        </RadioGroup>
-
-        <TextView
-            android:id="@+id/riskLockedInfo"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="SL/TP locked · server lot"
-            android:textColor="#94A3B8"
-            android:textSize="10sp"/>
-
-        <TextView
-            android:id="@+id/riskMaxLotInfo"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text=""
-            android:textColor="#FBBF24"
-            android:textSize="10sp"/>
-    </LinearLayout>
-
-    <!-- ===== LAST CAPTURE (weight 16) ===== -->
-    <FrameLayout
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="16"
+        android:columnCount="3"
         android:layout_marginTop="6dp"
-        android:background="@drawable/card_signal_bg">
+        android:alignmentMode="alignBounds"
+        android:useDefaultMargins="true">
 
-        <ImageView
-            android:id="@+id/previewImage"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="centerCrop"
-            android:contentDescription="Last capture"/>
-
-        <TextView
-            android:id="@+id/previewPlaceholder"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:gravity="center"
-            android:text="Last capture"
-            android:textColor="@color/aegis_muted"
-            android:textSize="12sp"/>
-
-        <TextView
-            android:id="@+id/statusText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_gravity="bottom"
-            android:background="#B00B1220"
-            android:padding="6dp"
-            android:text="Signal: —"
-            android:textColor="@color/aegis_text"
-            android:textSize="13sp"
-            android:textStyle="bold"
-            android:gravity="center"/>
-    </FrameLayout>
-
-    <!-- ===== DATA PANEL (weight 38) — full analysis ===== -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="38"
-        android:orientation="vertical"
-        android:layout_marginTop="4dp"
-        android:padding="6dp"
-        android:background="@drawable/card_diag_bg">
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="ANALYSIS"
-            android:textSize="10sp"
-            android:textStyle="bold"
-            android:textColor="@color/aegis_gold"
-            android:letterSpacing="0.08"
-            android:layout_marginBottom="2dp"/>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="2dp">
-
-            <TextView
-                android:id="@+id/confidenceText"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textColor="@color/aegis_teal"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:text="Confidence: —"/>
-
-            <TextView
-                android:id="@+id/ruleText"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textColor="@color/aegis_muted"
-                android:textSize="11sp"
-                android:maxLines="2"
-                android:ellipsize="end"
-                android:text=""/>
-        </LinearLayout>
-
-        <ScrollView
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:fillViewport="true"
-            android:scrollbars="vertical">
-
-            <TextView
-                android:id="@+id/detailsText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textColor="@color/aegis_text"
-                android:textSize="12sp"
-                android:lineSpacingExtra="2dp"
-                android:text="Waiting for analysis…\nSignal, rule, pair and reason will appear here."/>
-        </ScrollView>
-
-        <TextView
-            android:id="@+id/healthText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textColor="@color/aegis_muted"
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/settingsBtn"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_columnWeight="1"
+            android:text="Settings"
             android:textSize="11sp"
-            android:maxLines="2"
-            android:ellipsize="end"
-            android:text="Health: —"/>
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_secondary_bg"/>
 
-        <TextView
-            android:id="@+id/diagText"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:layout_marginTop="6dp"
-            android:padding="6dp"
-            android:background="#0A1018"
-            android:textSize="10sp"
-            android:textColor="@color/aegis_muted"
-            android:fontFamily="monospace"
-            android:text="Diagnostics…"/>
-    </LinearLayout>
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/registryBtn"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_columnWeight="1"
+            android:text="Registry"
+            android:textSize="11sp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_secondary_bg"/>
 
-    <!-- ===== ACTION GRID (weight 28) ===== -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="28"
-        android:orientation="vertical"
-        android:layout_marginTop="8dp"
-        android:clipChildren="false">
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/connectMt5Btn"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_columnWeight="1"
+            android:text="MT5 Link"
+            android:textSize="11sp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_secondary_bg"/>
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:orientation="horizontal"
-            android:clipChildren="false">
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/floatHudBtn"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_columnWeight="1"
+            android:text="HUD"
+            android:textSize="11sp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_secondary_bg"/>
 
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/settingsBtn"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_marginEnd="4dp"
-                android:layout_marginBottom="3dp"
-                android:text="SETTINGS"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:background="@drawable/btn_secondary_bg"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:minHeight="0dp"
-                android:gravity="center"
-                android:stateListAnimator="@null"/>
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/minimizeBtn"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_columnWeight="1"
+            android:text="Minimize"
+            android:textSize="11sp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_secondary_bg"/>
 
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/registryBtn"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:layout_marginBottom="3dp"
-                android:text="PAIRS / RULES"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:background="@drawable/btn_purple_bg"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:minHeight="0dp"
-                android:gravity="center"
-                android:stateListAnimator="@null"/>
-        </LinearLayout>
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/copierBtn"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_columnWeight="1"
+            android:text="Copier"
+            android:textSize="11sp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_secondary_bg"/>
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:orientation="horizontal"
-            android:clipChildren="false">
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/batteryBtn"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_columnWeight="1"
+            android:text="Battery"
+            android:textSize="11sp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_secondary_bg"/>
 
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/batteryBtn"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_marginEnd="4dp"
-                android:layout_marginBottom="3dp"
-                android:text="BATTERY"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:background="@drawable/btn_orange_bg"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:minHeight="0dp"
-                android:gravity="center"
-                android:stateListAnimator="@null"/>
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/accessibilityBtn"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_columnWeight="1"
+            android:text="Access"
+            android:textSize="11sp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_secondary_bg"/>
 
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/accessibilityBtn"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:layout_marginBottom="3dp"
-                android:text="ACCESS"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:background="@drawable/btn_teal_bg"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:minHeight="0dp"
-                android:gravity="center"
-                android:stateListAnimator="@null"/>
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:orientation="horizontal"
-            android:clipChildren="false">
-
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/floatHudBtn"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_marginEnd="4dp"
-                android:layout_marginBottom="3dp"
-                android:text="FLOAT HUD"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:background="@drawable/btn_teal_bg"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:minHeight="0dp"
-                android:gravity="center"
-                android:stateListAnimator="@null"/>
-
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/minimizeBtn"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:layout_marginBottom="3dp"
-                android:text="MINIMIZE"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:background="@drawable/btn_secondary_bg"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:minHeight="0dp"
-                android:gravity="center"
-                android:stateListAnimator="@null"/>
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:orientation="horizontal"
-            android:clipChildren="false">
-
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/reportIssueBtn"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_marginEnd="4dp"
-                android:text="REPORT"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:background="@drawable/btn_orange_bg"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:minHeight="0dp"
-                android:gravity="center"
-                android:stateListAnimator="@null"/>
-
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/copierBtn"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:layout_marginEnd="4dp"
-                android:text="COPIER"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:background="@drawable/btn_purple_bg"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:minHeight="0dp"
-                android:gravity="center"
-                android:stateListAnimator="@null"/>
-
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/connectMt5Btn"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:text="MT5 LINK"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:background="@drawable/btn_secondary_bg"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:minHeight="0dp"
-                android:gravity="center"
-                android:stateListAnimator="@null"/>
-        </LinearLayout>
-    </LinearLayout>
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/reportIssueBtn"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_columnWeight="1"
+            android:text="Report"
+            android:textSize="11sp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/btn_secondary_bg"/>
+    </GridLayout>
 </LinearLayout>

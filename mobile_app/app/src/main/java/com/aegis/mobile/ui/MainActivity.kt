@@ -46,6 +46,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var confidenceText: TextView
     private lateinit var ruleText: TextView
     private lateinit var runningStateText: TextView
+    private lateinit var badgeOnline: TextView
+    private lateinit var badgeLive: TextView
+    private lateinit var badgeBackend: TextView
+    private var captureExpanded = false
     private lateinit var startBtn: Button
     private lateinit var stopBtn: Button
     private lateinit var settingsBtn: Button
@@ -103,6 +107,16 @@ class MainActivity : AppCompatActivity() {
         confidenceText = findViewById(R.id.confidenceText)
         ruleText = findViewById(R.id.ruleText)
         runningStateText = findViewById(R.id.runningStateText)
+        badgeOnline = findViewById(R.id.badgeOnline)
+        badgeLive = findViewById(R.id.badgeLive)
+        badgeBackend = findViewById(R.id.badgeBackend)
+        val captureToggle = findViewById<TextView>(R.id.captureToggle)
+        val capturePanel = findViewById<android.view.View>(R.id.capturePanel)
+        captureToggle.setOnClickListener {
+            captureExpanded = !captureExpanded
+            capturePanel.visibility = if (captureExpanded) android.view.View.VISIBLE else android.view.View.GONE
+            captureToggle.text = if (captureExpanded) "▲ CAPTURE & PREVIEW" else "▼ CAPTURE & PREVIEW"
+        }
         startBtn = findViewById(R.id.startBtn)
         stopBtn = findViewById(R.id.stopBtn)
         // Keep custom green/red drawables (Material theme would otherwise tint them)
@@ -297,6 +311,13 @@ History (local): $histN / 100
 Fail rate (last 20): ${"%.0f".format(failRate * 100)}%
 Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
 """.trimIndent()
+            try {
+                val online = reachStr.contains("YES", ignoreCase = true)
+                badgeOnline.text = if (online) "● ONLINE" else "● OFFLINE"
+                badgeOnline.setTextColor(android.graphics.Color.parseColor(if (online) "#00FF88" else "#94A3B8"))
+                badgeBackend.text = if (online) "API OK" else "API —"
+                badgeBackend.setTextColor(android.graphics.Color.parseColor(if (online) "#00D4FF" else "#94A3B8"))
+            } catch (_: Exception) { }
         }
         HealthStatus.lastCaptureTimeMs.observe(this) { refreshHealth() }
         HealthStatus.lastNetworkError.observe(this) { refreshHealth() }
@@ -605,7 +626,16 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
         stopBtn.isEnabled = running
         startBtn.alpha = if (running) 0.45f else 1f
         stopBtn.alpha = if (running) 1f else 0.45f
-        runningStateText.text = if (running) "● Running — capture active" else "○ Stopped"
+        runningStateText.text = if (running) "● Session live — monitor active (tap to minimize)" else "○ Session stopped · tap to minimize"
+        try {
+            if (running) {
+                badgeLive.text = "● LIVE"
+                badgeLive.setTextColor(Color.parseColor("#00D4FF"))
+            } else {
+                badgeLive.text = "○ IDLE"
+                badgeLive.setTextColor(Color.parseColor("#94A3B8"))
+            }
+        } catch (_: Exception) { }
         runningStateText.setTextColor(
             if (running) Color.parseColor("#4ADE80") else Color.parseColor("#C5D0E0")
         )

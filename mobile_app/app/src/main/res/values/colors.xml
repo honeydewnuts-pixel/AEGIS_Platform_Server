@@ -1,14 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Slightly lighter navy so white text stays crisp -->
-    <color name="aegis_bg">#121A2A</color>
-    <color name="aegis_surface">#1C2838</color>
-    <color name="aegis_card">#243447</color>
+    <color name="aegis_bg">#0A1628</color>
+    <color name="aegis_surface">#122033</color>
+    <color name="aegis_card">#1A2B40</color>
     <color name="aegis_gold">#F0D78C</color>
-    <color name="aegis_teal">#5EEAD4</color>
+    <color name="aegis_teal">#00D4FF</color>
+    <color name="aegis_cyan">#00D4FF</color>
     <color name="aegis_blue">#3B82F6</color>
     <color name="aegis_text">#FFFFFF</color>
-    <color name="aegis_muted">#C5D0E0</color>
+    <color name="aegis_muted">#94A3B8</color>
+    <color name="aegis_success">#00FF88</color>
+    <color name="aegis_danger">#EF4444</color>
+    <color name="aegis_warn">#F59E0B</color>
 
     <color name="btn_start">#22C55E</color>
     <color name="btn_start_pressed">#16A34A</color>
@@ -19,6 +22,9 @@
     <color name="btn_warn">#F59E0B</color>
     <color name="btn_purple">#7C3AED</color>
 
-    <color name="signal_panel">#1E2D42</color>
-    <color name="diag_bg">#0F1724</color>
+    <color name="signal_panel">#152536</color>
+    <color name="diag_bg">#0D1520</color>
+    <color name="badge_online">#00FF88</color>
+    <color name="badge_offline">#64748B</color>
+    <color name="badge_live">#00D4FF</color>
 </resources>
