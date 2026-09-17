@@ -38,3 +38,9 @@ pyinstaller aegis_capture.spec
 ## Observation Package (V47.1)
 
 See `docs/V47_1_OBSERVATION_PACKAGE.md`. Align captures to M5; upload screenshot + symbol + candle_ts_ms; OHLC from worker preferred.
+
+## Registry (V53.6)
+Server serves research-eligible pairs from `/api/registry/pairs` after deploy.
+V53.6 qualified targets (production_authorized=false):
+AUDUSD, EURCHF, EURGBP, GBPJPY, GBPNZD, NZDCHF, NZDJPY, NZDUSD, USDCAD, USDCHF.
+Source frozen: GBPUSD V31/V35. Rejected/fail-closed: EURUSD, USDJPY, EURJPY.

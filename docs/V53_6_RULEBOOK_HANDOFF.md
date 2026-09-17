@@ -9,3 +9,6 @@ Source package: `AEGIS_V53_6_QUALIFIED_RULEBOOK_REPOSITORY_HANDOFF.zip`
 ## Clients
 Android, Windows, and macOS load pairs via `GET /api/registry/pairs` — no hard-coded indicator templates.
 After deploy, research-eligible pairs expand to the V53.6 set (still not production-authorized).
+
+## Completeness
+- **10/10** target folders under `registry/v53_6/<PAIR>/` including EURGBP, GBPJPY, NZDCHF.

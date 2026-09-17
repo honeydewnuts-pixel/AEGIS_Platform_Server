@@ -12,7 +12,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Full pairs + rulebook registry viewer.
- * Shows tradeable and non-tradeable instruments so operators see the complete V40/V53.6 registry.
+ * Shows tradeable and non-tradeable instruments so operators see the complete V40 + V53.6 registry (10 research targets + GBPUSD source).
  */
 open class RegistryActivity : AppCompatActivity() {
 
@@ -34,7 +34,7 @@ open class RegistryActivity : AppCompatActivity() {
                     val activeResp = api.getRegistryActive()
 
                     val sb = StringBuilder()
-                    sb.append("AEGIS registry V40+V53.6 (full)\n")
+                    sb.append("AEGIS registry · V53.6 (10 targets) + GBPUSD source\n")
                     sb.append("Plain MT5 price chart only — no indicator pack.\n\n")
 
                     if (!pairsResp.isSuccessful) {
