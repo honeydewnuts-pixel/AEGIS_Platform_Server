@@ -15,6 +15,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox, ttk
 import uuid
+from instruments import AEGIS_INSTRUMENTS, index_of
 
 from api_client import AegisClient, CLIENT_VERSION
 from capture_loop import CaptureLoop
@@ -117,6 +118,21 @@ class App(tk.Tk):
             width=20,
         ).grid(row=4, column=1, sticky="w", pady=2)
 
+        self.symbol_var = tk.StringVar(value=(self.cfg.get("symbol") or self.cfg.get("mt5_symbol") or "EURUSD").upper())
+        ttk.Label(grid, text="Trade pair / chart symbol").grid(row=5, column=0, sticky="e", padx=4, pady=2)
+        self.symbol_combo = ttk.Combobox(
+            grid,
+            textvariable=self.symbol_var,
+            values=AEGIS_INSTRUMENTS,
+            state="readonly",
+            width=20,
+        )
+        self.symbol_combo.grid(row=5, column=1, sticky="w", pady=2)
+        try:
+            self.symbol_combo.current(index_of(self.symbol_var.get()))
+        except Exception:
+            self.symbol_combo.current(0)
+
         btns = ttk.Frame(frm)
         btns.pack(fill="x", pady=8)
         ttk.Button(btns, text="Save", command=self._save).pack(side="left", padx=2)
@@ -151,7 +167,9 @@ class App(tk.Tk):
             self.cfg["interval_sec"] = max(2, int(float(self.interval_var.get())))
         except ValueError:
             self.cfg["interval_sec"] = 5
-        self.cfg["risk_preset"] = self.risk_var.get().strip() or "standard"
+        self.cfg["risk_preset"] = self.risk_var.get()
+        self.cfg["symbol"] = (self.symbol_var.get() or "EURUSD").strip().upper()
+        self.cfg["mt5_symbol"] = self.cfg["symbol"]
         self.cfg["client_version"] = CLIENT_VERSION
         save(self.cfg)
         self.status.set("Settings saved.")
@@ -229,17 +247,33 @@ class App(tk.Tk):
             messagebox.showwarning("AEGIS", "Set chart region first (drag over MT5 price chart).")
             return
         self.client = c
+        self._frames = 0
+        self._uploads_ok = 0
+
+        def get_region():
+            return self.cfg.get("region")
+
+        def on_frame(png: bytes):
+            self._frames += 1
+            sym = (self.cfg.get("symbol") or self.cfg.get("mt5_symbol") or "EURUSD").strip().upper()
+            result = c.upload_screenshot(png, meta={"symbol": sym, "instrument": sym})
+            result["frames"] = self._frames
+            if result.get("http") == 200:
+                self._uploads_ok += 1
+            result["uploads_ok"] = self._uploads_ok
+            self._on_result(result)
+
         self.loop = CaptureLoop(
-            self.client,
-            self.cfg.get("region") or {},
+            get_region,
             float(self.cfg.get("interval_sec") or 5),
-            on_result=self._on_result,
+            on_frame,
         )
         self.loop.start()
         self.running = True
         self.btn_start.config(state="disabled")
         self.btn_stop.config(state="normal")
-        self.status.set("Capturing… keep MT5 price chart under the locked region.")
+        sym = (self.cfg.get("symbol") or "EURUSD").upper()
+        self.status.set(f"Capturing {sym}… keep MT5 chart under the locked region.")
         threading.Thread(target=self._hb_loop, daemon=True).start()
 
     def _stop(self):
