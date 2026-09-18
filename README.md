@@ -157,3 +157,7 @@ CSV sources: `registry/v40/AEGIS_V40_RULEBOOK_REGISTRY.csv`, `AEGIS_V40_INSTRUME
 
 ## V48 OHLC Feed
 Compile `windows-desktop/mq5/AEGIS_OHLC_Feed.mq5` and allow WebRequest to your API. Website downloads: LeverageFx `/downloads/AEGIS_OHLC_Feed.mq5`.
+
+## V2-OPT native discovery
+See `docs/V2OPT_NATIVE_DISCOVERY.md` and `registry/v2_opt/`.
+

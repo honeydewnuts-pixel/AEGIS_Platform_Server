@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0",
+  "rulebook_id": "AEGIS-RB-V2OPT-USDJPY-M5",
+  "instrument": "USDJPY",
+  "asset_class": "FOREX",
+  "timeframe": "M5",
+  "status": "QUALIFIED_RESEARCH_CANDIDATE",
+  "qualification_basis": "Sequential V2-OPT native discovery with nested anti-overfit gates",
+  "source_rulebook_id": null,
+  "discovery_protocol": "sequential_v2_optimized_nested_stable",
+  "mechanism_family": "RSI oversold + non-negative short trend; ATR trailing exit",
+  "direction": "LONG",
+  "winner_rule_id": "TR_rsi_os_long",
+  "family": "trailing_exit",
+  "entry_spec": {
+    "rsi14_lt": 30,
+    "trend_non_negative": true
+  },
+  "exit_spec": {
+    "type": "trail",
+    "sl_atr_default": 0.8,
+    "trail_atr_default": 0.8,
+    "sl_atr": 0.8,
+    "trail_atr": 0.6
+  },
+  "params_discovered": {
+    "sl_atr": 0.8,
+    "trail_atr": 0.6,
+    "tp_atr": null
+  },
+  "metrics": {
+    "validation_pf": 1.9092053302705074,
+    "validation_trades": 68,
+    "final_test_pf": 3.7074741369192052,
+    "final_test_trades": 88,
+    "inner_pf": 1.5064505741226855,
+    "val_half_a_pf": 1.295650655101985,
+    "val_half_b_pf": 2.409205076835845
+  },
+  "production_authorized": false,
+  "fail_closed": true,
+  "historical_research_only": true,
+  "cost_R": 0.05,
+  "split": "60/20/20 chronological + nested tune/inner"
+}

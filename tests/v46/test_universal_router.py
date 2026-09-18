@@ -14,15 +14,13 @@ def test_qualified_research_route():
 
 
 def test_rejected_instrument_fails_closed():
-    """EURUSD is in registry as TRANSFER_REJECTED → TRADING_DISABLED (fail-closed)."""
+    """EURUSD is V2-OPT research-eligible; production must still fail closed."""
     r = UniversalRouter(REGISTRY).resolve("EURUSD", "M5")
-    assert r.state in {
-        RouteState.TRADING_DISABLED,
-        RouteState.NO_QUALIFIED_RULEBOOK,
-        RouteState.UNKNOWN_INSTRUMENT,
-    }
+    # Research route allowed; production_authorized always false
     assert r.production_authorized is False
-    assert r.rulebook_ids == () or len(r.rulebook_ids) == 0
+    r_prod = UniversalRouter(REGISTRY).resolve("EURUSD", "M5", production_requested=True)
+    assert r_prod.state == RouteState.PRODUCTION_AUTHORIZATION_REQUIRED
+    assert r_prod.production_authorized is False
 
 
 def test_production_request_cannot_promote_research_candidate():

@@ -1,0 +1,47 @@
+{
+  "schema_version": "1.0",
+  "rulebook_id": "AEGIS-RB-V2OPT-EURJPY-M5",
+  "instrument": "EURJPY",
+  "asset_class": "FOREX",
+  "timeframe": "M5",
+  "status": "QUALIFIED_RESEARCH_CANDIDATE",
+  "qualification_basis": "Sequential V2-OPT native discovery with nested anti-overfit gates",
+  "source_rulebook_id": null,
+  "discovery_protocol": "sequential_v2_optimized_nested_stable",
+  "mechanism_family": "Multi-confirm mean-reversion long (RSI+BB+CCI+wick)",
+  "direction": "LONG",
+  "winner_rule_id": "META_mr_confirm_long",
+  "family": "meta",
+  "entry_spec": {
+    "rsi14_lt": 28,
+    "bb_pct_lt": 0.08,
+    "cci20_lt": -120,
+    "lower_wick_gt": 0.5
+  },
+  "exit_spec": {
+    "type": "fixed",
+    "sl_atr_default": 1.0,
+    "tp_atr_default": 1.5,
+    "sl_atr": 1.5,
+    "tp_atr": 2.0
+  },
+  "params_discovered": {
+    "sl_atr": 1.5,
+    "tp_atr": 2.0,
+    "trail_atr": null
+  },
+  "metrics": {
+    "validation_pf": 1.18505549072419,
+    "validation_trades": 343,
+    "final_test_pf": 1.1890122188054533,
+    "final_test_trades": 404,
+    "inner_pf": 1.0976226601225219,
+    "val_half_a_pf": 1.12804031347608,
+    "val_half_b_pf": 1.2565486002161397
+  },
+  "production_authorized": false,
+  "fail_closed": true,
+  "historical_research_only": true,
+  "cost_R": 0.05,
+  "split": "60/20/20 chronological + nested tune/inner"
+}

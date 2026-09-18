@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0",
+  "rulebook_id": "AEGIS-RB-V2OPT-USDCAD-M5",
+  "instrument": "USDCAD",
+  "asset_class": "FOREX",
+  "timeframe": "M5",
+  "status": "QUALIFIED_RESEARCH_CANDIDATE",
+  "qualification_basis": "Sequential V2-OPT native discovery with nested anti-overfit gates",
+  "source_rulebook_id": null,
+  "discovery_protocol": "sequential_v2_optimized_nested_stable",
+  "mechanism_family": "Bollinger lower-band extreme + non-negative trend; ATR trail",
+  "direction": "LONG",
+  "winner_rule_id": "TR_bb_long",
+  "family": "trailing_exit",
+  "entry_spec": {
+    "bb_pct_lt": 0.05,
+    "trend_non_negative": true
+  },
+  "exit_spec": {
+    "type": "trail",
+    "sl_atr_default": 0.8,
+    "trail_atr_default": 0.8,
+    "sl_atr": 0.8,
+    "trail_atr": 0.6
+  },
+  "params_discovered": {
+    "sl_atr": 0.8,
+    "trail_atr": 0.6,
+    "tp_atr": null
+  },
+  "metrics": {
+    "validation_pf": 1.7111577668943656,
+    "validation_trades": 502,
+    "final_test_pf": 1.38794836907734,
+    "final_test_trades": 544,
+    "inner_pf": 1.4930275263353652,
+    "val_half_a_pf": 1.739379195671594,
+    "val_half_b_pf": 1.6866072181533267
+  },
+  "production_authorized": false,
+  "fail_closed": true,
+  "historical_research_only": true,
+  "cost_R": 0.05,
+  "split": "60/20/20 chronological + nested tune/inner"
+}

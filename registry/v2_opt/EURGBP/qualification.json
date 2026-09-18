@@ -1,0 +1,25 @@
+{
+  "rulebook_id": "AEGIS-RB-V2OPT-EURGBP-M5",
+  "instrument": "EURGBP",
+  "checkpoint": "V2OPT",
+  "source": "native_sequential_optimized",
+  "result": "PASS",
+  "recorded_metrics": {
+    "validation_pf": 7.383054005641419,
+    "validation_trades": 75,
+    "final_test_pf": 5.497788907306768,
+    "final_test_trades": 82,
+    "inner_pf": 5.679956501662969,
+    "val_half_a_pf": 5.82184441449883,
+    "val_half_b_pf": 10.511866343151643
+  },
+  "repository_role": "qualified research rulebook; not production-authorized",
+  "anti_overfit": [
+    "nested_param_search_on_tune_only",
+    "inner_holdout_pf_gate",
+    "val_half_stability_gate",
+    "avg_R_positive_on_val",
+    "trade_rate_band",
+    "gap_penalized_selection_score"
+  ]
+}

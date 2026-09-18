@@ -169,14 +169,38 @@ class UniversalAnalysisService:
             "Production authorization remains false.",
         ]
 
+        # Prefer V2-OPT sequential rulebooks when listed
+        v2_ids = [r for r in rulebook_ids if str(r).startswith("AEGIS-RB-V2OPT-")]
+        if v2_ids and isinstance(bars, list) and len(bars) >= 30:
+            try:
+                from pathlib import Path as _P
+                import json as _json
+                from app.rulebooks.evaluators.v2opt_sequential import evaluate_v2opt_from_bars
+                repo = _P(__file__).resolve().parents[3]
+                for rid in v2_ids:
+                    # instrument folder from id AEGIS-RB-V2OPT-{INST}-M5
+                    parts = str(rid).split("-")
+                    inst_guess = parts[3] if len(parts) >= 4 else instrument
+                    rb_path = repo / "registry" / "v2_opt" / inst_guess / "rulebook.json"
+                    if not rb_path.exists():
+                        rb_path = repo / "registry" / "v2_opt" / instrument / "rulebook.json"
+                    if not rb_path.exists():
+                        continue
+                    rb = _json.loads(rb_path.read_text())
+                    out = evaluate_v2opt_from_bars(bars, rb)
+                    out["market_ohlc_close"] = close_f
+                    out["rulebook_ids"] = list(rulebook_ids)
+                    return out
+            except Exception as e:
+                detail_bits.append(f"V2-OPT evaluator error: {e}")
+
         if isinstance(bars, list) and len(bars) >= 3:
             try:
                 closes = [float(b.get("close", b.get("c", 0))) for b in bars[-5:]]
                 if len(closes) >= 3:
                     slope = closes[-1] - closes[0]
-                    # Extremely conservative research heuristic — never auto-trade
                     if slope > 0 and closes[-1] > closes[-2]:
-                        signal = "HOLD"  # research: surface bias in details only
+                        signal = "HOLD"
                         detail_bits.append(f"Short-window close slope positive ({slope:.6f}); research bias BUY (not actionable).")
                     elif slope < 0 and closes[-1] < closes[-2]:
                         signal = "HOLD"

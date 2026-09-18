@@ -18,7 +18,8 @@ def _router():
 
 def test_research_eligible_pairs():
     ur = _router()
-    for inst in ("GBPUSD", "AUDUSD", "USDCHF", "NZDUSD"):
+    # Core research set + V2-OPT promoted natives (still production_authorized=false)
+    for inst in ("GBPUSD", "AUDUSD", "USDCHF", "NZDUSD", "EURUSD", "USDJPY", "EURJPY", "GBPJPY", "EURGBP", "USDCAD"):
         d = ur.resolve(inst, "M5")
         assert d.state == RouteState.ROUTABLE_RESEARCH, (inst, d)
         assert d.rulebook_ids, inst
@@ -26,10 +27,14 @@ def test_research_eligible_pairs():
 
 
 def test_rejected_pairs_fail_closed():
+    """No residual hard-rejected FX majors after V2-OPT native promotion.
+    Keep the test as a production gate: production_requested must never auto-enable.
+    """
     ur = _router()
-    for inst in ("EURUSD", "USDJPY", "EURJPY", "GBPJPY"):
-        d = ur.resolve(inst, "M5")
-        assert d.state == RouteState.TRADING_DISABLED, (inst, d)
+    for inst in ("EURUSD", "USDJPY", "EURJPY"):
+        d = ur.resolve(inst, "M5", production_requested=True)
+        assert d.state == RouteState.PRODUCTION_AUTHORIZATION_REQUIRED, (inst, d)
+        assert d.production_authorized is False
 
 
 def test_production_authorization_required():

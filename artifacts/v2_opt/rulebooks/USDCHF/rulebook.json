@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0",
+  "rulebook_id": "AEGIS-RB-V2OPT-USDCHF-M5",
+  "instrument": "USDCHF",
+  "asset_class": "FOREX",
+  "timeframe": "M5",
+  "status": "QUALIFIED_RESEARCH_CANDIDATE",
+  "qualification_basis": "Sequential V2-OPT native discovery with nested anti-overfit gates",
+  "source_rulebook_id": null,
+  "discovery_protocol": "sequential_v2_optimized_nested_stable",
+  "mechanism_family": "60-bar z-score mean reversion long with RSI filter; fixed R exits",
+  "direction": "LONG",
+  "winner_rule_id": "MR_zscore_long",
+  "family": "mean_reversion",
+  "entry_spec": {
+    "z60_lt": -1.5,
+    "rsi14_lt": 40
+  },
+  "exit_spec": {
+    "type": "fixed",
+    "sl_atr_default": 1.0,
+    "tp_atr_default": 1.5,
+    "sl_atr": 0.8,
+    "tp_atr": 2.5
+  },
+  "params_discovered": {
+    "sl_atr": 0.8,
+    "tp_atr": 2.5,
+    "trail_atr": null
+  },
+  "metrics": {
+    "validation_pf": 1.2751491621319908,
+    "validation_trades": 2670,
+    "final_test_pf": 1.2552330754885528,
+    "final_test_trades": 2737,
+    "inner_pf": 1.1869077733254116,
+    "val_half_a_pf": 1.1852181575272454,
+    "val_half_b_pf": 1.371170248477613
+  },
+  "production_authorized": false,
+  "fail_closed": true,
+  "historical_research_only": true,
+  "cost_R": 0.05,
+  "split": "60/20/20 chronological + nested tune/inner"
+}

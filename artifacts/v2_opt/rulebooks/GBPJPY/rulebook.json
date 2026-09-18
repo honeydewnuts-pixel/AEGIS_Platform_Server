@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0",
+  "rulebook_id": "AEGIS-RB-V2OPT-GBPJPY-M5",
+  "instrument": "GBPJPY",
+  "asset_class": "FOREX",
+  "timeframe": "M5",
+  "status": "QUALIFIED_RESEARCH_CANDIDATE",
+  "qualification_basis": "Sequential V2-OPT native discovery with nested anti-overfit gates",
+  "source_rulebook_id": null,
+  "discovery_protocol": "sequential_v2_optimized_nested_stable",
+  "mechanism_family": "RSI oversold + non-negative short trend; ATR trailing exit",
+  "direction": "LONG",
+  "winner_rule_id": "TR_rsi_os_long",
+  "family": "trailing_exit",
+  "entry_spec": {
+    "rsi14_lt": 30,
+    "trend_non_negative": true
+  },
+  "exit_spec": {
+    "type": "trail",
+    "sl_atr_default": 0.8,
+    "trail_atr_default": 0.8,
+    "sl_atr": 1.2,
+    "trail_atr": 0.6
+  },
+  "params_discovered": {
+    "sl_atr": 1.2,
+    "trail_atr": 0.6,
+    "tp_atr": null
+  },
+  "metrics": {
+    "validation_pf": 3.0000861683409203,
+    "validation_trades": 68,
+    "final_test_pf": 5.388343352706931,
+    "final_test_trades": 91,
+    "inner_pf": 4.565132315117284,
+    "val_half_a_pf": 2.0576098857486493,
+    "val_half_b_pf": 3.8726847669608357
+  },
+  "production_authorized": false,
+  "fail_closed": true,
+  "historical_research_only": true,
+  "cost_R": 0.05,
+  "split": "60/20/20 chronological + nested tune/inner"
+}
