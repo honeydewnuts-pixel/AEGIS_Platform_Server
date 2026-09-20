@@ -1,17 +1,18 @@
-# AEGIS_Executor.mq5 v2.11
+# AEGIS_Executor.mq5 v2.12 (production)
 
-## Hardening (vs 2.10)
+## Production hardening
 
-1. **ResolveBrokerSymbol** — maps AEGIS base (GBPUSD) → broker name (GBPUSD.r / m / # / Market Watch scan).
-2. **Handled only after outcome** — success or permanent fail; transient (spread/requote) retries up to `MaxRetriesTransient`.
-3. **ACK payload** — order_ticket, deal_ticket, position_ticket, retcode, volume, side, symbol.
-4. **Fill modes** — only modes advertised by `SYMBOL_FILLING_MODE`; cycle on INVALID_FILL.
+| Item | Behaviour |
+|------|-----------|
+| Broker symbol | ResolveBrokerSymbol: exact → suffixes → Market Watch → terminal |
+| Handled timing | Only after success / permanent fail |
+| Spread retries | Separate `MaxRetriesSpread` (default 12) |
+| Broker retries | Separate `MaxRetriesBroker` (default 5) |
+| Position ticket | `FindPositionTicket` by magic+symbol after fill |
+| ACK | HTTP 2xx required; queue + retry if POST fails |
+| Server | Idempotent ACK by `signal_id` — no double execution if ACK lost |
+| Fill modes | From `SYMBOL_TRADE_EXEMODE` + `SYMBOL_FILLING_MODE` |
 
-## Modes
+## Demo / live
 
-- ChartOnly / MultiPair (same AccountId + ApiKey)
-- One AEGIS position **per symbol** (magic filter)
-
-## First test
-
-UseServerSignals=true, UseLocalFileFallback=false, explicit SymbolsList.
+Same binary. Server gates (Good pairs, production_authorized, subscription) control live risk.

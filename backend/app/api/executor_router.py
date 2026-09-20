@@ -188,24 +188,18 @@ async def ack_signal(
     svc = getattr(request.app.state, "executor_signals", None)
     if svc is None:
         raise HTTPException(status_code=503, detail="Executor signal service not ready")
-    ok = svc.ack(
+    result = svc.ack(
         body.account_id,
         body.signal_id,
         ticket=body.ticket,
+        order_ticket=body.order_ticket,
+        deal_ticket=body.deal_ticket,
+        position_ticket=body.position_ticket,
+        retcode=body.retcode,
         ok=body.ok,
         message=body.message,
+        symbol=body.symbol,
+        side=body.side,
+        volume=body.volume,
     )
-    return {
-        "acked": ok,
-        "signal_id": body.signal_id,
-        "ticket": body.ticket or body.order_ticket,
-        "order_ticket": body.order_ticket or body.ticket,
-        "deal_ticket": body.deal_ticket,
-        "position_ticket": body.position_ticket,
-        "retcode": body.retcode,
-        "symbol": body.symbol,
-        "side": body.side,
-        "volume": body.volume,
-        "ok": body.ok,
-        "message": body.message,
-    }
+    return result
