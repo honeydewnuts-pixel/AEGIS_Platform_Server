@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| AEGIS_Executor.mq5  v2.12  PRODUCTION HARDENED                   |
+//| AEGIS_Executor.mq5  v2.13  PRODUCTION HARDENED                   |
 //| - ResolveBrokerSymbol (suffixes + MW scan)                       |
 //| - MarkHandled only after success / permanent fail                |
 //| - Transient retry: spread vs broker (separate limits)            |
@@ -8,9 +8,9 @@
 //| - Fill modes from SYMBOL_TRADE_EXECUTION + SYMBOL_FILLING_MODE   |
 //+------------------------------------------------------------------+
 #property copyright "LeverageFx / Honeydewnuts"
-#property version   "2.12"
+#property version   "2.13"
 #property strict
-#property description "AEGIS multi-pair executor v2.12 production"
+#property description "AEGIS multi-pair executor v2.13 production"
 
 enum ENUM_AEGIS_MODE
   {
@@ -74,6 +74,64 @@ string BaseUrl()
    if(StringLen(url) > 0 && StringGetCharacter(url, StringLen(url) - 1) == '/')
       url = StringSubstr(url, 0, StringLen(url) - 1);
    return url;
+  }
+
+
+// Safe 64-bit ticket → JSON number string (no int truncation)
+string UlongToStr(ulong v)
+  {
+   return IntegerToString((long)v);  // long is 64-bit in MQL5
+  }
+
+// Restart-safe: signal already executed if order/position comment contains AEGIS <id>
+bool SignalAlreadyExecuted(const string signalId, const string brokerSymbol)
+  {
+   if(StringLen(signalId) < 4) return false;
+   string needle = "AEGIS " + signalId;
+   // Open positions
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+     {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0) continue;
+      if(!PositionSelectByTicket(ticket)) continue;
+      if(PositionGetInteger(POSITION_MAGIC) != MagicNumber) continue;
+      if(StringLen(brokerSymbol) > 0 && PositionGetString(POSITION_SYMBOL) != brokerSymbol) continue;
+      string cmt = PositionGetString(POSITION_COMMENT);
+      if(StringFind(cmt, needle) >= 0 || StringFind(cmt, signalId) >= 0)
+         return true;
+     }
+   // History deals (recent) — covers closed trades after restart
+   datetime from = TimeCurrent() - 7 * 24 * 3600;
+   if(HistorySelect(from, TimeCurrent()))
+     {
+      int total = HistoryDealsTotal();
+      for(int i = total - 1; i >= 0 && i >= total - 500; i--)
+        {
+         ulong deal = HistoryDealGetTicket(i);
+         if(deal == 0) continue;
+         if((long)HistoryDealGetInteger(deal, DEAL_MAGIC) != MagicNumber) continue;
+         if(StringLen(brokerSymbol) > 0)
+           {
+            string dsym = HistoryDealGetString(deal, DEAL_SYMBOL);
+            if(dsym != brokerSymbol) continue;
+           }
+         string cmt = HistoryDealGetString(deal, DEAL_COMMENT);
+         if(StringFind(cmt, needle) >= 0 || StringFind(cmt, signalId) >= 0)
+            return true;
+        }
+     }
+   // Pending orders
+   for(int i = OrdersTotal() - 1; i >= 0; i--)
+     {
+      ulong ot = OrderGetTicket(i);
+      if(ot == 0) continue;
+      if(!OrderSelect(ot)) continue;
+      if(OrderGetInteger(ORDER_MAGIC) != MagicNumber) continue;
+      string cmt = OrderGetString(ORDER_COMMENT);
+      if(StringFind(cmt, needle) >= 0 || StringFind(cmt, signalId) >= 0)
+         return true;
+     }
+   return false;
   }
 
 string ResolveBrokerSymbol(const string canonical)
@@ -150,10 +208,19 @@ double NormalizeVolume(const string symbol, double vol)
    double step=SymbolInfoDouble(symbol,SYMBOL_VOLUME_STEP);
    if(vol<=0) vol=Lots;
    if(step<=0) step=0.01;
-   vol=MathFloor(vol/step)*step;
+   vol=MathFloor(vol/step + 1e-12)*step;
    if(vol<minLot) vol=minLot;
    if(vol>maxLot) vol=maxLot;
-   return NormalizeDouble(vol,2);
+   // decimals from volume step (0.01 → 2, 0.001 → 3)
+   int digits=0;
+   double s=step;
+   while(digits<8 && MathAbs(s-MathRound(s))>1e-12)
+     {
+      s*=10.0;
+      digits++;
+     }
+   if(digits<2) digits=2;
+   return NormalizeDouble(vol,digits);
   }
 
 // Safe fill modes: respect trade execution mode + filling flags
@@ -308,10 +375,10 @@ bool AckServerFull(const string signalId, const string symbol, const string side
    string payload="{";
    payload+="\"account_id\":\""+AccountId+"\",";
    payload+="\"signal_id\":\""+signalId+"\",";
-   payload+="\"ticket\":"+IntegerToString((int)orderTicket)+",";
-   payload+="\"order_ticket\":"+IntegerToString((int)orderTicket)+",";
-   payload+="\"deal_ticket\":"+IntegerToString((int)dealTicket)+",";
-   payload+="\"position_ticket\":"+IntegerToString((int)positionTicket)+",";
+   payload+="\"ticket\":"+UlongToStr(orderTicket)+",";
+   payload+="\"order_ticket\":"+UlongToStr(orderTicket)+",";
+   payload+="\"deal_ticket\":"+UlongToStr(dealTicket)+",";
+   payload+="\"position_ticket\":"+UlongToStr(positionTicket)+",";
    payload+="\"retcode\":"+IntegerToString(retcode)+",";
    payload+="\"ok\":"+(ok?"true":"false")+",";
    payload+="\"message\":\""+message+"\",";
@@ -408,6 +475,13 @@ bool IsTransientBroker(int retcode)
 int ExecuteTradeOn(const string brokerSymbol, const string side, double volume,
                    double sl, double tp, const string signalId, const string canonical)
   {
+   // Restart-safe idempotency: already traded this signal_id (comment match)
+   if(signalId!="" && signalId!="local" && SignalAlreadyExecuted(signalId, brokerSymbol))
+     {
+      Print("AEGIS: signal already executed (durable check) ", signalId);
+      AckServerFull(signalId, brokerSymbol!=""?brokerSymbol:canonical, side, 0, 0, 0, 0, 0, true, "already_executed");
+      return 1; // treat as success — do not open second position
+     }
    if(StringLen(brokerSymbol)<1)
      {
       AckServerFull(signalId,canonical,side,0,0,0,0,-1,false,"resolve_failed");
@@ -527,8 +601,9 @@ bool HandleSignalJsonObject(const string obj)
      }
    if(rc==2)
      {
-      // Trade OK, ACK queued — mark handled only after ACK flush succeeds; track as soft-handled
-      // Prevent re-execution: local handled
+      // Trade succeeded but ACK is pending on the queue.
+      // Mark locally handled immediately to prevent duplicate execution this session.
+      // ACK retries independently; server is also idempotent by signal_id.
       MarkHandled(signalId);
       return true;
      }
@@ -638,7 +713,7 @@ void PollLocalFallback()
 
 int OnInit()
   {
-   Print("AEGIS_Executor v2.12 PRODUCTION mode=",EnumToString(ExecMode)," account=",AccountId);
+   Print("AEGIS_Executor v2.13 PRODUCTION mode=",EnumToString(ExecMode)," account=",AccountId);
    EventSetTimer(MathMax(2,PollSeconds));
    return INIT_SUCCEEDED;
   }

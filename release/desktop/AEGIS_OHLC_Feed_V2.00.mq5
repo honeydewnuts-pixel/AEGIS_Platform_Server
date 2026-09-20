@@ -130,7 +130,7 @@ void BuildSymbolList()
      }
    ArrayResize(g_last_bar_time, ArraySize(g_symbols));
    ArrayInitialize(g_last_bar_time, 0);
-   Print("AEGIS OHLC v2.00 symbols=", ArraySize(g_symbols), " mode=", EnumToString(InpMode));
+   Print("AEGIS OHLC v2.01 symbols=", ArraySize(g_symbols), " mode=", EnumToString(InpMode));
   }
 
 //+------------------------------------------------------------------+
@@ -228,7 +228,7 @@ void PostAll()
       if(PostOhlcForSymbol(g_symbols[i])) ok++;
       else fail++;
      }
-   Print("AEGIS OHLC v2 cycle ok=", ok, " fail=", fail);
+   Print("AEGIS OHLC v2.01 cycle ok=", ok, " fail=", fail);
   }
 
 //+------------------------------------------------------------------+

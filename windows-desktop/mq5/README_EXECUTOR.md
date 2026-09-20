@@ -1,18 +1,9 @@
-# AEGIS_Executor.mq5 v2.12 (production)
+# AEGIS_Executor.mq5 v2.13 (production)
 
-## Production hardening
+## Final hardening
 
-| Item | Behaviour |
-|------|-----------|
-| Broker symbol | ResolveBrokerSymbol: exact → suffixes → Market Watch → terminal |
-| Handled timing | Only after success / permanent fail |
-| Spread retries | Separate `MaxRetriesSpread` (default 12) |
-| Broker retries | Separate `MaxRetriesBroker` (default 5) |
-| Position ticket | `FindPositionTicket` by magic+symbol after fill |
-| ACK | HTTP 2xx required; queue + retry if POST fails |
-| Server | Idempotent ACK by `signal_id` — no double execution if ACK lost |
-| Fill modes | From `SYMBOL_TRADE_EXEMODE` + `SYMBOL_FILLING_MODE` |
-
-## Demo / live
-
-Same binary. Server gates (Good pairs, production_authorized, subscription) control live risk.
+1. **64-bit tickets** — `UlongToStr` / `long` (no `int` truncation of MT5 tickets)
+2. **Restart idempotency** — `SignalAlreadyExecuted` scans positions, recent deals, orders for comment `AEGIS <signal_id>`
+3. **ACK** — HTTP 2xx + retry queue; server completed-set is idempotent by `signal_id`
+4. **Volume** — decimals derived from `SYMBOL_VOLUME_STEP`
+5. Broker resolve, spread vs broker retries, fill modes, position ticket — retained from v2.12

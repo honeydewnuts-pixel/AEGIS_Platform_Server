@@ -307,7 +307,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Multi-pair on MT5 (PC/VPS): prefer one AEGIS_OHLC_Feed v2.01 (MultiSymbol) + one AEGIS_Executor v2.12 (MultiPair). Same Account ID/API key. One AEGIS position per symbol. ChartOnly modes remain available."
+            android:text="Multi-pair on MT5 (PC/VPS): prefer one AEGIS_OHLC_Feed v2.01 (MultiSymbol) + one AEGIS_Executor v2.13 (MultiPair). Same Account ID/API key. One AEGIS position per symbol. ChartOnly modes remain available."
             android:textColor="#90A4AE"
             android:textSize="11sp"/>
 </LinearLayout>
