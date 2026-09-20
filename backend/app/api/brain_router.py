@@ -388,18 +388,37 @@ async def analyze_screenshot(
                 vol = lot.get("volume") or lot.get("lots") or result.get("calculated_lot_size")
             except Exception:
                 vol = None
-            exec_svc.publish(
-                account_id=account_id,
-                symbol=sym,
-                side=side,
-                confidence=float(result.get("confidence") or 0),
-                rule_name=str(result.get("rule_name") or ""),
-                volume=float(vol) if vol is not None else None,
-                stop_loss=result.get("stop_loss") or result.get("sl"),
-                take_profit=result.get("take_profit") or result.get("tp"),
-                details=str(result.get("details") or "")[:500],
-            )
-            result["executor_published"] = True
+            # Only publish to MT5 Executor for Good/tradeable instruments
+            reg = getattr(request.app.state, "registry_service", None) or getattr(request.app.state, "registry", None)
+            allow_pub = True
+            pub_reason = "ok"
+            if reg is not None:
+                try:
+                    rows = reg.list_instruments(tradeable_only=False)
+                    m = next((r for r in rows if str(r.get("instrument") or "").upper() == sym.upper().split(".")[0]), None)
+                    if m is None:
+                        allow_pub, pub_reason = False, "unknown_instrument"
+                    elif not m.get("good") or not m.get("tradeable"):
+                        allow_pub, pub_reason = False, f"not_good:{m.get('router_status')}"
+                except Exception as _re:
+                    pub_reason = f"registry_check_error:{_re}"
+            if allow_pub:
+                exec_svc.publish(
+                    account_id=account_id,
+                    symbol=sym,
+                    side=side,
+                    confidence=float(result.get("confidence") or 0),
+                    rule_name=str(result.get("rule_name") or ""),
+                    volume=float(vol) if vol is not None else None,
+                    stop_loss=result.get("stop_loss") or result.get("sl"),
+                    take_profit=result.get("take_profit") or result.get("tp"),
+                    details=str(result.get("details") or "")[:500],
+                )
+                result["executor_published"] = True
+                result["executor_publish_reason"] = pub_reason
+            else:
+                result["executor_published"] = False
+                result["executor_publish_reason"] = pub_reason
     except Exception as _ex:
         result["executor_published"] = False
 

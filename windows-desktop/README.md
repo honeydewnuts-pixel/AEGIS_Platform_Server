@@ -44,3 +44,9 @@ Server serves research-eligible pairs from `/api/registry/pairs` after deploy.
 V53.6 qualified targets (production_authorized=false):
 AUDUSD, EURCHF, EURGBP, GBPJPY, GBPNZD, NZDCHF, NZDJPY, NZDUSD, USDCAD, USDCHF.
 Source frozen: GBPUSD V31/V35. Rejected/fail-closed: EURUSD, USDJPY, EURJPY.
+echo '
+## Multi-pair (MT5)
+
+AEGIS_Executor v2.10 supports ChartOnly (one EA per chart) or MultiPair (one EA, many symbols).
+Same AccountId/ApiKey. One AEGIS position per symbol. See mq5/README_EXECUTOR.md.
+' >> windows-desktop/README.md

@@ -1,34 +1,38 @@
-# AEGIS_Executor.mq5 v2.00
+# AEGIS_Executor.mq5 v2.10
 
-## What it does
+## Modes
 
-1. Every `PollSeconds`, calls:
-   `GET {ServerUrl}/api/executor/pending?account_id=...&symbol=EURUSD`
-2. If the brain published a **BUY** or **SELL** for that account+symbol, executes `OrderSend` on the **attached chart**.
-3. Reports result via `POST {ServerUrl}/api/executor/ack`.
+| Mode | Behaviour |
+|------|-----------|
+| **ChartOnly** (default) | Polls pending for `_Symbol` only. Attach one EA per chart/pair. |
+| **MultiPair** | One EA polls `/api/executor/pending-batch` for many symbols (list or Good universe). |
 
-Local file `aegis_signal.txt` remains an **optional fallback** only.
+Same **AccountId** + **ApiKey** on every instance. Positions are **one AEGIS magic position per symbol**, not account-wide.
 
-## MT5 setup (required)
+## Filling mode
 
-1. Tools → Options → Expert Advisors  
-2. Enable **Allow algorithmic trading**  
-3. Enable **Allow WebRequest for listed URL**  
-4. Add exactly: `https://aegis-api-0z1p.onrender.com` (or your API host, no path)  
-5. Attach EA to the chart you want to trade (e.g. GBPUSD M5)  
-6. Inputs:
-   - `ServerUrl` = API base URL  
-   - `AccountId` = AEGIS account id (e.g. ACC-…)  
-   - `ApiKey` = mobile/portal API key  
-7. AutoTrading button ON in toolbar  
+Uses symbol `SYMBOL_FILLING_MODE`: IOC → FOK → RETURN, with retry on invalid fill.
 
-## Server side
+## Multi-pair setup (Option A — safest)
 
-Brain `/aegis/analyze` publishes BUY/SELL into `ExecutorSignalService` when analysis produces a trade signal.  
-Signals expire after 300s. ACK removes them so they are not repeated.
+Attach Feed + Executor (ChartOnly) on each chart:
 
-## Limits
+```
+GBPUSD M5 → Feed + Executor
+EURUSD M5 → Feed + Executor
+```
 
-- One magic-number position per symbol if `OnePositionOnly=true`
-- Spread filter `MaxSpreadPts`
-- Production still requires server-side `production_authorized` / subscription for live path; demo signals follow account plan
+## Multi-pair setup (Option B — one Executor)
+
+1. ExecMode = MultiPair  
+2. SymbolsList empty → server Good universe, or set `GBPUSD,EURUSD,USDJPY`  
+3. Still run **OHLC Feed on each symbol chart** (or one feed per symbol).  
+4. Symbols must exist in Market Watch.
+
+## Server gates
+
+Only **Good + tradeable** registry instruments are published/polled. V2-OPT-only pairs are blocked.
+
+## WebRequest
+
+Allow: `https://aegis-api-0z1p.onrender.com` (your API host).
