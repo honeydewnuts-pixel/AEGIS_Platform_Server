@@ -46,11 +46,22 @@ def _actor_label(auth: AuthContext | None) -> str | None:
     return auth.account_id
 
 
-async def verify_api_key(x_api_key: str | None = Header(default=None)) -> AuthContext:
-    if x_api_key is None:
+async def verify_api_key(
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    authorization: str | None = Header(default=None, alias="Authorization"),
+) -> AuthContext:
+    # Prefer X-API-Key; also accept Authorization: Bearer <key> (MT5 / clients)
+    raw = x_api_key
+    if raw is None and authorization:
+        auth = authorization.strip()
+        if auth.lower().startswith("bearer "):
+            raw = auth[7:].strip()
+        else:
+            raw = auth
+    if raw is None or not str(raw).strip():
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing X-API-Key header.")
 
-    key_hash = _hash_key(x_api_key)
+    key_hash = _hash_key(raw)
     now = datetime.now(timezone.utc)
 
     async with async_session_factory() as session:

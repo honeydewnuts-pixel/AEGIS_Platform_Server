@@ -376,6 +376,32 @@ async def analyze_screenshot(
     await signal_history.record(
         account_id, result["signal"], result["confidence"], result["rule_name"], result["details"]
     )
+    # Publish BUY/SELL for MT5 AEGIS_Executor.mq5 (HTTP poll)
+    try:
+        exec_svc = getattr(request.app.state, "executor_signals", None)
+        side = str(result.get("signal") or "").upper()
+        sym = (symbol or "").strip() if symbol else ""
+        if exec_svc is not None and side in ("BUY", "SELL") and sym:
+            vol = None
+            try:
+                lot = result.get("execution", {}) if isinstance(result.get("execution"), dict) else {}
+                vol = lot.get("volume") or lot.get("lots") or result.get("calculated_lot_size")
+            except Exception:
+                vol = None
+            exec_svc.publish(
+                account_id=account_id,
+                symbol=sym,
+                side=side,
+                confidence=float(result.get("confidence") or 0),
+                rule_name=str(result.get("rule_name") or ""),
+                volume=float(vol) if vol is not None else None,
+                stop_loss=result.get("stop_loss") or result.get("sl"),
+                take_profit=result.get("take_profit") or result.get("tp"),
+                details=str(result.get("details") or "")[:500],
+            )
+            result["executor_published"] = True
+    except Exception as _ex:
+        result["executor_published"] = False
 
     if market_snapshot is not None:
         result["market_data"] = market_snapshot
