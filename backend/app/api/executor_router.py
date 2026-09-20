@@ -137,6 +137,7 @@ async def get_pending_batch(
         "",
         description="Comma-separated symbols; empty = use registry Good universe",
     ),
+    max_symbols: int = Query(24, ge=1, le=64),
     auth: AuthContext = Depends(verify_api_key),
 ) -> dict[str, Any]:
     """Multi-pair poll: one request, many symbols (Option B Executor)."""
@@ -146,10 +147,11 @@ async def get_pending_batch(
         raise HTTPException(status_code=503, detail="Executor signal service not ready")
 
     if symbols.strip():
-        sym_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
+        sym_list = [s.strip().upper() for s in symbols.split(",") if s.strip()][:max_symbols]
     else:
         uni = await executor_universe(request, account_id=account_id, auth=auth)
         sym_list = list(uni.get("symbols") or [])
+    sym_list = sym_list[:max_symbols]
 
     authorized: list[str] = []
     blocked: list[dict[str, str]] = []

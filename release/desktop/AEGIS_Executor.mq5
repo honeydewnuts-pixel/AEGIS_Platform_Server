@@ -402,9 +402,27 @@ void PollChartOnly()
 void PollMultiPair()
   {
    string url = BaseUrl() + "/api/executor/pending-batch?account_id=" + AccountId;
-   if(StringLen(SymbolsList) > 0)
-      url += "&symbols=" + SymbolsList;
-   // else empty symbols → server uses Good universe
+   string list = SymbolsList;
+   // Cap client-side list length for safety
+   if(StringLen(list) > 0 && MaxSymbolsPerPoll > 0)
+     {
+      string parts[];
+      int n = StringSplit(list, ',', parts);
+      string capped = "";
+      int take = MathMin(n, MaxSymbolsPerPoll);
+      for(int i = 0; i < take; i++)
+        {
+         string s = parts[i];
+         StringTrimLeft(s); StringTrimRight(s);
+         if(StringLen(s) < 3) continue;
+         if(StringLen(capped) > 0) capped += ",";
+         capped += s;
+        }
+      list = capped;
+     }
+   if(StringLen(list) > 0)
+      url += "&symbols=" + list;
+   // else empty → server Good universe (server also caps)
    string body = HttpGet(url);
    if(body == "") return;
    ProcessSignalsArray(body);

@@ -36,3 +36,7 @@ Only **Good + tradeable** registry instruments are published/polled. V2-OPT-only
 ## WebRequest
 
 Allow: `https://aegis-api-0z1p.onrender.com` (your API host).
+
+## Pair with OHLC Feed v2.00
+
+Use MultiSymbol feed + MultiPair executor for one-feed + one-executor VPS layout.
