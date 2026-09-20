@@ -26,3 +26,7 @@ Same AccountId + ApiKey. Endpoint remains `POST /api/mt5/ohlc/stream` (one reque
 ## WebRequest
 
 Allow your AEGIS API host in Expert Advisors options.
+
+## Symbol suffixes
+
+Feed posts `symbol` as **base** (GBPUSD) and `symbol_broker` as the MT5 name (GBPUSD.r). Server keys streams by base so Executor MultiPair always matches.

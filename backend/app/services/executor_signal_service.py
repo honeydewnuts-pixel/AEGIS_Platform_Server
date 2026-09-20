@@ -9,6 +9,8 @@ import time
 import uuid
 from typing import Any
 
+from app.utils.symbol_normalize import normalize_symbol
+
 
 class ExecutorSignalService:
     def __init__(self, max_age_sec: float = 300.0) -> None:
@@ -22,11 +24,7 @@ class ExecutorSignalService:
 
     @staticmethod
     def normalize_symbol(symbol: str) -> str:
-        s = (symbol or "").strip().upper()
-        for sep in (".", "#", " "):
-            if sep in s:
-                s = s.split(sep)[0]
-        return s
+        return normalize_symbol(symbol)
 
     def publish(
         self,

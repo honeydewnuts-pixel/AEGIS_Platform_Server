@@ -1,24 +1,24 @@
 """Independent MT5 OHLC history store (not derived from screenshots).
 
-Bars arrive from the MT5 EA / worker via POST /api/mt5/ohlc/stream and are
-keyed by account_id + symbol + timeframe. Analyze joins by those keys and
-optional candle timestamp alignment.
+Bars arrive via POST /api/mt5/ohlc/stream, keyed by account_id + base symbol + TF.
+Broker suffixes (GBPUSD.r) are normalized so Feed and Executor stay aligned.
 """
-
 from __future__ import annotations
 
 import time
 from typing import Any
 
+from app.utils.symbol_normalize import normalize_symbol
+
 
 class OhlcStreamService:
     def __init__(self) -> None:
-        # key -> payload
         self._store: dict[str, dict[str, Any]] = {}
 
     @staticmethod
     def _key(account_id: str, symbol: str, timeframe: str) -> str:
-        return f"{account_id.strip()}|{symbol.strip().upper()}|{(timeframe or 'M5').strip().upper()}"
+        base = normalize_symbol(symbol)
+        return f"{account_id.strip()}|{base}|{(timeframe or 'M5').strip().upper()}"
 
     def ingest(
         self,
@@ -30,9 +30,13 @@ class OhlcStreamService:
         source: str = "mt5_ea",
         current_bar: dict[str, Any] | None = None,
         closed_bar: dict[str, Any] | None = None,
+        symbol_broker: str | None = None,
     ) -> dict[str, Any]:
         if not account_id or not symbol or not bars:
             return {"ok": False, "error": "account_id, symbol, and bars required"}
+        base = normalize_symbol(symbol)
+        if not base:
+            return {"ok": False, "error": "invalid symbol"}
         cleaned: list[dict[str, Any]] = []
         for b in bars:
             try:
@@ -54,11 +58,13 @@ class OhlcStreamService:
             return {"ok": False, "error": "no valid bars"}
         cleaned.sort(key=lambda x: x["time"])
         last = cleaned[-1]
+        broker = (symbol_broker or symbol or "").strip()
         payload = {
             "account_id": account_id,
-            "symbol": symbol.strip().upper(),
+            "symbol": base,
+            "symbol_broker": broker,
             "timeframe": (timeframe or "M5").strip().upper(),
-            "bars": cleaned[-500:],  # cap memory
+            "bars": cleaned[-500:],
             "bar_count": len(cleaned[-500:]),
             "latest": last,
             "current_bar": current_bar,
@@ -70,9 +76,11 @@ class OhlcStreamService:
             "low": last["low"],
             "close": last["close"],
         }
-        self._store[self._key(account_id, symbol, timeframe)] = payload
+        self._store[self._key(account_id, base, timeframe)] = payload
         return {
             "ok": True,
+            "symbol": base,
+            "symbol_broker": broker,
             "bar_count": payload["bar_count"],
             "latest_time": last["time"],
             "latest_close": last["close"],
@@ -91,15 +99,10 @@ class OhlcStreamService:
         if not payload:
             return None
         age = int(time.time() * 1000) - int(payload.get("received_at_ms") or 0)
-        if age > max_age_ms:
-            payload = dict(payload)
-            payload["stale"] = True
-            payload["age_ms"] = age
-        else:
-            payload = dict(payload)
-            payload["stale"] = False
-            payload["age_ms"] = age
-        return payload
+        out = dict(payload)
+        out["stale"] = age > max_age_ms
+        out["age_ms"] = age
+        return out
 
     def status(self, account_id: str | None = None) -> dict[str, Any]:
         items = []
@@ -110,6 +113,7 @@ class OhlcStreamService:
                 {
                     "key": k,
                     "symbol": v.get("symbol"),
+                    "symbol_broker": v.get("symbol_broker"),
                     "timeframe": v.get("timeframe"),
                     "bar_count": v.get("bar_count"),
                     "received_at_ms": v.get("received_at_ms"),

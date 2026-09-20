@@ -6,7 +6,7 @@
 //| CLOSED vs CURRENT bars preserved. No invented OHLC.              |
 //+------------------------------------------------------------------+
 #property copyright "Honeydewnuts Nigerian Limited / LeverageFx"
-#property version   "2.00"
+#property version   "2.01"
 #property strict
 #property description "AEGIS multi-symbol OHLC feed for broker-direct market data"
 
@@ -67,10 +67,20 @@ string BaseUrl()
 
 string NormalizeBase(string sym)
   {
+   // Align with server: strip broker suffixes → registry base (GBPUSD.r → GBPUSD)
    string s = sym;
+   StringToUpper(s);
+   int hash = StringFind(s, "#");
+   if(hash > 0) s = StringSubstr(s, 0, hash);
    int d = StringFind(s, ".");
    if(d > 0) s = StringSubstr(s, 0, d);
-   StringToUpper(s);
+   // trailing m/i after 6-letter FX (GBPUSDm)
+   if(StringLen(s) == 7)
+     {
+      ushort last = StringGetCharacter(s, 6);
+      if(last == 'M' || last == 'I' || last == 'P' || last == 'C')
+         s = StringSubstr(s, 0, 6);
+     }
    return s;
   }
 
@@ -180,10 +190,13 @@ bool PostOhlcForSymbol(const string symbol)
          (int)rates[1].tick_volume, (int)rates[1].spread
       );
 
+   string brokerSym = symbol;
+   string baseSym = NormalizeBase(symbol);
    string body = StringFormat(
-      "{\"account_id\":\"%s\",\"symbol\":\"%s\",\"timeframe\":\"%s\",\"source\":\"mt5_ea_v2\",\"bars\":%s,\"current_bar\":%s,\"closed_bar\":%s}",
+      "{\"account_id\":\"%s\",\"symbol\":\"%s\",\"symbol_broker\":\"%s\",\"timeframe\":\"%s\",\"source\":\"mt5_ea_v2\",\"bars\":%s,\"current_bar\":%s,\"closed_bar\":%s}",
       JsonEscape(InpAccountId),
-      JsonEscape(symbol),
+      JsonEscape(baseSym),
+      JsonEscape(brokerSym),
       TfString(tf),
       bars, cur, closed
    );

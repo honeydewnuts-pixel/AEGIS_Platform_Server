@@ -31,6 +31,7 @@ class OhlcStreamIn(BaseModel):
     current_bar: OhlcBar | None = None
     closed_bar: OhlcBar | None = None
     source: str = "mt5_ea"
+    symbol_broker: str | None = None
 
 
 @router.post("/ohlc/stream")
@@ -56,6 +57,7 @@ async def ingest_ohlc_stream(
         source=body.source,
         current_bar=body.current_bar.model_dump() if body.current_bar else None,
         closed_bar=body.closed_bar.model_dump() if body.closed_bar else None,
+        symbol_broker=body.symbol_broker,
     )
     if not result.get("ok"):
         raise HTTPException(400, result.get("error") or "ingest failed")
