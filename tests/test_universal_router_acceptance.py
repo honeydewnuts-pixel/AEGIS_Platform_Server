@@ -18,22 +18,21 @@ def _router():
 
 def test_research_eligible_pairs():
     ur = _router()
-    # Core research set + V2-OPT promoted natives (still production_authorized=false)
-    for inst in ("GBPUSD", "AUDUSD", "USDCHF", "NZDUSD", "EURUSD", "USDJPY", "EURJPY", "GBPJPY", "EURGBP", "USDCAD"):
+    # Non-V2OPT rulebooks only — Good pairs
+    for inst in ("GBPUSD", "AUDUSD", "USDCHF", "NZDUSD", "GBPJPY", "EURGBP", "USDCAD"):
         d = ur.resolve(inst, "M5")
         assert d.state == RouteState.ROUTABLE_RESEARCH, (inst, d)
         assert d.rulebook_ids, inst
         assert d.production_authorized is False
+        assert not any("V2OPT" in x for x in d.rulebook_ids), (inst, d.rulebook_ids)
 
 
-def test_rejected_pairs_fail_closed():
-    """No residual hard-rejected FX majors after V2-OPT native promotion.
-    Keep the test as a production gate: production_requested must never auto-enable.
-    """
+def test_v2opt_only_pairs_disabled():
+    """V2-OPT-only pairs are TRADING_DISABLED (insufficient qualification gates)."""
     ur = _router()
-    for inst in ("EURUSD", "USDJPY", "EURJPY"):
-        d = ur.resolve(inst, "M5", production_requested=True)
-        assert d.state == RouteState.PRODUCTION_AUTHORIZATION_REQUIRED, (inst, d)
+    for inst in ("EURUSD", "USDJPY", "EURJPY", "GBPAUD"):
+        d = ur.resolve(inst, "M5")
+        assert d.state == RouteState.TRADING_DISABLED, (inst, d)
         assert d.production_authorized is False
 
 

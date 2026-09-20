@@ -109,6 +109,14 @@ class RegistryService:
                 continue
             router_status = (row.get("router_status") or "").upper()
             tradeable = router_status in {"RESEARCH_ELIGIBLE", "TRADING_ENABLED", "LIVE"}
+            reg_status = (row.get("registry_status") or "").upper()
+            # "Good" = research/live path allowed; V2-OPT-only pairs are not Good
+            good = tradeable and "V2OPT_INSUFFICIENT" not in reg_status
+            eligible = [
+                x.strip()
+                for x in (row.get("eligible_rulebooks") or "").split(";")
+                if x.strip() and x.strip().lower() != "nan" and "V2OPT" not in x.upper()
+            ]
             out.append(
                 {
                     "instrument": inst,
@@ -117,9 +125,8 @@ class RegistryService:
                     "registry_status": row.get("registry_status") or "",
                     "router_status": router_status,
                     "tradeable": tradeable,
-                    "eligible_rulebooks": [
-                        x for x in (row.get("eligible_rulebooks") or "").split(";") if x
-                    ],
+                    "good": good,
+                    "eligible_rulebooks": eligible,
                     "reason": row.get("reason") or "",
                 }
             )

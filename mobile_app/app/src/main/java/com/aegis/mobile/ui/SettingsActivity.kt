@@ -74,7 +74,7 @@ class SettingsActivity : AppCompatActivity() {
         spinnerMt5Symbol.adapter = ArrayAdapter(
             this,
             android.R.layout.simple_spinner_dropdown_item,
-            AegisInstruments.ALL
+            AegisInstruments.ALL_LABELS
         )
         cbMt5Execution = findViewById(R.id.cbMt5Execution)
         cbAutoExecute = findViewById(R.id.cbAutoExecute)
@@ -109,7 +109,13 @@ class SettingsActivity : AppCompatActivity() {
         btnSave.setOnClickListener {
             lifecycleScope.launch {
                 persistSettings()
-                Toast.makeText(this@SettingsActivity, "Settings saved", Toast.LENGTH_SHORT).show()
+                val sym = AegisInstruments.symbolFromLabel(spinnerMt5Symbol.selectedItem?.toString() ?: "")
+                val msg = if (AegisInstruments.isGood(sym)) {
+                    "Settings saved — $sym (Good)"
+                } else {
+                    "Saved $sym — Not Good (V2-OPT only). Demo/live path disabled on server."
+                }
+                Toast.makeText(this@SettingsActivity, msg, Toast.LENGTH_LONG).show()
                 finish()
             }
         }
@@ -144,7 +150,9 @@ class SettingsActivity : AppCompatActivity() {
             settings[PrefKeys.MT5_SERVER] = etMt5Server.text.toString().trim()
             settings[PrefKeys.MT5_LOGIN] = etMt5Login.text.toString().trim()
             settings[PrefKeys.MT5_PASSWORD] = etMt5Password.text.toString()
-            settings[PrefKeys.MT5_SYMBOL] = (spinnerMt5Symbol.selectedItem?.toString() ?: "").trim().uppercase()
+            settings[PrefKeys.MT5_SYMBOL] = AegisInstruments.symbolFromLabel(
+                spinnerMt5Symbol.selectedItem?.toString() ?: ""
+            )
             settings[PrefKeys.MT5_EXECUTION_ENABLED] = cbMt5Execution.isChecked
             settings[PrefKeys.AUTO_EXECUTE] = cbAutoExecute.isChecked
             settings[PrefKeys.KEEP_NETWORK_ALIVE] = cbKeepNetwork.isChecked

@@ -203,7 +203,7 @@ class UniversalRouter:
         eligible_ids: list[str] = [
             x.strip()
             for x in (row.get("eligible_rulebooks") or "").split(";")
-            if x.strip()
+            if x.strip() and x.strip().lower() != "nan" and "V2OPT" not in x.upper()
         ]
         for rb in self._rulebooks:
             if (rb.get("instrument") or "").upper() != instrument:
@@ -211,12 +211,15 @@ class UniversalRouter:
             if (rb.get("timeframe") or "M5").upper() != timeframe:
                 continue
             status = (rb.get("status") or "").upper()
+            rid = rb.get("rulebook_id") or ""
+            # V2-OPT archived: never auto-route (insufficient gates vs val_n>300 / PF>1.6 / 6-block)
+            if "V2OPT" in rid.upper() or "ARCHIVED" in status or "INSUFFICIENT" in status:
+                continue
             if status in {
                 "QUALIFIED_RESEARCH_CANDIDATE",
                 "SOURCE_RULEBOOK_FROZEN",
                 "FOUNDING",
             }:
-                rid = rb.get("rulebook_id") or ""
                 if rid and rid not in eligible_ids:
                     eligible_ids.append(rid)
 

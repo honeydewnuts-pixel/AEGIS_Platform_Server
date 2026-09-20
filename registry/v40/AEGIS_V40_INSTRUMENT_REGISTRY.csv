@@ -1,16 +1,16 @@
 instrument,asset_class,timeframe,registry_status,router_status,eligible_rulebooks,reason
-GBPUSD,FOREX,M5,SOURCE_RULEBOOK_FROZEN,RESEARCH_ELIGIBLE,AEGIS-RB-V31-GBPUSD-5M;AEGIS-RB-V35-GBPUSD-5M;AEGIS-RB-V2OPT-GBPUSD-M5,Frozen standardized source rulebooks; historical qualification only; not a V53.6 target; + V2-OPT AEGIS-RB-V2OPT-GBPUSD-M5
+GBPUSD,FOREX,M5,SOURCE_RULEBOOK_FROZEN,RESEARCH_ELIGIBLE,AEGIS-RB-V31-GBPUSD-5M;AEGIS-RB-V35-GBPUSD-5M,Frozen standardized source rulebooks; historical qualification only; not a V53.6 target; V2-OPT removed (insufficient gates: not val_n>300/PF>1.6/6-block).
 AUDUSD,FOREX,M5,TRANSFER_QUALIFIED,RESEARCH_ELIGIBLE,AEGIS-RB-V53.6-V31-AUDUSD-5M;AEGIS-RB-V39-V31-AUDUSD-M5,V53.6 V31 transfer PASS; production_authorization=false
-USDCHF,FOREX,M5,TRANSFER_QUALIFIED,RESEARCH_ELIGIBLE,AEGIS-RB-V53.6-V31-USDCHF-5M;AEGIS-RB-V39-V31-USDCHF-M5;AEGIS-RB-V2OPT-USDCHF-M5,V53.6 V31 transfer PASS; production_authorization=false; + V2-OPT AEGIS-RB-V2OPT-USDCHF-M5
-NZDUSD,FOREX,M5,TRANSFER_QUALIFIED,RESEARCH_ELIGIBLE,AEGIS-RB-V53.6-V31-NZDUSD-5M;AEGIS-RB-V39-V31-NZDUSD-M5;AEGIS-RB-V2OPT-NZDUSD-M5,V53.6 V31 transfer PASS; production_authorization=false; + V2-OPT AEGIS-RB-V2OPT-NZDUSD-M5
+USDCHF,FOREX,M5,TRANSFER_QUALIFIED,RESEARCH_ELIGIBLE,AEGIS-RB-V53.6-V31-USDCHF-5M;AEGIS-RB-V39-V31-USDCHF-M5,V53.6 V31 transfer PASS; production_authorization=false; V2-OPT removed (insufficient gates: not val_n>300/PF>1.6/6-block).
+NZDUSD,FOREX,M5,TRANSFER_QUALIFIED,RESEARCH_ELIGIBLE,AEGIS-RB-V53.6-V31-NZDUSD-5M;AEGIS-RB-V39-V31-NZDUSD-M5,V53.6 V31 transfer PASS; production_authorization=false; V2-OPT removed (insufficient gates: not val_n>300/PF>1.6/6-block).
 EURCHF,FOREX,M5,TRANSFER_QUALIFIED,RESEARCH_ELIGIBLE,AEGIS-RB-V53.6-V31-EURCHF-5M,V53.6 V31 transfer PASS; production_authorization=false
-EURGBP,FOREX,M5,TRANSFER_QUALIFIED,RESEARCH_ELIGIBLE,AEGIS-RB-V53.6-V31-EURGBP-5M;AEGIS-RB-V2OPT-EURGBP-M5,V53.6 V31 transfer PASS; production_authorization=false; + V2-OPT AEGIS-RB-V2OPT-EURGBP-M5
-GBPJPY,FOREX,M5,TRANSFER_QUALIFIED,RESEARCH_ELIGIBLE,AEGIS-RB-V53.6-V31-GBPJPY-5M;AEGIS-RB-V2OPT-GBPJPY-M5,V53.6 V31 transfer PASS; production_authorization=false; + V2-OPT AEGIS-RB-V2OPT-GBPJPY-M5
+EURGBP,FOREX,M5,TRANSFER_QUALIFIED,RESEARCH_ELIGIBLE,AEGIS-RB-V53.6-V31-EURGBP-5M,V53.6 V31 transfer PASS; production_authorization=false; V2-OPT removed (insufficient gates: not val_n>300/PF>1.6/6-block).
+GBPJPY,FOREX,M5,TRANSFER_QUALIFIED,RESEARCH_ELIGIBLE,AEGIS-RB-V53.6-V31-GBPJPY-5M,V53.6 V31 transfer PASS; production_authorization=false; V2-OPT removed (insufficient gates: not val_n>300/PF>1.6/6-block).
 GBPNZD,FOREX,M5,TRANSFER_QUALIFIED,RESEARCH_ELIGIBLE,AEGIS-RB-V53.6-V31-GBPNZD-5M,V53.6 V31 transfer PASS; production_authorization=false
 NZDCHF,FOREX,M5,TRANSFER_QUALIFIED,RESEARCH_ELIGIBLE,AEGIS-RB-V53.6-V31-NZDCHF-5M,V53.6 V31 transfer PASS; production_authorization=false
 NZDJPY,FOREX,M5,TRANSFER_QUALIFIED,RESEARCH_ELIGIBLE,AEGIS-RB-V53.6-V31-NZDJPY-5M,V53.6 V31 transfer PASS; production_authorization=false
-USDCAD,FOREX,M5,TRANSFER_QUALIFIED,RESEARCH_ELIGIBLE,AEGIS-RB-V53.6-V31-USDCAD-5M;AEGIS-RB-V2OPT-USDCAD-M5,V53.6 V31 transfer PASS; production_authorization=false; + V2-OPT AEGIS-RB-V2OPT-USDCAD-M5
-EURUSD,FOREX,M5,NATIVE_V2OPT_QUALIFIED,RESEARCH_ELIGIBLE,nan;AEGIS-RB-V2OPT-EURUSD-M5,V2-OPT native discovery research candidate (AEGIS-RB-V2OPT-EURUSD-M5); production_authorization=false
-USDJPY,FOREX,M5,NATIVE_V2OPT_QUALIFIED,RESEARCH_ELIGIBLE,nan;AEGIS-RB-V2OPT-USDJPY-M5,V2-OPT native discovery research candidate (AEGIS-RB-V2OPT-USDJPY-M5); production_authorization=false
-EURJPY,FOREX,M5,NATIVE_V2OPT_QUALIFIED,RESEARCH_ELIGIBLE,nan;AEGIS-RB-V2OPT-EURJPY-M5,V2-OPT native discovery research candidate (AEGIS-RB-V2OPT-EURJPY-M5); production_authorization=false
-GBPAUD,FOREX,M5,NATIVE_V2OPT_QUALIFIED,RESEARCH_ELIGIBLE,AEGIS-RB-V2OPT-GBPAUD-M5,V2-OPT native discovery; production_authorization=false
+USDCAD,FOREX,M5,TRANSFER_QUALIFIED,RESEARCH_ELIGIBLE,AEGIS-RB-V53.6-V31-USDCAD-5M,V53.6 V31 transfer PASS; production_authorization=false; V2-OPT removed (insufficient gates: not val_n>300/PF>1.6/6-block).
+EURUSD,FOREX,M5,V2OPT_INSUFFICIENT_GATES,TRADING_DISABLED,AEGIS-RB-V2OPT-EURUSD-M5,"V2-OPT only; disqualified for demo/live: original gates were val_n>=40 and PF>=1.15, not strict val_n>300 / PF>1.6 / 6-block min>1. production_authorization=false."
+USDJPY,FOREX,M5,V2OPT_INSUFFICIENT_GATES,TRADING_DISABLED,AEGIS-RB-V2OPT-USDJPY-M5,"V2-OPT only; disqualified for demo/live: original gates were val_n>=40 and PF>=1.15, not strict val_n>300 / PF>1.6 / 6-block min>1. production_authorization=false."
+EURJPY,FOREX,M5,V2OPT_INSUFFICIENT_GATES,TRADING_DISABLED,AEGIS-RB-V2OPT-EURJPY-M5,"V2-OPT only; disqualified for demo/live: original gates were val_n>=40 and PF>=1.15, not strict val_n>300 / PF>1.6 / 6-block min>1. production_authorization=false."
+GBPAUD,FOREX,M5,V2OPT_INSUFFICIENT_GATES,TRADING_DISABLED,AEGIS-RB-V2OPT-GBPAUD-M5,"V2-OPT only; disqualified for demo/live: original gates were val_n>=40 and PF>=1.15, not strict val_n>300 / PF>1.6 / 6-block min>1. production_authorization=false."

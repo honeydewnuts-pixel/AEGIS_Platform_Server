@@ -15,7 +15,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox, ttk
 import uuid
-from instruments import AEGIS_INSTRUMENTS, index_of
+from instruments import AEGIS_INSTRUMENTS, AEGIS_INSTRUMENT_LABELS, index_of, symbol_from_label, is_good
 
 from api_client import AegisClient, CLIENT_VERSION
 from capture_loop import CaptureLoop
@@ -118,12 +118,12 @@ class App(tk.Tk):
             width=20,
         ).grid(row=4, column=1, sticky="w", pady=2)
 
-        self.symbol_var = tk.StringVar(value=(self.cfg.get("symbol") or self.cfg.get("mt5_symbol") or "EURUSD").upper())
+        self.symbol_var = tk.StringVar(value=(self.cfg.get("symbol") or self.cfg.get("mt5_symbol") or "GBPUSD").upper())
         ttk.Label(grid, text="Trade pair / chart symbol").grid(row=5, column=0, sticky="e", padx=4, pady=2)
         self.symbol_combo = ttk.Combobox(
             grid,
             textvariable=self.symbol_var,
-            values=AEGIS_INSTRUMENTS,
+            values=AEGIS_INSTRUMENT_LABELS,
             state="readonly",
             width=20,
         )
@@ -168,7 +168,7 @@ class App(tk.Tk):
         except ValueError:
             self.cfg["interval_sec"] = 5
         self.cfg["risk_preset"] = self.risk_var.get()
-        self.cfg["symbol"] = (self.symbol_var.get() or "EURUSD").strip().upper()
+        self.cfg["symbol"] = symbol_from_label(self.symbol_var.get() or "GBPUSD")
         self.cfg["mt5_symbol"] = self.cfg["symbol"]
         self.cfg["client_version"] = CLIENT_VERSION
         save(self.cfg)
