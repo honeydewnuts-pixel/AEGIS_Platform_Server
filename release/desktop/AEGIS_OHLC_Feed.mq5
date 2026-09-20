@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| AEGIS_OHLC_Feed.mq5  v2.00                                       |
+//| AEGIS_OHLC_Feed.mq5  v2.01                                       |
 //| ChartOnly: streams _Symbol (V1 behaviour).                       |
 //| MultiSymbol: streams SymbolsList (or empty = Market Watch used). |
 //| Same /api/mt5/ohlc/stream endpoint; one POST per symbol.         |
@@ -122,17 +122,11 @@ void BuildSymbolList()
      }
    else
      {
-      // Market Watch symbols (capped)
-      int total = SymbolsTotal(true);
-      int count = 0;
-      ArrayResize(g_symbols, MathMin(total, InpMaxSymbols));
-      for(int i = 0; i < total && count < InpMaxSymbols; i++)
-        {
-         string s = SymbolName(i, true);
-         if(StringLen(s) < 3) continue;
-         g_symbols[count++] = s;
-        }
-      ArrayResize(g_symbols, count);
+      // Production-safe: empty list does NOT dump entire Market Watch.
+      // Fall back to chart symbol only; set InpSymbolsList explicitly for multi-pair.
+      Print("AEGIS OHLC: MultiSymbol with empty InpSymbolsList — using chart symbol only. Set an explicit pair list for production.");
+      ArrayResize(g_symbols, 1);
+      g_symbols[0] = _Symbol;
      }
    ArrayResize(g_last_bar_time, ArraySize(g_symbols));
    ArrayInitialize(g_last_bar_time, 0);

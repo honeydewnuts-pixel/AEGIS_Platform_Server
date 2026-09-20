@@ -1,32 +1,14 @@
-# AEGIS_OHLC_Feed v2.00
+# AEGIS_OHLC_Feed.mq5 v2.01
+
+Header and `#property version` are both **2.01**.
 
 ## Modes
 
-| Mode | Behaviour |
-|------|-----------|
-| **ChartOnly** (default) | Streams `_Symbol` only — same as V1.00 |
-| **MultiSymbol** | Streams `InpSymbolsList` (or Market Watch if empty), capped by `InpMaxSymbols` |
+- ChartOnly — chart symbol
+- MultiSymbol — **requires explicit `InpSymbolsList`** for production (empty list falls back to chart only, not full Market Watch)
 
-## Clean VPS layout
+Posts `symbol` (base) + `symbol_broker` (MT5 name) to `/api/mt5/ohlc/stream`.
 
-```
-MT5
-├── AEGIS_OHLC_Feed v2.00   MultiSymbol → GBPUSD,EURUSD,...
-└── AEGIS_Executor v2.10    MultiPair   → same symbols
-```
+## Pair with Executor v2.11
 
-Same AccountId + ApiKey. Endpoint remains `POST /api/mt5/ohlc/stream` (one request per symbol per cycle).
-
-## Inputs
-
-- InpServerUrl, InpApiKey, InpAccountId  
-- InpMode, InpSymbolsList, InpBars, InpTimerSec, InpMaxSymbols  
-- InpForceTF: PERIOD_CURRENT or force M5  
-
-## WebRequest
-
-Allow your AEGIS API host in Expert Advisors options.
-
-## Symbol suffixes
-
-Feed posts `symbol` as **base** (GBPUSD) and `symbol_broker` as the MT5 name (GBPUSD.r). Server keys streams by base so Executor MultiPair always matches.
+One MultiSymbol feed + one MultiPair executor on the VPS.

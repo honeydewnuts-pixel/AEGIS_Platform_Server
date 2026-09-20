@@ -1,28 +1,25 @@
 //+------------------------------------------------------------------+
-//| AEGIS_Executor.mq5  v2.10                                        |
-//| Multi-pair capable: same AccountId/ApiKey, independent symbols.  |
-//| Mode ChartOnly = poll _Symbol only (Option A).                   |
-//| Mode MultiPair = poll SymbolsList or /api/executor/universe.     |
-//| Adaptive fill: IOC → FOK → RETURN.                               |
-//|                                                                  |
-//| Tools → Options → Expert Advisors → Allow WebRequest for API URL |
+//| AEGIS_Executor.mq5  v2.11                                        |
+//| Multi-pair + robust broker-symbol resolve + safe handled state.  |
+//| MarkHandled only after successful OrderSend (or permanent fail). |
+//| Adaptive fill from SYMBOL_FILLING_MODE; rich ACK payload.        |
 //+------------------------------------------------------------------+
 #property copyright "LeverageFx / Honeydewnuts"
-#property version   "2.10"
+#property version   "2.11"
 #property strict
-#property description "AEGIS multi-pair executor: server signals → OrderSend per symbol"
+#property description "AEGIS multi-pair executor v2.11 hardened"
 
 enum ENUM_AEGIS_MODE
   {
-   AEGIS_MODE_CHART_ONLY = 0,  // Single chart symbol (Option A)
-   AEGIS_MODE_MULTI_PAIR = 1   // Many symbols, one EA (Option B)
+   AEGIS_MODE_CHART_ONLY = 0,
+   AEGIS_MODE_MULTI_PAIR = 1
   };
 
 input string ServerUrl        = "https://aegis-api-0z1p.onrender.com";
 input string AccountId        = "";
 input string ApiKey           = "";
 input ENUM_AEGIS_MODE ExecMode = AEGIS_MODE_CHART_ONLY;
-input string SymbolsList      = "";  // MultiPair: "GBPUSD,EURUSD,USDJPY" empty=universe API
+input string SymbolsList      = "";
 input double Lots             = 0.01;
 input int    Slippage         = 30;
 input int    MagicNumber      = 20260827;
@@ -30,25 +27,33 @@ input int    MaxSpreadPts     = 40;
 input int    PollSeconds      = 5;
 input int    MaxSignalAgeSec  = 300;
 input bool   UseServerSignals = true;
-input bool   UseLocalFileFallback = true;
+input bool   UseLocalFileFallback = false;
 input string SignalFile       = "aegis_signal.txt";
-input bool   OnePositionPerSymbol = true;  // NOT account-wide
+input bool   OnePositionPerSymbol = true;
 input int    WebTimeoutMs     = 8000;
 input int    MaxSymbolsPerPoll = 24;
+input int    MaxRetriesTransient = 3;  // spread/requote style failures
 
-string   g_lastIds[];       // parallel to symbol base
-string   g_lastIdSyms[];
-string   lastLocalSig = "";
+string g_handledIds[];
+string g_retryIds[];
+int    g_retryCount[];
+string lastLocalSig = "";
 
 //+------------------------------------------------------------------+
 string NormalizeSymbolBase(string sym)
   {
    string s = sym;
-   int dot = StringFind(s, ".");
-   if(dot > 0) s = StringSubstr(s, 0, dot);
+   StringToUpper(s);
    int hash = StringFind(s, "#");
    if(hash > 0) s = StringSubstr(s, 0, hash);
-   StringToUpper(s);
+   int d = StringFind(s, ".");
+   if(d > 0) s = StringSubstr(s, 0, d);
+   if(StringLen(s) == 7)
+     {
+      ushort last = StringGetCharacter(s, 6);
+      if(last == 'M' || last == 'I' || last == 'P' || last == 'C')
+         s = StringSubstr(s, 0, 6);
+     }
    return s;
   }
 
@@ -58,6 +63,70 @@ string BaseUrl()
    if(StringLen(url) > 0 && StringGetCharacter(url, StringLen(url) - 1) == '/')
       url = StringSubstr(url, 0, StringLen(url) - 1);
    return url;
+  }
+
+//+------------------------------------------------------------------+
+// Canonical AEGIS base → actual broker symbol in Market Watch / terminal
+string ResolveBrokerSymbol(const string canonical)
+  {
+   string base = NormalizeSymbolBase(canonical);
+   if(StringLen(base) < 3) return "";
+
+   // 1) exact
+   if(SymbolSelect(base, true) && SymbolInfoInteger(base, SYMBOL_EXIST))
+      return base;
+
+   // 2) common suffixes
+   string candidates[];
+   ArrayResize(candidates, 12);
+   candidates[0] = base + ".r";
+   candidates[1] = base + "m";
+   candidates[2] = base + ".i";
+   candidates[3] = base + "#";
+   candidates[4] = base + ".pro";
+   candidates[5] = base + ".raw";
+   candidates[6] = base + ".ecn";
+   candidates[7] = base + ".std";
+   candidates[8] = base + ".a";
+   candidates[9] = base + ".b";
+   candidates[10] = base + ".c";
+   candidates[11] = base + "i";
+   for(int i = 0; i < ArraySize(candidates); i++)
+     {
+      if(SymbolSelect(candidates[i], true) && SymbolInfoInteger(candidates[i], SYMBOL_EXIST))
+         return candidates[i];
+     }
+
+   // 3) scan Market Watch
+   int total = SymbolsTotal(true);
+   for(int i = 0; i < total; i++)
+     {
+      string name = SymbolName(i, true);
+      if(NormalizeSymbolBase(name) == base)
+        {
+         if(SymbolSelect(name, true))
+            return name;
+        }
+     }
+
+   // 4) full symbols (not only selected)
+   total = SymbolsTotal(false);
+   for(int i = 0; i < total; i++)
+     {
+      string name = SymbolName(i, false);
+      if(NormalizeSymbolBase(name) == base)
+        {
+         if(SymbolSelect(name, true))
+            return name;
+        }
+     }
+
+   // 5) chart fallback if same base
+   if(NormalizeSymbolBase(_Symbol) == base)
+      return _Symbol;
+
+   Print("AEGIS: ResolveBrokerSymbol failed for ", base);
+   return "";
   }
 
 //+------------------------------------------------------------------+
@@ -98,16 +167,27 @@ double NormalizeVolume(const string symbol, double vol)
    return NormalizeDouble(vol, 2);
   }
 
-//+------------------------------------------------------------------+
-ENUM_ORDER_TYPE_FILLING ResolveFilling(const string symbol)
+// Build ordered list of supported fill modes for this symbol
+void GetSupportedFillModes(const string symbol, ENUM_ORDER_TYPE_FILLING &modes[])
   {
-   // Prefer IOC, then FOK, then RETURN — broker-dependent
    int filling = (int)SymbolInfoInteger(symbol, SYMBOL_FILLING_MODE);
+   int n = 0;
+   ArrayResize(modes, 3);
    if((filling & SYMBOL_FILLING_IOC) == SYMBOL_FILLING_IOC)
-      return ORDER_FILLING_IOC;
+      modes[n++] = ORDER_FILLING_IOC;
    if((filling & SYMBOL_FILLING_FOK) == SYMBOL_FILLING_FOK)
-      return ORDER_FILLING_FOK;
-   return ORDER_FILLING_RETURN;
+      modes[n++] = ORDER_FILLING_FOK;
+   if((filling & SYMBOL_FILLING_RETURN) == SYMBOL_FILLING_RETURN)
+      modes[n++] = ORDER_FILLING_RETURN;
+   // if broker reports nothing, try IOC then FOK then RETURN
+   if(n == 0)
+     {
+      modes[0] = ORDER_FILLING_IOC;
+      modes[1] = ORDER_FILLING_FOK;
+      modes[2] = ORDER_FILLING_RETURN;
+      n = 3;
+     }
+   ArrayResize(modes, n);
   }
 
 //+------------------------------------------------------------------+
@@ -144,8 +224,7 @@ double JsonGetNumber(const string json, const string key)
       ushort c = StringGetCharacter(tail, i);
       if((c >= '0' && c <= '9') || c == '.' || c == '-' || c == '+')
          num += CharToString((uchar)c);
-      else if(StringLen(num) > 0)
-         break;
+      else if(StringLen(num) > 0) break;
      }
    return StringToDouble(num);
   }
@@ -162,7 +241,6 @@ bool JsonGetBool(const string json, const string key)
    return (StringFind(tail, "true") >= 0);
   }
 
-//+------------------------------------------------------------------+
 string HttpGet(const string url)
   {
    char data[];
@@ -174,31 +252,39 @@ string HttpGet(const string url)
    int code = WebRequest("GET", url, headers, WebTimeoutMs, data, result, result_headers);
    if(code == -1)
      {
-      Print("AEGIS WebRequest GET failed err=", GetLastError(),
-            " — add ServerUrl to Allow WebRequest list");
+      Print("AEGIS WebRequest GET failed err=", GetLastError());
       return "";
      }
    string body = CharArrayToString(result, 0, WHOLE_ARRAY, CP_UTF8);
    if(code != 200)
      {
-      Print("AEGIS HTTP ", code, " ", StringSubstr(body, 0, 180));
+      Print("AEGIS HTTP ", code, " ", StringSubstr(body, 0, 160));
       return "";
      }
    return body;
   }
 
-void AckServer(const string signalId, int ticket, bool ok, const string message, const string symbol)
+void AckServerFull(const string signalId, const string symbol, const string side,
+                   double volume, ulong orderTicket, ulong dealTicket, ulong positionTicket,
+                   int retcode, bool ok, const string message)
   {
    if(StringLen(signalId) < 4) return;
    string url = BaseUrl() + "/api/executor/ack";
    string payload = "{";
    payload += "\"account_id\":\"" + AccountId + "\",";
    payload += "\"signal_id\":\"" + signalId + "\",";
-   payload += "\"ticket\":" + IntegerToString(ticket) + ",";
+   payload += "\"ticket\":" + IntegerToString((int)orderTicket) + ",";
+   payload += "\"order_ticket\":" + IntegerToString((int)orderTicket) + ",";
+   payload += "\"deal_ticket\":" + IntegerToString((int)dealTicket) + ",";
+   payload += "\"position_ticket\":" + IntegerToString((int)positionTicket) + ",";
+   payload += "\"retcode\":" + IntegerToString(retcode) + ",";
    payload += "\"ok\":" + (ok ? "true" : "false") + ",";
    payload += "\"message\":\"" + message + "\",";
-   payload += "\"symbol\":\"" + symbol + "\"";
+   payload += "\"symbol\":\"" + symbol + "\",";
+   payload += "\"side\":\"" + side + "\",";
+   payload += "\"volume\":" + DoubleToString(volume, 2);
    payload += "}";
+
    char data[];
    char result[];
    string result_headers;
@@ -212,106 +298,152 @@ void AckServer(const string signalId, int ticket, bool ok, const string message,
 //+------------------------------------------------------------------+
 bool WasHandled(const string signalId)
   {
-   for(int i = 0; i < ArraySize(g_lastIds); i++)
-      if(g_lastIds[i] == signalId) return true;
+   for(int i = 0; i < ArraySize(g_handledIds); i++)
+      if(g_handledIds[i] == signalId) return true;
    return false;
   }
 
-void MarkHandled(const string signalId, const string sym)
+void MarkHandled(const string signalId)
   {
-   int n = ArraySize(g_lastIds);
-   ArrayResize(g_lastIds, n + 1);
-   ArrayResize(g_lastIdSyms, n + 1);
-   g_lastIds[n] = signalId;
-   g_lastIdSyms[n] = sym;
-   // cap memory
-   if(ArraySize(g_lastIds) > 64)
+   if(signalId == "" || WasHandled(signalId)) return;
+   int n = ArraySize(g_handledIds);
+   ArrayResize(g_handledIds, n + 1);
+   g_handledIds[n] = signalId;
+   if(ArraySize(g_handledIds) > 80)
      {
-      for(int i = 0; i < 32; i++)
+      for(int i = 0; i < 40; i++) g_handledIds[i] = g_handledIds[i + 40];
+      ArrayResize(g_handledIds, 40);
+     }
+   // clear retry tracking
+   for(int i = 0; i < ArraySize(g_retryIds); i++)
+     {
+      if(g_retryIds[i] == signalId)
         {
-         g_lastIds[i] = g_lastIds[i + 32];
-         g_lastIdSyms[i] = g_lastIdSyms[i + 32];
+         g_retryIds[i] = "";
+         g_retryCount[i] = 0;
         }
-      ArrayResize(g_lastIds, 32);
-      ArrayResize(g_lastIdSyms, 32);
      }
   }
 
-//+------------------------------------------------------------------+
-bool ExecuteTradeOn(const string symbol, const string side, double volume, double sl, double tp, const string signalId)
+int GetRetryCount(const string signalId)
   {
-   if(!SymbolSelect(symbol, true))
+   for(int i = 0; i < ArraySize(g_retryIds); i++)
+      if(g_retryIds[i] == signalId) return g_retryCount[i];
+   return 0;
+  }
+
+void IncRetry(const string signalId)
+  {
+   for(int i = 0; i < ArraySize(g_retryIds); i++)
      {
-      Print("AEGIS: SymbolSelect failed ", symbol);
-      AckServer(signalId, 0, false, "symbol_select", symbol);
-      return false;
+      if(g_retryIds[i] == signalId)
+        {
+         g_retryCount[i]++;
+         return;
+        }
      }
-   if(OnePositionPerSymbol && HasOpenPositionOn(symbol))
+   int n = ArraySize(g_retryIds);
+   ArrayResize(g_retryIds, n + 1);
+   ArrayResize(g_retryCount, n + 1);
+   g_retryIds[n] = signalId;
+   g_retryCount[n] = 1;
+  }
+
+bool IsTransientRetcode(int retcode)
+  {
+   // requote, price off, busy, too many requests, connection, timeout-ish
+   if(retcode == TRADE_RETCODE_REQUOTE) return true;
+   if(retcode == TRADE_RETCODE_PRICE_OFF) return true;
+   if(retcode == TRADE_RETCODE_PRICE_CHANGED) return true;
+   if(retcode == TRADE_RETCODE_CONNECTION) return true;
+   if(retcode == TRADE_RETCODE_TIMEOUT) return true;
+   if(retcode == TRADE_RETCODE_TOO_MANY_REQUESTS) return true;
+   if(retcode == TRADE_RETCODE_LOCKED) return true;
+   return false;
+  }
+
+//+------------------------------------------------------------------+
+// Returns: 1 success, 0 transient fail (retry), -1 permanent fail
+int ExecuteTradeOn(const string brokerSymbol, const string side, double volume,
+                   double sl, double tp, const string signalId, const string canonical)
+  {
+   if(StringLen(brokerSymbol) < 1)
      {
-      Print("AEGIS: already open ", symbol);
-      AckServer(signalId, 0, false, "already_open", symbol);
-      return false;
+      AckServerFull(signalId, canonical, side, 0, 0, 0, 0, -1, false, "resolve_failed");
+      return -1;
      }
-   if(!SpreadOk(symbol))
+   if(OnePositionPerSymbol && HasOpenPositionOn(brokerSymbol))
      {
-      Print("AEGIS: spread wide ", symbol);
-      AckServer(signalId, 0, false, "spread", symbol);
-      return false;
+      AckServerFull(signalId, brokerSymbol, side, 0, 0, 0, 0, -2, false, "already_open");
+      return -1; // permanent for this signal
+     }
+   if(!SpreadOk(brokerSymbol))
+     {
+      Print("AEGIS: spread wide ", brokerSymbol, " — will retry");
+      return 0; // transient
      }
 
-   double vol = NormalizeVolume(symbol, volume);
-   int digits = (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS);
-   ENUM_ORDER_TYPE_FILLING fill = ResolveFilling(symbol);
+   double vol = NormalizeVolume(brokerSymbol, volume);
+   int digits = (int)SymbolInfoInteger(brokerSymbol, SYMBOL_DIGITS);
+   ENUM_ORDER_TYPE_FILLING modes[];
+   GetSupportedFillModes(brokerSymbol, modes);
 
    MqlTradeRequest req;
    MqlTradeResult  res;
-   ZeroMemory(req);
-   ZeroMemory(res);
-   req.action       = TRADE_ACTION_DEAL;
-   req.symbol       = symbol;
-   req.volume       = vol;
-   req.deviation    = Slippage;
-   req.magic        = MagicNumber;
-   req.comment      = "AEGIS " + signalId;
-   req.type_filling = fill;
+   int lastRet = 0;
 
-   if(side == "BUY")
+   for(int m = 0; m < ArraySize(modes); m++)
      {
-      req.type  = ORDER_TYPE_BUY;
-      req.price = SymbolInfoDouble(symbol, SYMBOL_ASK);
-      if(sl > 0) req.sl = NormalizeDouble(sl, digits);
-      if(tp > 0) req.tp = NormalizeDouble(tp, digits);
-     }
-   else if(side == "SELL")
-     {
-      req.type  = ORDER_TYPE_SELL;
-      req.price = SymbolInfoDouble(symbol, SYMBOL_BID);
-      if(sl > 0) req.sl = NormalizeDouble(sl, digits);
-      if(tp > 0) req.tp = NormalizeDouble(tp, digits);
-     }
-   else return false;
-
-   ResetLastError();
-   bool ok = OrderSend(req, res);
-   // Retry once with alternate filling if broker rejects fill mode
-   if((!ok || (res.retcode != TRADE_RETCODE_DONE && res.retcode != TRADE_RETCODE_DONE_PARTIAL))
-      && (res.retcode == TRADE_RETCODE_INVALID_FILL || res.retcode == 10030))
-     {
-      Print("AEGIS: fill mode rejected, retry RETURN on ", symbol);
-      req.type_filling = ORDER_FILLING_RETURN;
+      ZeroMemory(req);
       ZeroMemory(res);
-      ok = OrderSend(req, res);
+      req.action       = TRADE_ACTION_DEAL;
+      req.symbol       = brokerSymbol;
+      req.volume       = vol;
+      req.deviation    = Slippage;
+      req.magic        = MagicNumber;
+      req.comment      = "AEGIS " + signalId;
+      req.type_filling = modes[m];
+
+      if(side == "BUY")
+        {
+         req.type  = ORDER_TYPE_BUY;
+         req.price = SymbolInfoDouble(brokerSymbol, SYMBOL_ASK);
+         if(sl > 0) req.sl = NormalizeDouble(sl, digits);
+         if(tp > 0) req.tp = NormalizeDouble(tp, digits);
+        }
+      else if(side == "SELL")
+        {
+         req.type  = ORDER_TYPE_SELL;
+         req.price = SymbolInfoDouble(brokerSymbol, SYMBOL_BID);
+         if(sl > 0) req.sl = NormalizeDouble(sl, digits);
+         if(tp > 0) req.tp = NormalizeDouble(tp, digits);
+        }
+      else return -1;
+
+      ResetLastError();
+      bool sent = OrderSend(req, res);
+      lastRet = (int)res.retcode;
+      if(sent && (res.retcode == TRADE_RETCODE_DONE || res.retcode == TRADE_RETCODE_DONE_PARTIAL))
+        {
+         Print("AEGIS OK ", side, " ", brokerSymbol, " vol=", vol,
+               " order=", res.order, " deal=", res.deal, " id=", signalId);
+         AckServerFull(signalId, brokerSymbol, side, vol, res.order, res.deal, res.order,
+                       (int)res.retcode, true, "ok");
+         return 1;
+        }
+      if(res.retcode == TRADE_RETCODE_INVALID_FILL)
+         continue; // try next fill mode
+      if(IsTransientRetcode((int)res.retcode))
+        {
+         Print("AEGIS transient ret=", res.retcode, " ", brokerSymbol);
+         return 0;
+        }
+      // other failure — try next fill mode anyway
      }
 
-   if(!ok || (res.retcode != TRADE_RETCODE_DONE && res.retcode != TRADE_RETCODE_DONE_PARTIAL))
-     {
-      Print("AEGIS OrderSend fail ", symbol, " err=", GetLastError(), " ret=", res.retcode);
-      AckServer(signalId, (int)res.order, false, IntegerToString(res.retcode), symbol);
-      return false;
-     }
-   Print("AEGIS OK ", side, " ", symbol, " vol=", vol, " ticket=", res.order, " id=", signalId);
-   AckServer(signalId, (int)res.order, true, "ok", symbol);
-   return true;
+   Print("AEGIS OrderSend fail ", brokerSymbol, " ret=", lastRet);
+   AckServerFull(signalId, brokerSymbol, side, vol, 0, 0, 0, lastRet, false, IntegerToString(lastRet));
+   return -1;
   }
 
 //+------------------------------------------------------------------+
@@ -325,17 +457,9 @@ bool HandleSignalJsonObject(const string obj)
    string signalId = JsonGetString(obj, "signal_id");
    if(signalId != "" && WasHandled(signalId)) return false;
 
-   string sym = JsonGetString(obj, "symbol");
-   if(sym == "") sym = _Symbol;
-   sym = NormalizeSymbolBase(sym);
-   // Prefer broker suffix matching chart if needed
-   string tradeSym = sym;
-   if(!SymbolInfoInteger(tradeSym, SYMBOL_SELECT))
-     {
-      // try chart symbol if base matches
-      if(NormalizeSymbolBase(_Symbol) == sym)
-         tradeSym = _Symbol;
-     }
+   string canonical = JsonGetString(obj, "symbol");
+   if(canonical == "") canonical = _Symbol;
+   canonical = NormalizeSymbolBase(canonical);
 
    long created = (long)JsonGetNumber(obj, "created_at_ms");
    if(created > 0)
@@ -343,8 +467,8 @@ bool HandleSignalJsonObject(const string obj)
       long ageSec = ((long)TimeGMT() * 1000 - created) / 1000;
       if(ageSec > MaxSignalAgeSec)
         {
-         MarkHandled(signalId, sym);
-         AckServer(signalId, 0, false, "stale", tradeSym);
+         MarkHandled(signalId);
+         AckServerFull(signalId, canonical, side, 0, 0, 0, 0, -3, false, "stale");
          return false;
         }
      }
@@ -352,11 +476,30 @@ bool HandleSignalJsonObject(const string obj)
    double vol = JsonGetNumber(obj, "volume");
    double sl  = JsonGetNumber(obj, "stop_loss");
    double tp  = JsonGetNumber(obj, "take_profit");
-   MarkHandled(signalId, sym);
-   return ExecuteTradeOn(tradeSym, side, vol, sl, tp, signalId);
+
+   string brokerSym = ResolveBrokerSymbol(canonical);
+   int rc = ExecuteTradeOn(brokerSym, side, vol, sl, tp, signalId, canonical);
+
+   if(rc == 1)
+     {
+      MarkHandled(signalId);
+      return true;
+     }
+   if(rc == -1)
+     {
+      MarkHandled(signalId); // permanent fail
+      return false;
+     }
+   // transient: retry later, do NOT mark handled
+   IncRetry(signalId);
+   if(GetRetryCount(signalId) >= MaxRetriesTransient)
+     {
+      MarkHandled(signalId);
+      AckServerFull(signalId, brokerSym, side, 0, 0, 0, 0, -4, false, "max_retries");
+     }
+   return false;
   }
 
-// Extract successive {...} objects from a JSON array value of "signals"
 void ProcessSignalsArray(const string body)
   {
    int key = StringFind(body, "\"signals\"");
@@ -378,8 +521,7 @@ void ProcessSignalsArray(const string body)
          depth--;
          if(depth == 0 && start >= 0)
            {
-            string obj = StringSubstr(body, start, i - start + 1);
-            HandleSignalJsonObject(obj);
+            HandleSignalJsonObject(StringSubstr(body, start, i - start + 1));
             start = -1;
            }
         }
@@ -388,7 +530,6 @@ void ProcessSignalsArray(const string body)
      }
   }
 
-//+------------------------------------------------------------------+
 void PollChartOnly()
   {
    string base = NormalizeSymbolBase(_Symbol);
@@ -403,7 +544,6 @@ void PollMultiPair()
   {
    string url = BaseUrl() + "/api/executor/pending-batch?account_id=" + AccountId;
    string list = SymbolsList;
-   // Cap client-side list length for safety
    if(StringLen(list) > 0 && MaxSymbolsPerPoll > 0)
      {
       string parts[];
@@ -416,13 +556,13 @@ void PollMultiPair()
          StringTrimLeft(s); StringTrimRight(s);
          if(StringLen(s) < 3) continue;
          if(StringLen(capped) > 0) capped += ",";
-         capped += s;
+         capped += NormalizeSymbolBase(s);
         }
       list = capped;
      }
    if(StringLen(list) > 0)
       url += "&symbols=" + list;
-   // else empty → server Good universe (server also caps)
+   url += "&max_symbols=" + IntegerToString(MaxSymbolsPerPoll);
    string body = HttpGet(url);
    if(body == "") return;
    ProcessSignalsArray(body);
@@ -434,9 +574,7 @@ string ReadLocalSignal()
    if(h == INVALID_HANDLE) return "";
    string s = FileReadString(h);
    FileClose(h);
-   StringTrimLeft(s);
-   StringTrimRight(s);
-   StringToUpper(s);
+   StringTrimLeft(s); StringTrimRight(s); StringToUpper(s);
    return s;
   }
 
@@ -447,16 +585,15 @@ void PollLocalFallback()
    if(sig == "" || sig == lastLocalSig) return;
    if(sig != "BUY" && sig != "SELL") return;
    lastLocalSig = sig;
-   ExecuteTradeOn(_Symbol, sig, Lots, 0, 0, "local");
+   string broker = ResolveBrokerSymbol(NormalizeSymbolBase(_Symbol));
+   if(ExecuteTradeOn(broker, sig, Lots, 0, 0, "local", NormalizeSymbolBase(_Symbol)) == 1)
+      lastLocalSig = sig;
   }
 
-//+------------------------------------------------------------------+
 int OnInit()
   {
-   Print("AEGIS_Executor v2.10 mode=", EnumToString(ExecMode),
+   Print("AEGIS_Executor v2.11 mode=", EnumToString(ExecMode),
          " chart=", _Symbol, " account=", AccountId);
-   if(StringLen(AccountId) < 3 || StringLen(ApiKey) < 4)
-      Print("AEGIS WARNING: set AccountId and ApiKey");
    EventSetTimer(MathMax(2, PollSeconds));
    return INIT_SUCCEEDED;
   }
@@ -467,11 +604,8 @@ void OnTimer()
   {
    if(UseServerSignals)
      {
-      if(ExecMode == AEGIS_MODE_MULTI_PAIR)
-         PollMultiPair();
-      else
-         PollChartOnly();
+      if(ExecMode == AEGIS_MODE_MULTI_PAIR) PollMultiPair();
+      else PollChartOnly();
      }
-   if(UseLocalFileFallback)
-      PollLocalFallback();
+   if(UseLocalFileFallback) PollLocalFallback();
   }

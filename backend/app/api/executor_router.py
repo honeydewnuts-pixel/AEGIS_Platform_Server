@@ -40,10 +40,15 @@ class AckBody(BaseModel):
     account_id: str
     signal_id: str
     ticket: int = 0
+    order_ticket: int = 0
+    deal_ticket: int = 0
+    position_ticket: int = 0
+    retcode: int = 0
     ok: bool = True
     message: str = ""
     symbol: str = ""
     side: str = ""
+    volume: float = 0.0
 
 
 @router.get("/universe")
@@ -190,4 +195,17 @@ async def ack_signal(
         ok=body.ok,
         message=body.message,
     )
-    return {"acked": ok, "signal_id": body.signal_id, "ticket": body.ticket}
+    return {
+        "acked": ok,
+        "signal_id": body.signal_id,
+        "ticket": body.ticket or body.order_ticket,
+        "order_ticket": body.order_ticket or body.ticket,
+        "deal_ticket": body.deal_ticket,
+        "position_ticket": body.position_ticket,
+        "retcode": body.retcode,
+        "symbol": body.symbol,
+        "side": body.side,
+        "volume": body.volume,
+        "ok": body.ok,
+        "message": body.message,
+    }
