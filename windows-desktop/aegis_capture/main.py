@@ -323,3 +323,5 @@ class App(tk.Tk):
 
 if __name__ == "__main__":
     App().mainloop()
+
+# Poll GET /api/executor/executions/recent?account_id=... for VPS fill toasts (same as mobile).

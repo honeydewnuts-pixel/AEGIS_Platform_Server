@@ -56,6 +56,8 @@ class MainActivity : AppCompatActivity() {
     private var panelReports: android.view.View? = null
     private var panelSettings: android.view.View? = null
     private var navHome: TextView? = null
+    private var notifBtn: TextView? = null
+    private var lastExecIds: MutableSet<String> = mutableSetOf()
     private var navAnalysis: TextView? = null
     private var navTrade: TextView? = null
     private var navReports: TextView? = null
@@ -134,6 +136,11 @@ class MainActivity : AppCompatActivity() {
         panelReports = findViewById(R.id.panelReports)
         panelSettings = findViewById(R.id.panelSettings)
         navHome = findViewById(R.id.navHome)
+        notifBtn = findViewById(R.id.notifBtn)
+        notifBtn?.setOnClickListener {
+            Toast.makeText(this, if (captureRunning) "Trading session active — watching VPS fills" else "Start trading to enable live notifications", Toast.LENGTH_SHORT).show()
+            pollExecutionNotifications()
+        }
         navAnalysis = findViewById(R.id.navAnalysis)
         navTrade = findViewById(R.id.navTrade)
         navReports = findViewById(R.id.navReports)
@@ -673,6 +680,7 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
     }
 
     override fun onResume() {
+        if (captureRunning) pollExecutionNotifications()
         super.onResume()
         updateBatteryButtonLabel()
         val projectionOk = HealthStatus.mediaProjectionActive.value == true
@@ -686,6 +694,8 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
 
     private fun setCaptureRunning(running: Boolean) {
         captureRunning = running
+        updateTradingChrome(running)
+        if (running) pollExecutionNotifications()
         if (running) {
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
@@ -943,5 +953,54 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
             }
         }
     }
+
+    private fun updateTradingChrome(active: Boolean) {
+        runOnUiThread {
+            notifBtn?.alpha = if (active) 1.0f else 0.45f
+            notifBtn?.setTextColor(
+                if (active) Color.parseColor("#00D4FF") else Color.parseColor("#90A4AE")
+            )
+            val accent = Color.parseColor("#00D4FF")
+            if (active) {
+                navHome?.setTextColor(accent)
+                navTrade?.setTextColor(accent)
+            }
+            badgeLive?.text = if (active) "LIVE" else "IDLE"
+        }
+    }
+
+    private fun pollExecutionNotifications() {
+        lifecycleScope.launch {
+            try {
+                val api = RetrofitClient.getApiService(this@MainActivity)
+                val prefs = dataStore.data.first()
+                val accountId = prefs[PrefKeys.ACCOUNT_ID]?.trim().orEmpty()
+                if (accountId.isEmpty()) return@launch
+                val resp = api.recentExecutions(accountId)
+                if (!resp.isSuccessful) return@launch
+                val body = resp.body() ?: return@launch
+                @Suppress("UNCHECKED_CAST")
+                val rows = (body["executions"] as? List<Map<String, Any?>>) ?: emptyList()
+                for (row in rows) {
+                    val sid = row["signal_id"]?.toString() ?: continue
+                    if (sid in lastExecIds) continue
+                    lastExecIds.add(sid)
+                    val side = row["side"]?.toString() ?: "?"
+                    val sym = row["symbol"]?.toString() ?: "?"
+                    val vol = row["volume"]
+                    runOnUiThread {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "VPS/PC trade: $side $sym lot=$vol",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        notifBtn?.setTextColor(Color.parseColor("#FFD600"))
+                    }
+                }
+            } catch (_: Exception) {
+            }
+        }
+    }
+
 
 }

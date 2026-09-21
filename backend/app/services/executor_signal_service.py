@@ -18,6 +18,7 @@ class ExecutorSignalService:
         self._lock = threading.Lock()
         self._pending: dict[str, dict[str, Any]] = {}  # account|symbol -> payload
         self._completed: dict[str, dict[str, Any]] = {}  # signal_id -> audit
+        self._recent: list[dict[str, Any]] = []  # last N execution events for clients
         self.max_age_sec = max_age_sec
         self.completed_ttl_sec = completed_ttl_sec
 
@@ -165,4 +166,12 @@ class ExecutorSignalService:
             self._completed[signal_id] = audit
             if found_key:
                 self._pending.pop(found_key, None)
+            if ok:
+                self._recent.insert(0, dict(audit))
+                self._recent = self._recent[:100]
             return {"acked": True, "idempotent": False, "signal_id": signal_id, **audit}
+
+    def recent_executions(self, account_id: str, limit: int = 20) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = [r for r in self._recent if r.get("account_id") == account_id]
+            return rows[:limit]

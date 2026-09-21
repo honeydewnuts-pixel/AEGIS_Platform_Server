@@ -203,3 +203,19 @@ async def ack_signal(
         volume=body.volume,
     )
     return result
+
+
+@router.get("/executions/recent")
+async def recent_executions(
+    request: Request,
+    account_id: str = Query(...),
+    limit: int = Query(20, ge=1, le=100),
+    auth: AuthContext = Depends(verify_api_key),
+) -> dict[str, Any]:
+    """Mobile/desktop poll: fills executed by MT5 Executor on VPS/PC."""
+    require_account_match(auth, account_id)
+    svc = getattr(request.app.state, "executor_signals", None)
+    if svc is None:
+        return {"account_id": account_id, "executions": [], "count": 0}
+    rows = svc.recent_executions(account_id, limit)
+    return {"account_id": account_id, "executions": rows, "count": len(rows)}

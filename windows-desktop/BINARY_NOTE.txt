@@ -1,0 +1,1 @@
+Win/Mac capture clients: sources updated with multi-pair notes; rebuild Setup.exe/.dmg via AegisCapture-Win/Mac CI when available. Website binaries may lag until CI artifacts are published.

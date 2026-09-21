@@ -95,6 +95,12 @@ interface ApiService {
     @POST("/api/account/risk_preset")
     suspend fun setRiskPreset(@Body body: Map<String, @JvmSuppressWildcards Any>): Response<Map<String, @JvmSuppressWildcards Any>>
 
+    @GET("/api/executor/executions/recent")
+    suspend fun recentExecutions(
+        @Query("account_id") accountId: String,
+        @Query("limit") limit: Int = 20
+    ): Response<Map<String, @JvmSuppressWildcards Any>>
+
     @GET("/api/account/status")
     suspend fun getAccountStatus(@Query("account_id") accountId: String): Response<Map<String, @JvmSuppressWildcards Any>>
 }

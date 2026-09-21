@@ -558,7 +558,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
                 <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="Trade &amp; Links" android:textSize="16sp" android:textStyle="bold" android:textColor="@color/aegis_text"/>
+                    android:text="Trade &amp; Links" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/aegis_text"/>
                 <androidx.appcompat.widget.AppCompatButton
                     android:id="@+id/connectMt5Btn"
                     android:layout_width="match_parent" android:layout_height="44dp" android:layout_marginTop="8dp"
@@ -590,7 +590,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
                 <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="Reports &amp; Registry" android:textSize="16sp" android:textStyle="bold" android:textColor="@color/aegis_text"/>
+                    android:text="Reports &amp; Registry" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/aegis_text"/>
                 <androidx.appcompat.widget.AppCompatButton
                     android:id="@+id/registryBtn"
                     android:layout_width="match_parent" android:layout_height="44dp" android:layout_marginTop="8dp"
@@ -617,7 +617,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
                 <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="Settings" android:textSize="16sp" android:textStyle="bold" android:textColor="@color/aegis_text"/>
+                    android:text="Settings" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/aegis_text"/>
                 <androidx.appcompat.widget.AppCompatButton
                     android:id="@+id/settingsBtn"
                     android:layout_width="match_parent" android:layout_height="44dp" android:layout_marginTop="8dp"
@@ -638,7 +638,7 @@
     <LinearLayout
         android:id="@+id/bottomNav"
         android:layout_width="match_parent"
-        android:layout_height="56dp"
+        android:layout_height="64dp"
         android:orientation="horizontal"
         android:background="#0A1520"
         android:paddingTop="4dp"
@@ -663,7 +663,8 @@
             android:layout_weight="1"
             android:gravity="center"
             android:text="▤\nAnalysis"
-            android:textSize="11sp"
+            android:textSize="13sp"
+            android:textStyle="bold"
             android:textColor="@color/aegis_muted"/>
 
         <TextView
@@ -673,7 +674,8 @@
             android:layout_weight="1"
             android:gravity="center"
             android:text="⇄\nTrade"
-            android:textSize="11sp"
+            android:textSize="13sp"
+            android:textStyle="bold"
             android:textColor="@color/aegis_muted"/>
 
         <TextView
@@ -683,7 +685,8 @@
             android:layout_weight="1"
             android:gravity="center"
             android:text="▥\nReports"
-            android:textSize="11sp"
+            android:textSize="13sp"
+            android:textStyle="bold"
             android:textColor="@color/aegis_muted"/>
 
         <TextView
@@ -693,7 +696,8 @@
             android:layout_weight="1"
             android:gravity="center"
             android:text="⚙\nSettings"
-            android:textSize="11sp"
+            android:textSize="13sp"
+            android:textStyle="bold"
             android:textColor="@color/aegis_muted"/>
     </LinearLayout>
 </LinearLayout>

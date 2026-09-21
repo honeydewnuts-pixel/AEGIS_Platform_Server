@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| AEGIS_Executor.mq5  v2.14  PRODUCTION HARDENED                   |
+//| AEGIS_Executor.mq5  v2.15  PRODUCTION HARDENED                   |
 //| - ResolveBrokerSymbol (suffixes + MW scan)                       |
 //| - MarkHandled only after success / permanent fail                |
 //| - Transient retry: spread vs broker (separate limits)            |
@@ -8,9 +8,9 @@
 //| - Fill modes from SYMBOL_TRADE_EXECUTION + SYMBOL_FILLING_MODE   |
 //+------------------------------------------------------------------+
 #property copyright "LeverageFx / Honeydewnuts"
-#property version   "2.14"
+#property version   "2.15"
 #property strict
-#property description "AEGIS multi-pair executor v2.14 production"
+#property description "AEGIS multi-pair executor v2.15 production"
 
 enum ENUM_AEGIS_MODE
   {
@@ -568,6 +568,9 @@ int ExecuteTradeOn(const string brokerSymbol, const string side, double volume,
                req2.action=TRADE_ACTION_DEAL; req2.symbol=brokerSymbol; req2.volume=remain;
                req2.deviation=Slippage; req2.magic=MagicNumber;
                req2.comment="AEGIS "+signalId+" rem"; req2.type_filling=modes[m];
+               // Inherit protective levels from original signal / first request
+               if(req.sl > 0) req2.sl = req.sl;
+               if(req.tp > 0) req2.tp = req.tp;
                if(side=="BUY"){ req2.type=ORDER_TYPE_BUY; req2.price=SymbolInfoDouble(brokerSymbol,SYMBOL_ASK); }
                else { req2.type=ORDER_TYPE_SELL; req2.price=SymbolInfoDouble(brokerSymbol,SYMBOL_BID); }
                if(OrderSend(req2, res2) && (res2.retcode==TRADE_RETCODE_DONE || res2.retcode==TRADE_RETCODE_DONE_PARTIAL))
@@ -758,7 +761,7 @@ void PollLocalFallback()
 
 int OnInit()
   {
-   Print("AEGIS_Executor v2.14 PRODUCTION mode=",EnumToString(ExecMode)," account=",AccountId);
+   Print("AEGIS_Executor v2.15 PRODUCTION mode=",EnumToString(ExecMode)," account=",AccountId);
    EventSetTimer(MathMax(2,PollSeconds));
    return INIT_SUCCEEDED;
   }
