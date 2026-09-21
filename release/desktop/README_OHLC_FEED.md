@@ -1,5 +1,14 @@
 # AEGIS_OHLC_Feed.mq5 v2.02
 
-Uses the **same ResolveBrokerSymbol** strategy as Executor (`.r`, `m`, `.pro`, `.raw`, `.ecn`, Market Watch scan, …).
+See `SYMBOL_RESOLUTION_CONTRACT.md` — resolver must match Executor.
 
-MultiSymbol requires explicit `InpSymbolsList`. Empty list → chart only.
+## First demo inputs
+
+```
+InpMode = MultiSymbol
+InpSymbolsList = GBPUSD,EURUSD,USDJPY
+InpForceTF = PERIOD_M5
+InpTimerSec = 30
+```
+
+Empty `InpSymbolsList` → chart symbol only (never entire Market Watch).

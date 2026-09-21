@@ -1,5 +1,6 @@
 //+------------------------------------------------------------------+
-//| AEGIS_Executor.mq5  v2.15  PRODUCTION HARDENED                   |
+//| AEGIS_Executor.mq5  v2.15  ARCHITECTURE FREEZE for VPS demo
+//| Partial COMPLETE_REMAINDER = exactly ONE residual OrderSend (not recursive).  PRODUCTION HARDENED                   |
 //| - ResolveBrokerSymbol (suffixes + MW scan)                       |
 //| - MarkHandled only after success / permanent fail                |
 //| - Transient retry: spread vs broker (separate limits)            |
@@ -561,6 +562,7 @@ int ExecuteTradeOn(const string brokerSymbol, const string side, double volume,
             double remain = NormalizeVolume(brokerSymbol, vol - filled);
             if(remain >= SymbolInfoDouble(brokerSymbol, SYMBOL_VOLUME_MIN) - 1e-12)
               {
+               // Policy: exactly ONE residual attempt — no recursive remainder-on-remainder.
                Print("AEGIS: partial policy COMPLETE_REMAINDER residual=", remain);
                // One residual attempt with same fill mode
                MqlTradeRequest req2; MqlTradeResult res2;
