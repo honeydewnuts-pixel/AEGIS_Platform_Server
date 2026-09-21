@@ -1,18 +1,17 @@
 //+------------------------------------------------------------------+
-//| AEGIS_OHLC_Feed.mq5  v2.01                                       |
-//| ChartOnly: streams _Symbol (V1 behaviour).                       |
-//| MultiSymbol: streams SymbolsList (or empty = Market Watch used). |
-//| Same /api/mt5/ohlc/stream endpoint; one POST per symbol.         |
-//| CLOSED vs CURRENT bars preserved. No invented OHLC.              |
+//| AEGIS_OHLC_Feed.mq5  v2.02                                       |
+//| Same ResolveBrokerSymbol strategy as Executor (suffixes + scan). |
+//| ChartOnly | MultiSymbol (explicit list required for multi-pair). |
+//| CLOSED vs CURRENT; no invented OHLC.                             |
 //+------------------------------------------------------------------+
 #property copyright "Honeydewnuts Nigerian Limited / LeverageFx"
-#property version   "2.01"
+#property version   "2.02"
 #property strict
-#property description "AEGIS multi-symbol OHLC feed for broker-direct market data"
+#property description "AEGIS multi-symbol OHLC feed v2.02"
 
 enum ENUM_AEGIS_FEED_MODE
   {
-   FEED_MODE_CHART_ONLY  = 0,
+   FEED_MODE_CHART_ONLY   = 0,
    FEED_MODE_MULTI_SYMBOL = 1
   };
 
@@ -20,16 +19,15 @@ input string InpServerUrl   = "https://aegis-api-0z1p.onrender.com";
 input string InpApiKey      = "";
 input string InpAccountId   = "";
 input ENUM_AEGIS_FEED_MODE InpMode = FEED_MODE_CHART_ONLY;
-input string InpSymbolsList = "";   // Multi: "GBPUSD,EURUSD,USDJPY" empty=Market Watch (FX-like)
+input string InpSymbolsList = "";
 input int    InpBars        = 200;
 input int    InpTimerSec    = 30;
 input int    InpMaxSymbols  = 24;
-input ENUM_TIMEFRAMES InpForceTF = PERIOD_CURRENT; // CURRENT = chart TF; or force M5 etc.
+input ENUM_TIMEFRAMES InpForceTF = PERIOD_CURRENT;
 
-datetime g_last_bar_time[];  // parallel to symbol list
+datetime g_last_bar_time[];
 string   g_symbols[];
 
-//+------------------------------------------------------------------+
 string TfString(ENUM_TIMEFRAMES tf)
   {
    if(tf == PERIOD_CURRENT) tf = Period();
@@ -67,14 +65,12 @@ string BaseUrl()
 
 string NormalizeBase(string sym)
   {
-   // Align with server: strip broker suffixes → registry base (GBPUSD.r → GBPUSD)
    string s = sym;
    StringToUpper(s);
    int hash = StringFind(s, "#");
    if(hash > 0) s = StringSubstr(s, 0, hash);
    int d = StringFind(s, ".");
    if(d > 0) s = StringSubstr(s, 0, d);
-   // trailing m/i after 6-letter FX (GBPUSDm)
    if(StringLen(s) == 7)
      {
       ushort last = StringGetCharacter(s, 6);
@@ -84,7 +80,37 @@ string NormalizeBase(string sym)
    return s;
   }
 
-//+------------------------------------------------------------------+
+string ResolveBrokerSymbol(const string canonical)
+  {
+   string base = NormalizeBase(canonical);
+   if(StringLen(base) < 3) return "";
+   if(SymbolSelect(base, true) && SymbolInfoInteger(base, SYMBOL_EXIST))
+      return base;
+   string candidates[14];
+   candidates[0]=base+".r";   candidates[1]=base+"m";    candidates[2]=base+".i";
+   candidates[3]=base+"#";    candidates[4]=base+".pro"; candidates[5]=base+".raw";
+   candidates[6]=base+".ecn"; candidates[7]=base+".std"; candidates[8]=base+".a";
+   candidates[9]=base+".b";   candidates[10]=base+".c";  candidates[11]=base+"i";
+   candidates[12]=base+".mini"; candidates[13]=base+".cfd";
+   for(int i = 0; i < 14; i++)
+      if(SymbolSelect(candidates[i], true) && SymbolInfoInteger(candidates[i], SYMBOL_EXIST))
+         return candidates[i];
+   for(int pass = 0; pass < 2; pass++)
+     {
+      bool sel = (pass == 0);
+      int total = SymbolsTotal(sel);
+      for(int i = 0; i < total; i++)
+        {
+         string name = SymbolName(i, sel);
+         if(NormalizeBase(name) == base && SymbolSelect(name, true))
+            return name;
+        }
+     }
+   if(NormalizeBase(_Symbol) == base)
+      return _Symbol;
+   return "";
+  }
+
 void BuildSymbolList()
   {
    ArrayResize(g_symbols, 0);
@@ -105,35 +131,27 @@ void BuildSymbolList()
          StringTrimLeft(s);
          StringTrimRight(s);
          if(StringLen(s) < 3) continue;
-         if(!SymbolSelect(s, true))
+         string resolved = ResolveBrokerSymbol(s);
+         if(StringLen(resolved) < 3)
            {
-            // try common suffixes
-            if(!SymbolSelect(s + ".r", true) && !SymbolSelect(s + "m", true))
-              {
-               Print("AEGIS OHLC: cannot select ", s);
-               continue;
-              }
-            if(SymbolSelect(s + ".r", true)) s = s + ".r";
-            else if(SymbolSelect(s + "m", true)) s = s + "m";
+            Print("AEGIS OHLC: cannot resolve ", s);
+            continue;
            }
-         g_symbols[count++] = s;
+         g_symbols[count++] = resolved;
         }
       ArrayResize(g_symbols, count);
      }
    else
      {
-      // Production-safe: empty list does NOT dump entire Market Watch.
-      // Fall back to chart symbol only; set InpSymbolsList explicitly for multi-pair.
-      Print("AEGIS OHLC: MultiSymbol with empty InpSymbolsList — using chart symbol only. Set an explicit pair list for production.");
+      Print("AEGIS OHLC: MultiSymbol with empty InpSymbolsList — chart only. Set explicit pair list for production.");
       ArrayResize(g_symbols, 1);
       g_symbols[0] = _Symbol;
      }
    ArrayResize(g_last_bar_time, ArraySize(g_symbols));
    ArrayInitialize(g_last_bar_time, 0);
-   Print("AEGIS OHLC v2.01 symbols=", ArraySize(g_symbols), " mode=", EnumToString(InpMode));
+   Print("AEGIS OHLC v2.02 symbols=", ArraySize(g_symbols), " mode=", EnumToString(InpMode));
   }
 
-//+------------------------------------------------------------------+
 bool PostOhlcForSymbol(const string symbol)
   {
    if(StringLen(InpApiKey) < 8)
@@ -146,7 +164,6 @@ bool PostOhlcForSymbol(const string symbol)
       Print("AEGIS OHLC: SymbolSelect failed ", symbol);
       return false;
      }
-
    ENUM_TIMEFRAMES tf = ActiveTF();
    MqlRates rates[];
    ArraySetAsSeries(rates, true);
@@ -156,7 +173,6 @@ bool PostOhlcForSymbol(const string symbol)
       Print("AEGIS OHLC: CopyRates failed ", symbol, " n=", n);
       return false;
      }
-
    string bars = "[";
    for(int i = n - 1; i >= 0; i--)
      {
@@ -164,36 +180,26 @@ bool PostOhlcForSymbol(const string symbol)
       if(i < n - 1) bars += ",";
       bars += StringFormat(
          "{\"time\":%d,\"open\":%.5f,\"high\":%.5f,\"low\":%.5f,\"close\":%.5f,\"tick_volume\":%d,\"spread\":%d,\"bar_status\":\"%s\"}",
-         (int)rates[i].time,
-         rates[i].open, rates[i].high, rates[i].low, rates[i].close,
-         (int)rates[i].tick_volume, (int)rates[i].spread, status
-      );
+         (int)rates[i].time, rates[i].open, rates[i].high, rates[i].low, rates[i].close,
+         (int)rates[i].tick_volume, (int)rates[i].spread, status);
      }
    bars += "]";
-
    string cur = StringFormat(
       "{\"time\":%d,\"open\":%.5f,\"high\":%.5f,\"low\":%.5f,\"close\":%.5f,\"tick_volume\":%d,\"spread\":%d,\"bar_status\":\"CURRENT\"}",
       (int)rates[0].time, rates[0].open, rates[0].high, rates[0].low, rates[0].close,
-      (int)rates[0].tick_volume, (int)rates[0].spread
-   );
+      (int)rates[0].tick_volume, (int)rates[0].spread);
    string closed = cur;
    if(n >= 2)
       closed = StringFormat(
          "{\"time\":%d,\"open\":%.5f,\"high\":%.5f,\"low\":%.5f,\"close\":%.5f,\"tick_volume\":%d,\"spread\":%d,\"bar_status\":\"CLOSED\"}",
          (int)rates[1].time, rates[1].open, rates[1].high, rates[1].low, rates[1].close,
-         (int)rates[1].tick_volume, (int)rates[1].spread
-      );
+         (int)rates[1].tick_volume, (int)rates[1].spread);
 
    string brokerSym = symbol;
    string baseSym = NormalizeBase(symbol);
    string body = StringFormat(
       "{\"account_id\":\"%s\",\"symbol\":\"%s\",\"symbol_broker\":\"%s\",\"timeframe\":\"%s\",\"source\":\"mt5_ea_v2\",\"bars\":%s,\"current_bar\":%s,\"closed_bar\":%s}",
-      JsonEscape(InpAccountId),
-      JsonEscape(baseSym),
-      JsonEscape(brokerSym),
-      TfString(tf),
-      bars, cur, closed
-   );
+      JsonEscape(InpAccountId), JsonEscape(baseSym), JsonEscape(brokerSym), TfString(tf), bars, cur, closed);
 
    string url = BaseUrl() + "/api/mt5/ohlc/stream";
    char post[];
@@ -206,7 +212,7 @@ bool PostOhlcForSymbol(const string symbol)
    int code = WebRequest("POST", url, headers, 15000, post, result, result_headers);
    if(code == -1)
      {
-      Print("AEGIS OHLC: WebRequest failed for ", symbol, " err=", GetLastError());
+      Print("AEGIS OHLC: WebRequest failed ", symbol, " err=", GetLastError());
       return false;
      }
    if(code < 200 || code >= 300)
@@ -220,18 +226,15 @@ bool PostOhlcForSymbol(const string symbol)
 void PostAll()
   {
    int ok = 0, fail = 0;
-   int n = ArraySize(g_symbols);
-   if(n == 0) BuildSymbolList();
-   n = ArraySize(g_symbols);
-   for(int i = 0; i < n; i++)
+   if(ArraySize(g_symbols) == 0) BuildSymbolList();
+   for(int i = 0; i < ArraySize(g_symbols); i++)
      {
       if(PostOhlcForSymbol(g_symbols[i])) ok++;
       else fail++;
      }
-   Print("AEGIS OHLC v2.01 cycle ok=", ok, " fail=", fail);
+   Print("AEGIS OHLC v2.02 cycle ok=", ok, " fail=", fail);
   }
 
-//+------------------------------------------------------------------+
 int OnInit()
   {
    BuildSymbolList();
@@ -241,12 +244,10 @@ int OnInit()
   }
 
 void OnDeinit(const int reason) { EventKillTimer(); }
-
 void OnTimer() { PostAll(); }
 
 void OnTick()
   {
-   // ChartOnly: fire on new bar for chart symbol
    if(InpMode != FEED_MODE_CHART_ONLY) return;
    if(ArraySize(g_symbols) < 1) return;
    datetime t = iTime(_Symbol, ActiveTF(), 0);

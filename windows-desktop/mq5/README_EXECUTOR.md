@@ -1,9 +1,15 @@
-# AEGIS_Executor.mq5 v2.13 (production)
+# AEGIS_Executor.mq5 v2.14 (production)
 
-## Final hardening
+## Partial-fill policy (explicit)
 
-1. **64-bit tickets** — `UlongToStr` / `long` (no `int` truncation of MT5 tickets)
-2. **Restart idempotency** — `SignalAlreadyExecuted` scans positions, recent deals, orders for comment `AEGIS <signal_id>`
-3. **ACK** — HTTP 2xx + retry queue; server completed-set is idempotent by `signal_id`
-4. **Volume** — decimals derived from `SYMBOL_VOLUME_STEP`
-5. Broker resolve, spread vs broker retries, fill modes, position ticket — retained from v2.12
+| Mode | Behaviour |
+|------|-----------|
+| **PARTIAL_ACCEPT** (default) | Any fill (full or partial) completes the signal. ACK reports **actual filled volume**. |
+| **PARTIAL_COMPLETE_REMAINDER** | After partial, one residual OrderSend for remaining volume; ACK reports total filled. |
+
+## Other production items
+
+- ResolveBrokerSymbol aligned with Feed v2.02
+- Exact comment match: `AEGIS <signal_id>` only
+- Position ticket = real position or 0 (never order ticket masquerading)
+- 64-bit tickets, ACK HTTP verify + retry, restart idempotency

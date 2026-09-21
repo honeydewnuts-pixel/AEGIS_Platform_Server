@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| AEGIS_Executor.mq5  v2.13  PRODUCTION HARDENED                   |
+//| AEGIS_Executor.mq5  v2.14  PRODUCTION HARDENED                   |
 //| - ResolveBrokerSymbol (suffixes + MW scan)                       |
 //| - MarkHandled only after success / permanent fail                |
 //| - Transient retry: spread vs broker (separate limits)            |
@@ -8,14 +8,20 @@
 //| - Fill modes from SYMBOL_TRADE_EXECUTION + SYMBOL_FILLING_MODE   |
 //+------------------------------------------------------------------+
 #property copyright "LeverageFx / Honeydewnuts"
-#property version   "2.13"
+#property version   "2.14"
 #property strict
-#property description "AEGIS multi-pair executor v2.13 production"
+#property description "AEGIS multi-pair executor v2.14 production"
 
 enum ENUM_AEGIS_MODE
   {
    AEGIS_MODE_CHART_ONLY = 0,
    AEGIS_MODE_MULTI_PAIR = 1
+  };
+
+enum ENUM_PARTIAL_FILL
+  {
+   PARTIAL_ACCEPT = 0,              // Treat partial fill as complete success
+   PARTIAL_COMPLETE_REMAINDER = 1   // Attempt remaining volume once
   };
 
 input string ServerUrl        = "https://aegis-api-0z1p.onrender.com";
@@ -33,6 +39,8 @@ input bool   UseServerSignals = true;
 input bool   UseLocalFileFallback = false;
 input string SignalFile       = "aegis_signal.txt";
 input bool   OnePositionPerSymbol = true;
+input ENUM_PARTIAL_FILL PartialFillPolicy = PARTIAL_ACCEPT;
+
 input int    WebTimeoutMs     = 8000;
 input int    MaxSymbolsPerPoll = 24;
 input int    MaxRetriesSpread = 12;      // ~1 min at 5s poll — wide spread can persist
@@ -97,7 +105,8 @@ bool SignalAlreadyExecuted(const string signalId, const string brokerSymbol)
       if(PositionGetInteger(POSITION_MAGIC) != MagicNumber) continue;
       if(StringLen(brokerSymbol) > 0 && PositionGetString(POSITION_SYMBOL) != brokerSymbol) continue;
       string cmt = PositionGetString(POSITION_COMMENT);
-      if(StringFind(cmt, needle) >= 0 || StringFind(cmt, signalId) >= 0)
+      // Exact marker only: "AEGIS <signal_id>" (avoid substring false positives)
+      if(StringFind(cmt, needle) >= 0)
          return true;
      }
    // History deals (recent) — covers closed trades after restart
@@ -116,7 +125,7 @@ bool SignalAlreadyExecuted(const string signalId, const string brokerSymbol)
             if(dsym != brokerSymbol) continue;
            }
          string cmt = HistoryDealGetString(deal, DEAL_COMMENT);
-         if(StringFind(cmt, needle) >= 0 || StringFind(cmt, signalId) >= 0)
+         if(StringFind(cmt, needle) >= 0)
             return true;
         }
      }
@@ -128,7 +137,7 @@ bool SignalAlreadyExecuted(const string signalId, const string brokerSymbol)
       if(!OrderSelect(ot)) continue;
       if(OrderGetInteger(ORDER_MAGIC) != MagicNumber) continue;
       string cmt = OrderGetString(ORDER_COMMENT);
-      if(StringFind(cmt, needle) >= 0 || StringFind(cmt, signalId) >= 0)
+      if(StringFind(cmt, needle) >= 0)
          return true;
      }
    return false;
@@ -538,15 +547,51 @@ int ExecuteTradeOn(const string brokerSymbol, const string side, double volume,
       lastRet=(int)res.retcode;
       if(sent && (res.retcode==TRADE_RETCODE_DONE || res.retcode==TRADE_RETCODE_DONE_PARTIAL))
         {
-         // Resolve real position ticket (not order ticket)
-         Sleep(50);
-         ulong posTicket=FindPositionTicket(brokerSymbol);
-         if(posTicket==0) posTicket=res.order; // last resort
-         Print("AEGIS OK ",side," ",brokerSymbol," order=",res.order," deal=",res.deal," pos=",posTicket);
-         bool ackOk=AckServerFull(signalId,brokerSymbol,side,vol,res.order,res.deal,posTicket,(int)res.retcode,true,"ok");
-         // Trade succeeded even if ACK failed — still success for local handled after ACK queue
+         bool isPartial = (res.retcode==TRADE_RETCODE_DONE_PARTIAL);
+         double filled = (res.volume > 0 ? res.volume : vol);
+         Sleep(80);
+         ulong posTicket = FindPositionTicket(brokerSymbol);
+         // Do NOT substitute order ticket as position — leave 0 if unknown
+         string msg = isPartial ? "partial_fill" : "ok";
+         Print("AEGIS OK ", side, " ", brokerSymbol, " requested=", vol, " filled=", filled,
+               " order=", res.order, " deal=", res.deal, " pos=", posTicket, " partial=", isPartial);
+
+         if(isPartial && PartialFillPolicy == PARTIAL_COMPLETE_REMAINDER)
+           {
+            double remain = NormalizeVolume(brokerSymbol, vol - filled);
+            if(remain >= SymbolInfoDouble(brokerSymbol, SYMBOL_VOLUME_MIN) - 1e-12)
+              {
+               Print("AEGIS: partial policy COMPLETE_REMAINDER residual=", remain);
+               // One residual attempt with same fill mode
+               MqlTradeRequest req2; MqlTradeResult res2;
+               ZeroMemory(req2); ZeroMemory(res2);
+               req2.action=TRADE_ACTION_DEAL; req2.symbol=brokerSymbol; req2.volume=remain;
+               req2.deviation=Slippage; req2.magic=MagicNumber;
+               req2.comment="AEGIS "+signalId+" rem"; req2.type_filling=modes[m];
+               if(side=="BUY"){ req2.type=ORDER_TYPE_BUY; req2.price=SymbolInfoDouble(brokerSymbol,SYMBOL_ASK); }
+               else { req2.type=ORDER_TYPE_SELL; req2.price=SymbolInfoDouble(brokerSymbol,SYMBOL_BID); }
+               if(OrderSend(req2, res2) && (res2.retcode==TRADE_RETCODE_DONE || res2.retcode==TRADE_RETCODE_DONE_PARTIAL))
+                 {
+                  filled += (res2.volume > 0 ? res2.volume : remain);
+                  if(res2.deal != 0) res.deal = res2.deal;
+                  if(res2.order != 0) res.order = res2.order;
+                  Sleep(50);
+                  posTicket = FindPositionTicket(brokerSymbol);
+                  msg = "partial_then_remainder";
+                  Print("AEGIS remainder OK filled_total=", filled);
+                 }
+               else
+                 {
+                  msg = "partial_remainder_failed";
+                  Print("AEGIS remainder failed ret=", res2.retcode);
+                 }
+              }
+           }
+
+         // ACK reports actual filled volume (policy A or after remainder attempt)
+         bool ackOk = AckServerFull(signalId, brokerSymbol, side, filled, res.order, res.deal, posTicket, (int)res.retcode, true, msg);
          if(ackOk) return 1;
-         return 2; // success trade, ACK pending
+         return 2;
         }
       if(res.retcode==TRADE_RETCODE_INVALID_FILL) continue;
       if(IsTransientBroker((int)res.retcode)) return 0;
@@ -713,7 +758,7 @@ void PollLocalFallback()
 
 int OnInit()
   {
-   Print("AEGIS_Executor v2.13 PRODUCTION mode=",EnumToString(ExecMode)," account=",AccountId);
+   Print("AEGIS_Executor v2.14 PRODUCTION mode=",EnumToString(ExecMode)," account=",AccountId);
    EventSetTimer(MathMax(2,PollSeconds));
    return INIT_SUCCEEDED;
   }
