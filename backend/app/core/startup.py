@@ -32,6 +32,7 @@ from app.services.trade_copier_service import TradeCopierService
 from app.services.audit_service import AuditService
 from app.services.upload_diagnostic_service import UploadDiagnosticService
 from app.services.alert_service import AlertService
+from app.services.notification_service import NotificationService
 from app.services.device_binding_service import DeviceBindingService
 from app.services.trade_limit_service import TradeLimitService
 from app.services.retention_service import purge_old_records
@@ -95,6 +96,7 @@ async def on_startup(app: FastAPI) -> None:
     app.state.audit_service = AuditService()
     app.state.upload_diagnostics = UploadDiagnosticService()
     app.state.alert_service = AlertService()
+    app.state.notifications = NotificationService(app.state.alert_service)
     app.state.device_bindings = DeviceBindingService()
     app.state.trade_limits = TradeLimitService()
     app.state.templates = RegistryService()

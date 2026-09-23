@@ -202,6 +202,21 @@ async def ack_signal(
         side=body.side,
         volume=body.volume,
     )
+    # Additive: subscriber notification inbox (does not change ack semantics)
+    try:
+        notif = getattr(request.app.state, "notifications", None)
+        if notif is not None and not result.get("idempotent"):
+            await notif.emit_execution(
+                body.account_id,
+                signal_id=body.signal_id,
+                symbol=str(body.symbol or result.get("symbol") or ""),
+                side=str(body.side or result.get("side") or ""),
+                volume=body.volume if body.volume is not None else result.get("volume"),
+                ok=bool(body.ok if body.ok is not None else result.get("ok", True)),
+                message=str(body.message or ""),
+            )
+    except Exception:
+        pass
     return result
 
 

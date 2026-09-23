@@ -281,3 +281,25 @@ class TradeCopierSlave(Base):
     risk_value: Mapped[float] = mapped_column(nullable=False, default=1.0)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+class Notification(Base):
+    """Subscriber-facing alert inbox (separate from signal_history audit)."""
+    __tablename__ = "notifications"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    account_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    type: Mapped[str] = mapped_column(String, nullable=False)
+    severity: Mapped[str] = mapped_column(String, nullable=False, default="info")
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    message: Mapped[str] = mapped_column(String, nullable=False)
+    pair: Mapped[str | None] = mapped_column(String, nullable=True)
+    signal: Mapped[str | None] = mapped_column(String, nullable=True)
+    confidence: Mapped[float | None] = mapped_column(nullable=True)
+    rule_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    details: Mapped[str | None] = mapped_column(Text, nullable=True)
+    delivery_status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+    delivery_channels: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+

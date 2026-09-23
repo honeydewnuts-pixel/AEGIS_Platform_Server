@@ -376,6 +376,20 @@ async def analyze_screenshot(
     await signal_history.record(
         account_id, result["signal"], result["confidence"], result["rule_name"], result["details"]
     )
+    # Additive subscriber inbox (does not affect analysis / executor publish)
+    try:
+        notif = getattr(request.app.state, "notifications", None)
+        if notif is not None:
+            await notif.emit_signal(
+                account_id,
+                str(result.get("signal") or ""),
+                float(result.get("confidence") or 0),
+                str(result.get("rule_name") or ""),
+                str(result.get("details") or ""),
+                pair=(symbol or None),
+            )
+    except Exception:
+        pass
     # Publish BUY/SELL for MT5 AEGIS_Executor.mq5 (HTTP poll)
     try:
         exec_svc = getattr(request.app.state, "executor_signals", None)

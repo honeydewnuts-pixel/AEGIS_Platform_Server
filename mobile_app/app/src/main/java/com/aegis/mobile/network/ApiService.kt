@@ -95,6 +95,18 @@ interface ApiService {
     @POST("/api/account/risk_preset")
     suspend fun setRiskPreset(@Body body: Map<String, @JvmSuppressWildcards Any>): Response<Map<String, @JvmSuppressWildcards Any>>
 
+    @GET("/api/notifications")
+    suspend fun listNotifications(
+        @Query("account_id") accountId: String,
+        @Query("limit") limit: Int = 50,
+        @Query("unread_only") unreadOnly: Boolean = false
+    ): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @GET("/api/notifications/unread-count")
+    suspend fun notificationUnreadCount(
+        @Query("account_id") accountId: String
+    ): Response<Map<String, @JvmSuppressWildcards Any>>
+
     @GET("/api/executor/executions/recent")
     suspend fun recentExecutions(
         @Query("account_id") accountId: String,
