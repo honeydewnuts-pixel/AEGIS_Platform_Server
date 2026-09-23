@@ -971,6 +971,28 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
         }
     }
 
+
+    private fun refreshNotifBadge() {
+        lifecycleScope.launch {
+            try {
+                val prefs = dataStore.data.first()
+                val accountId = prefs[PrefKeys.ACCOUNT_ID]?.trim().orEmpty()
+                if (accountId.isEmpty()) return@launch
+                val api = RetrofitClient.getApiService(this@MainActivity)
+                val resp = api.notificationUnreadCount(accountId)
+                if (!resp.isSuccessful) return@launch
+                val n = (resp.body()?.get("unread_count") as? Number)?.toInt() ?: 0
+                runOnUiThread {
+                    notifBtn?.text = if (n > 0) "🔔 $n" else "🔔"
+                    notifBtn?.setTextColor(
+                        if (n > 0) Color.parseColor("#FFD600") else Color.parseColor("#00D4FF")
+                    )
+                }
+            } catch (_: Exception) {
+            }
+        }
+    }
+
     private fun pollExecutionNotifications() {
         lifecycleScope.launch {
             try {
