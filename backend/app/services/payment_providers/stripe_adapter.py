@@ -81,7 +81,11 @@ class StripeAdapter(PaymentProviderAdapter):
         )
 
     async def create_checkout_session(self, account_id: str, email: str, plan: str, reveal_token: str) -> CheckoutSession:
-        price_id = PLAN_PRICE_IDS.get(plan, PLAN_PRICE_IDS["monthly"])
+        from app.services.plan_catalog import normalize_checkout_plan
+        plan = normalize_checkout_plan(plan)
+        if plan not in PLAN_PRICE_IDS or "REPLACE" in str(PLAN_PRICE_IDS.get(plan, "")):
+            raise ValueError(f"Stripe Price ID not configured for plan {plan!r}")
+        price_id = PLAN_PRICE_IDS[plan]
 
         session = stripe.checkout.Session.create(
             mode="subscription",

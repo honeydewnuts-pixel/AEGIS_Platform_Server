@@ -23,3 +23,10 @@ POST /api/subscriptions/checkout/paystack
 ```
 
 Payment metadata uses the **session-bound** `account_id` only.
+
+
+## Checkout plan binding (SaaS)
+
+- `signup_session.plan` is authoritative; client-supplied plan must match or is ignored with 400.
+- Unknown plans are rejected at the payment boundary (no silent fallback to Starter).
+- Checkout claim is atomic (`CREATED` → `CHECKOUT_CREATED`) before calling the payment provider.

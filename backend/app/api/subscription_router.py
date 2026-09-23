@@ -28,7 +28,7 @@ class CheckoutRequest(BaseModel):
     """account_id is ignored for ownership — must match server-issued signup_session."""
     signup_session_id: str = Field(..., description="From POST /api/subscriptions/signup-session")
     email: EmailStr
-    plan: str = "monthly"
+    plan: str = "starter"
     # Deprecated: client-supplied account_id is no longer trusted
     account_id: str | None = Field(default=None, description="Ignored; bound from signup session")
 
@@ -75,7 +75,29 @@ async def create_checkout(
     if sess.get("email", "").lower() != str(checkout_request.email).strip().lower():
         raise HTTPException(status_code=400, detail="Email does not match signup session")
     account_id = sess["account_id"]
-    plan = (checkout_request.plan or sess.get("plan") or "monthly").strip().lower()
+    # Session is authoritative for plan — never trust client to upgrade tier
+    from app.services.plan_catalog import normalize_checkout_plan
+    try:
+        plan = normalize_checkout_plan(sess.get("plan") or "")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    client_plan = (checkout_request.plan or "").strip().lower()
+    if client_plan:
+        try:
+            client_norm = normalize_checkout_plan(client_plan)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        if client_norm != plan:
+            raise HTTPException(
+                status_code=400,
+                detail="plan does not match signup session",
+            )
+
+    # Atomic claim before calling payment provider (prevents concurrent double checkout)
+    try:
+        await signup_svc.try_begin_checkout(checkout_request.signup_session_id)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
 
     reveal_token = await credential_reveal.create_reveal_token(account_id)
 
@@ -83,18 +105,15 @@ async def create_checkout(
     session = await adapter.create_checkout_session(
         account_id, str(checkout_request.email), plan, reveal_token
     )
-    # Bind session → single checkout attempt (state CREATED → CHECKOUT_CREATED)
-    try:
-        await signup_svc.mark_checkout_created(
-            checkout_request.signup_session_id,
-            payment_reference=getattr(session, "reference", None),
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=409, detail=str(e)) from e
+    await signup_svc.set_payment_reference(
+        checkout_request.signup_session_id,
+        getattr(session, "reference", None) or "",
+    )
     return {
         "checkout_url": session.checkout_url,
         "reference": session.reference,
         "account_id": account_id,
+        "plan": plan,
         "signup_session_id": checkout_request.signup_session_id,
         "session_state": "CHECKOUT_CREATED",
     }

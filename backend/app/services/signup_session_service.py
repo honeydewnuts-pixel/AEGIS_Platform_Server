@@ -1,8 +1,9 @@
 """
 Server-issued signup sessions for public demo/checkout.
 
-States: CREATED → CHECKOUT_CREATED → (consumed for payment attempt)
+States: CREATED → CHECKOUT_CREATED
 Prevents anonymous clients from asserting arbitrary account_id ownership.
+Checkout transition is atomic via Redis WATCH/MULTI to avoid concurrent double checkout.
 """
 
 from __future__ import annotations
@@ -23,11 +24,17 @@ class SignupSessionService:
     def __init__(self, redis_client: Any) -> None:
         self._r = redis_client
 
-    async def create(self, *, email: str, plan: str = "demo", purpose: str = "demo") -> dict[str, str]:
+    async def create(self, *, email: str, plan: str = "starter", purpose: str = "demo") -> dict[str, str]:
         email_n = (email or "").strip().lower()
         if not email_n or "@" not in email_n:
             raise ValueError("valid email required")
-        plan = (plan or "demo").strip().lower()
+        plan = (plan or "demo" if purpose == "demo" else "starter").strip().lower()
+        purpose = (purpose or "demo").strip().lower()
+        if purpose == "checkout":
+            from app.services.plan_catalog import normalize_checkout_plan
+            plan = normalize_checkout_plan(plan)
+        elif purpose == "demo":
+            plan = "demo"
         account_id = f"{'DEMO' if purpose == 'demo' else 'ACC'}-{uuid.uuid4().hex[:10].upper()}"
         session_id = secrets.token_urlsafe(32)
         payload = {
@@ -55,29 +62,79 @@ class SignupSessionService:
         except json.JSONDecodeError:
             return None
 
-    async def mark_checkout_created(self, session_id: str, payment_reference: str | None = None) -> dict[str, Any] | None:
+    async def try_begin_checkout(self, session_id: str) -> dict[str, Any]:
         """
-        Transition CREATED → CHECKOUT_CREATED. Idempotent if already CHECKOUT_CREATED
-        with the same reference; rejects a second distinct checkout attempt.
+        Atomically transition CREATED → CHECKOUT_CREATED before contacting the
+        payment provider. Concurrent callers: only one wins; others get ValueError.
         """
+        if not session_id or self._r is None:
+            raise ValueError("signup session unavailable")
+        key = PREFIX + session_id
+        last_err = "signup session not available for checkout"
+        for _ in range(8):
+            try:
+                async with self._r.pipeline(transaction=True) as pipe:
+                    await pipe.watch(key)
+                    raw = await self._r.get(key)
+                    if not raw:
+                        raise ValueError("Invalid or expired signup_session_id")
+                    if isinstance(raw, bytes):
+                        raw = raw.decode()
+                    data = json.loads(raw)
+                    state = data.get("state") or "CREATED"
+                    if state == "CHECKOUT_CREATED":
+                        raise ValueError(
+                            "signup session already has an active checkout; complete payment or wait for expiry"
+                        )
+                    if state != "CREATED":
+                        raise ValueError(f"signup session not available for checkout (state={state})")
+                    data["state"] = "CHECKOUT_CREATED"
+                    data["payment_reference"] = None
+                    pipe.multi()
+                    pipe.setex(key, SESSION_TTL_SEC, json.dumps(data))
+                    await pipe.execute()
+                    return data
+            except ValueError:
+                raise
+            except Exception as e:
+                # WatchError / concurrent modification → retry
+                last_err = str(e) or last_err
+                continue
+        raise ValueError(last_err)
+
+    async def set_payment_reference(self, session_id: str, payment_reference: str) -> dict[str, Any] | None:
+        data = await self.get(session_id)
+        if not data:
+            return None
+        data["payment_reference"] = payment_reference
+        await self._save(session_id, data)
+        return data
+
+    async def mark_checkout_created(
+        self, session_id: str, payment_reference: str | None = None
+    ) -> dict[str, Any] | None:
+        """
+        Legacy helper: prefer try_begin_checkout + set_payment_reference.
+        Still atomic for sequential callers; concurrent use should call try_begin_checkout.
+        """
+        if payment_reference is None:
+            return await self.try_begin_checkout(session_id)
         data = await self.get(session_id)
         if not data:
             return None
         state = data.get("state") or "CREATED"
-        if state == "CHECKOUT_CREATED":
-            # Same session already used for a checkout — do not allow a second concurrent attempt
-            if payment_reference and data.get("payment_reference") and data.get("payment_reference") != payment_reference:
-                raise ValueError("signup session already has an active checkout; complete or wait for expiry")
+        if state == "CREATED":
+            data = await self.try_begin_checkout(session_id)
+        elif state == "CHECKOUT_CREATED":
+            if data.get("payment_reference") and data.get("payment_reference") != payment_reference:
+                raise ValueError(
+                    "signup session already has an active checkout; complete or wait for expiry"
+                )
             if data.get("payment_reference") and not payment_reference:
                 raise ValueError("signup session already used for checkout")
-            return data
-        if state != "CREATED":
+        else:
             raise ValueError(f"signup session not available for checkout (state={state})")
-        data["state"] = "CHECKOUT_CREATED"
-        if payment_reference:
-            data["payment_reference"] = payment_reference
-        await self._save(session_id, data)
-        return data
+        return await self.set_payment_reference(session_id, payment_reference)
 
     async def consume(self, session_id: str) -> dict[str, Any] | None:
         data = await self.get(session_id)

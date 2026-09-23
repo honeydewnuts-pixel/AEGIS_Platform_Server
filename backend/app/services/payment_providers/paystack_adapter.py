@@ -85,6 +85,8 @@ class PaystackAdapter(PaymentProviderAdapter):
         )
 
     async def create_checkout_session(self, account_id: str, email: str, plan: str, reveal_token: str) -> CheckoutSession:
+        from app.services.plan_catalog import normalize_checkout_plan
+        plan = normalize_checkout_plan(plan)
         reference = f"aegis-{account_id}-{uuid.uuid4().hex[:10]}"
         amount = _paystack_amount_cents(plan)
 

@@ -30,3 +30,17 @@ def test_enterprise_unlimited_trades():
 def test_business_multi_device():
     p = resolve_plan("business")
     assert p["max_devices"] == 3
+
+
+from app.services.plan_catalog import normalize_checkout_plan
+import pytest
+
+
+def test_normalize_rejects_unknown():
+    with pytest.raises(ValueError):
+        normalize_checkout_plan("foobar")
+
+
+def test_normalize_accepts_paid():
+    assert normalize_checkout_plan("starter") == "starter"
+    assert normalize_checkout_plan("pro") == "pro"

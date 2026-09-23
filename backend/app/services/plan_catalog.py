@@ -73,6 +73,38 @@ def resolve_plan(plan_code: str) -> dict[str, Any]:
     return {**base, "code": resolved_code}
 
 
+
+
+# Self-serve paid checkout only. demo is free path; enterprise is sales-assisted.
+PAID_CHECKOUT_PLANS = frozenset({"starter", "pro", "business"})
+CHECKOUT_PLAN_ALIASES = {
+    "monthly": "starter",
+    "live": "starter",
+    "basic": "starter",
+}
+
+
+def normalize_checkout_plan(plan_code: str) -> str:
+    """
+    Payment-boundary plan resolution. Unknown codes raise ValueError —
+    never silently fall back to starter.
+    """
+    code = (plan_code or "").lower().strip()
+    code = CHECKOUT_PLAN_ALIASES.get(code, code)
+    if code == "demo":
+        raise ValueError("demo plan cannot use paid checkout; use /demo/signup")
+    if code == "enterprise":
+        raise ValueError("enterprise requires a custom quote; contact sales")
+    if code not in PAID_CHECKOUT_PLANS:
+        raise ValueError(f"Invalid checkout plan: {plan_code!r}")
+    return code
+
+
+def is_known_plan(plan_code: str) -> bool:
+    code = (plan_code or "").lower().strip()
+    code = CHECKOUT_PLAN_ALIASES.get(code, code)
+    return code in PLAN_CATALOG
+
 def plan_price_usd(plan_code: str) -> float:
     return float(resolve_plan(plan_code).get("price_usd") or 0)
 
