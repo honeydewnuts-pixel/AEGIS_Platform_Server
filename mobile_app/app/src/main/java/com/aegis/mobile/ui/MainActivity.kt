@@ -138,8 +138,9 @@ class MainActivity : AppCompatActivity() {
         navHome = findViewById(R.id.navHome)
         notifBtn = findViewById(R.id.notifBtn)
         notifBtn?.setOnClickListener {
-            Toast.makeText(this, if (captureRunning) "Trading session active — watching VPS fills" else "Start trading to enable live notifications", Toast.LENGTH_SHORT).show()
+            startActivity(Intent(this, NotificationsActivity::class.java))
             pollExecutionNotifications()
+            refreshNotifBadge()
         }
         navAnalysis = findViewById(R.id.navAnalysis)
         navTrade = findViewById(R.id.navTrade)
@@ -680,6 +681,7 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
     }
 
     override fun onResume() {
+        refreshNotifBadge()
         if (captureRunning) pollExecutionNotifications()
         super.onResume()
         updateBatteryButtonLabel()

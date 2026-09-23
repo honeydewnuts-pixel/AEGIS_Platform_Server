@@ -67,6 +67,7 @@ class Settings(BaseSettings):
     API_KEY_ROTATION_DAYS: int = 90
     API_RATE_LIMIT_PER_MINUTE: int = 120
     AUDIT_RETENTION_DAYS: int = 90
+    NOTIFICATION_RETENTION_DAYS: int = 90
 
     # Paired screenshot + authoritative MT5 market snapshot artifacts.
     CAPTURE_PAIR_DIRECTORY: str = "capture_pairs"

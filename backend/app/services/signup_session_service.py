@@ -1,8 +1,8 @@
 """
 Server-issued signup sessions for public demo/checkout.
 
+States: CREATED → CHECKOUT_CREATED → (consumed for payment attempt)
 Prevents anonymous clients from asserting arbitrary account_id ownership.
-Sessions live in Redis (short TTL).
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from typing import Any
 
 logger = logging.getLogger("AEGIS.signup_session")
 
-SESSION_TTL_SEC = 3600  # 1 hour
+SESSION_TTL_SEC = 3600
 PREFIX = "aegis:signup_session:"
 
 
@@ -36,9 +36,10 @@ class SignupSessionService:
             "email": email_n,
             "plan": plan,
             "purpose": purpose,
+            "state": "CREATED",
+            "payment_reference": None,
         }
-        if self._r is not None:
-            await self._r.setex(PREFIX + session_id, SESSION_TTL_SEC, json.dumps(payload))
+        await self._save(session_id, payload)
         return payload
 
     async def get(self, session_id: str) -> dict[str, Any] | None:
@@ -54,9 +55,37 @@ class SignupSessionService:
         except json.JSONDecodeError:
             return None
 
+    async def mark_checkout_created(self, session_id: str, payment_reference: str | None = None) -> dict[str, Any] | None:
+        """
+        Transition CREATED → CHECKOUT_CREATED. Idempotent if already CHECKOUT_CREATED
+        with the same reference; rejects a second distinct checkout attempt.
+        """
+        data = await self.get(session_id)
+        if not data:
+            return None
+        state = data.get("state") or "CREATED"
+        if state == "CHECKOUT_CREATED":
+            # Same session already used for a checkout — do not allow a second concurrent attempt
+            if payment_reference and data.get("payment_reference") and data.get("payment_reference") != payment_reference:
+                raise ValueError("signup session already has an active checkout; complete or wait for expiry")
+            if data.get("payment_reference") and not payment_reference:
+                raise ValueError("signup session already used for checkout")
+            return data
+        if state != "CREATED":
+            raise ValueError(f"signup session not available for checkout (state={state})")
+        data["state"] = "CHECKOUT_CREATED"
+        if payment_reference:
+            data["payment_reference"] = payment_reference
+        await self._save(session_id, data)
+        return data
+
     async def consume(self, session_id: str) -> dict[str, Any] | None:
-        """Get and delete (one-time use for checkout binding)."""
         data = await self.get(session_id)
         if data and self._r is not None:
             await self._r.delete(PREFIX + session_id)
         return data
+
+    async def _save(self, session_id: str, payload: dict[str, Any]) -> None:
+        if self._r is None:
+            return
+        await self._r.setex(PREFIX + session_id, SESSION_TTL_SEC, json.dumps(payload))

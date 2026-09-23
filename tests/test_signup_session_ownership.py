@@ -36,3 +36,13 @@ async def test_demo_purpose_prefix():
     svc = SignupSessionService(FakeRedis())
     payload = await svc.create(email="a@b.co", purpose="demo")
     assert payload["account_id"].startswith("DEMO-")
+
+
+@pytest.mark.asyncio
+async def test_checkout_state_blocks_second_attempt():
+    svc = SignupSessionService(FakeRedis())
+    payload = await svc.create(email="a@b.co", purpose="checkout")
+    sid = payload["session_id"]
+    await svc.mark_checkout_created(sid, payment_reference="ref-1")
+    with pytest.raises(ValueError):
+        await svc.mark_checkout_created(sid, payment_reference="ref-2")

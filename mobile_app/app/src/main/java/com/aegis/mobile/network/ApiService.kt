@@ -102,6 +102,17 @@ interface ApiService {
         @Query("unread_only") unreadOnly: Boolean = false
     ): Response<Map<String, @JvmSuppressWildcards Any>>
 
+    @POST("/api/notifications/read-all")
+    suspend fun markAllNotificationsRead(
+        @Query("account_id") accountId: String
+    ): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @POST("/api/notifications/{id}/read")
+    suspend fun markNotificationRead(
+        @Path("id") id: Int,
+        @Query("account_id") accountId: String
+    ): Response<Map<String, @JvmSuppressWildcards Any>>
+
     @GET("/api/notifications/unread-count")
     suspend fun notificationUnreadCount(
         @Query("account_id") accountId: String

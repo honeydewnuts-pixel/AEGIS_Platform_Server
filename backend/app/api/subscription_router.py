@@ -83,11 +83,20 @@ async def create_checkout(
     session = await adapter.create_checkout_session(
         account_id, str(checkout_request.email), plan, reveal_token
     )
+    # Bind session → single checkout attempt (state CREATED → CHECKOUT_CREATED)
+    try:
+        await signup_svc.mark_checkout_created(
+            checkout_request.signup_session_id,
+            payment_reference=getattr(session, "reference", None),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
     return {
         "checkout_url": session.checkout_url,
         "reference": session.reference,
         "account_id": account_id,
         "signup_session_id": checkout_request.signup_session_id,
+        "session_state": "CHECKOUT_CREATED",
     }
 
 

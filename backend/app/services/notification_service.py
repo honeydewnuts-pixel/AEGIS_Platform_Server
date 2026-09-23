@@ -80,15 +80,24 @@ class NotificationService:
                 min_confidence_external = float(prefs.get("min_confidence") or min_confidence_external)
             except Exception:
                 prefs = None
-            should = sig in ACTIONABLE_SIGNALS and conf >= min_confidence_external
-            if prefs and type == "SIGNAL_GENERATED" and not prefs.get("signal_alerts", True):
-                should = False
-            if prefs and type.startswith("ORDER_") and not prefs.get("execution_alerts", True):
-                should = False
-            if type.startswith("ORDER_") or type.startswith("POSITION_") or type.endswith("_ERROR"):
-                should = True
-            if type in ("MT5_DISCONNECTED", "OHLC_FEED_ERROR", "SERVER_OFFLINE", "SUBSCRIPTION_EXPIRING"):
-                should = True
+
+            # Preference switches are authoritative (no later unconditional override)
+            if type == "SIGNAL_GENERATED":
+                enabled = True if not prefs else bool(prefs.get("signal_alerts", True))
+                should = enabled and (
+                    sig in ACTIONABLE_SIGNALS and conf >= min_confidence_external
+                )
+            elif type.startswith("ORDER_") or type.startswith("POSITION_"):
+                enabled = True if not prefs else bool(prefs.get("execution_alerts", True))
+                should = enabled
+            elif type.endswith("_ERROR") or type in (
+                "MT5_DISCONNECTED", "MT5_CONNECTED", "OHLC_FEED_ERROR",
+                "SERVER_OFFLINE", "WORKER_OFFLINE", "SUBSCRIPTION_EXPIRING", "RULEBOOK_CHANGED",
+            ):
+                enabled = True if not prefs else bool(prefs.get("system_alerts", True))
+                should = enabled
+            else:
+                should = conf >= min_confidence_external
 
         delivery: dict[str, Any] = {}
         status = "inbox_only"
