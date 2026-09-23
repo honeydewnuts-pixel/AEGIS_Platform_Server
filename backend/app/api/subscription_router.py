@@ -25,9 +25,12 @@ ADAPTERS = {
 
 
 class CheckoutRequest(BaseModel):
-    account_id: str
+    """account_id is ignored for ownership — must match server-issued signup_session."""
+    signup_session_id: str = Field(..., description="From POST /api/subscriptions/signup-session")
     email: EmailStr
     plan: str = "monthly"
+    # Deprecated: client-supplied account_id is no longer trusted
+    account_id: str | None = Field(default=None, description="Ignored; bound from signup session")
 
 
 def get_subscription_service(request: Request):
@@ -62,16 +65,30 @@ async def create_checkout(
     if adapter_cls is None:
         raise HTTPException(status_code=404, detail=f"Unknown provider: {provider}")
 
-    # This reveal_token is how the subscriber's browser will claim their
-    # portal_token + mobile API key after payment completes - see
-    # CredentialRevealService and client_portal/signup.html.
-    reveal_token = await credential_reveal.create_reveal_token(checkout_request.account_id)
+    # Ownership: only server-issued signup sessions may bind account_id into payment metadata.
+    signup_svc = getattr(request.app.state, "signup_sessions", None)
+    if signup_svc is None:
+        raise HTTPException(status_code=503, detail="Signup session service unavailable")
+    sess = await signup_svc.get(checkout_request.signup_session_id)
+    if not sess:
+        raise HTTPException(status_code=400, detail="Invalid or expired signup_session_id")
+    if sess.get("email", "").lower() != str(checkout_request.email).strip().lower():
+        raise HTTPException(status_code=400, detail="Email does not match signup session")
+    account_id = sess["account_id"]
+    plan = (checkout_request.plan or sess.get("plan") or "monthly").strip().lower()
+
+    reveal_token = await credential_reveal.create_reveal_token(account_id)
 
     adapter = adapter_cls()
     session = await adapter.create_checkout_session(
-        checkout_request.account_id, checkout_request.email, checkout_request.plan, reveal_token
+        account_id, str(checkout_request.email), plan, reveal_token
     )
-    return {"checkout_url": session.checkout_url, "reference": session.reference}
+    return {
+        "checkout_url": session.checkout_url,
+        "reference": session.reference,
+        "account_id": account_id,
+        "signup_session_id": checkout_request.signup_session_id,
+    }
 
 
 @router.post("/webhook/{provider}")
@@ -214,20 +231,63 @@ import uuid
 
 
 class DemoSignupRequest(BaseModel):
-    account_id: str | None = Field(default=None, description="Optional; auto-generated if omitted")
+    email: EmailStr = Field(..., description="Required — establishes signup identity")
+    # Client-supplied account_id is rejected for SaaS ownership safety
+    account_id: str | None = Field(default=None, description="Ignored; always server-generated")
+
+
+class SignupSessionRequest(BaseModel):
+    email: EmailStr
+    plan: str = "monthly"
+    purpose: str = Field(default="checkout", description="demo|checkout")
+
+
+@router.post("/signup-session")
+@limiter.limit("10/minute")
+async def create_signup_session(body: SignupSessionRequest, request: Request):
+    """Issue a short-lived server-bound account identity before checkout or demo."""
+    svc = getattr(request.app.state, "signup_sessions", None)
+    if svc is None:
+        raise HTTPException(status_code=503, detail="Signup session service unavailable")
+    purpose = (body.purpose or "checkout").strip().lower()
+    if purpose not in ("demo", "checkout"):
+        purpose = "checkout"
+    try:
+        payload = await svc.create(email=str(body.email), plan=body.plan, purpose=purpose)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {
+        "signup_session_id": payload["session_id"],
+        "account_id": payload["account_id"],
+        "email": payload["email"],
+        "plan": payload["plan"],
+        "expires_in_sec": 3600,
+        "note": "Use signup_session_id for checkout; account_id is server-bound to this session.",
+    }
 
 
 @router.post("/demo/signup")
+@limiter.limit("5/minute")
 async def demo_signup(body: DemoSignupRequest, request: Request):
     """
-    Public endpoint: create a 14-day demo plan (brain + chart analysis).
-    Live market orders remain blocked until a paid subscription is active.
-    Returns account_id, portal_token, mobile_api_key, and a one-time APK download URL.
+    Public endpoint: create a NEW 14-day demo plan only.
+    Account ID is always server-generated. Existing accounts cannot be taken over.
     """
-    account_id = (body.account_id or "").strip() or f"DEMO-{uuid.uuid4().hex[:10].upper()}"
+    signup_svc = getattr(request.app.state, "signup_sessions", None)
+    email = str(body.email).strip().lower()
+    if signup_svc is not None:
+        sess = await signup_svc.create(email=email, plan="demo", purpose="demo")
+        account_id = sess["account_id"]
+    else:
+        account_id = f"DEMO-{uuid.uuid4().hex[:10].upper()}"
+
     sub = request.app.state.subscription_service
     try:
-        issued = await sub.activate_demo(account_id)
+        issued = await sub.activate_demo(
+            account_id, contact_email=email, allow_refresh_existing=False
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(
             status_code=500,

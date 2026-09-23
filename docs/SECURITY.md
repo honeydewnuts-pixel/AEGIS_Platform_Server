@@ -53,7 +53,7 @@ resolved (see `mobile_app/README.md`).
 
 ## Known gaps (not fixed, flagged deliberately rather than silently left)
 
-- **No rate limiting anywhere.** `/api/subscriptions/checkout/{provider}`
+- **Rate limiting: see section "Rate limiting (current)" below.** `/api/subscriptions/checkout/{provider}`
   is the most exposed (no auth required, by necessity - see that
   endpoint's docstring), but nothing stops repeated calls to any endpoint.
   Add `slowapi` or handle it at your reverse proxy before this is public.
@@ -69,7 +69,7 @@ resolved (see `mobile_app/README.md`).
   (there is no proxy config - see `docs/DEPLOYMENT.md`) currently sets
   these.
 - **Portal token and mobile API key delivery has no channel.** Both are
-  currently only written to application logs on first subscription
+  currently only written to secure one-time credential reveal (Redis), not application logs on first subscription
   activation (see `subscription_service.py`). There is no email/SMS/in-app
   delivery mechanism - you must build this before real subscribers can
   actually receive their credentials. Treat "it's in the logs" as a
@@ -92,3 +92,26 @@ rewrite above:
 | `docker/Dockerfile` | Container ran as root, no `USER` instruction | Fixed - runs as a dedicated non-root user |
 | `docker/docker-compose.yml` | Postgres/Redis ports published to `0.0.0.0` | Fixed - bound to `127.0.0.1` |
 | repo root | No `.gitignore` - `.env` had no guard against being committed | Fixed |
+
+
+## Rate limiting (current)
+
+- Public **checkout** and **demo signup** / **signup-session**: SlowAPI limits (typically 5–10/minute per IP).
+- Authenticated endpoints rely primarily on per-account API keys + `require_account_match`.
+- Perimeter WAF/DDoS (e.g. Cloudflare) remains recommended in front of Render for production.
+
+## Credential delivery (current)
+
+- **Not** secure one-time credential reveal (Redis), not application logs for production activation.
+- Payment success → credentials staged in Redis → one-time reveal via `reveal_token` (short TTL) → deleted after claim.
+- Prefer avoiding long-lived secrets in query strings where possible; claim tokens remain short-lived.
+
+## Public account ownership (current)
+
+- **Demo signup** always generates `DEMO-…` server-side; requires **email**; cannot refresh/hijack an existing `account_id`.
+- **Checkout** requires a server-issued **`signup_session_id`** (`POST /api/subscriptions/signup-session`). Client-supplied `account_id` is not trusted for payment metadata binding.
+
+## Notifications
+
+- Inbox: `notifications` table; external channels via `AlertService` + optional per-account `notification_preferences`.
+- Retention: purged with other ops data (`NOTIFICATION_RETENTION_DAYS`, default 90).

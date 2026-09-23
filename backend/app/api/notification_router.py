@@ -70,3 +70,31 @@ async def acknowledge(
     require_account_match(auth, account_id)
     ok = await request.app.state.notifications.acknowledge(account_id, notification_id)
     return {"ok": ok, "id": notification_id}
+
+
+
+@router.get("/preferences")
+async def get_preferences(
+    request: Request,
+    account_id: str = Query(...),
+    auth: AuthContext = Depends(verify_api_key),
+) -> dict[str, Any]:
+    require_account_match(auth, account_id)
+    return await request.app.state.notifications.get_preferences(account_id)
+
+
+@router.put("/preferences")
+async def put_preferences(
+    request: Request,
+    account_id: str = Query(...),
+    auth: AuthContext = Depends(verify_api_key),
+) -> dict[str, Any]:
+    require_account_match(auth, account_id)
+    body = await request.json()
+    allowed = {
+        "email_enabled", "email_address", "telegram_enabled", "telegram_chat_id",
+        "sms_enabled", "sms_number", "whatsapp_enabled", "whatsapp_number",
+        "min_confidence", "signal_alerts", "execution_alerts", "system_alerts",
+    }
+    kwargs = {k: body[k] for k in allowed if k in body}
+    return await request.app.state.notifications.set_preferences(account_id, **kwargs)

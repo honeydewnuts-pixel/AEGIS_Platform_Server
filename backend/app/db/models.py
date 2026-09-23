@@ -303,3 +303,23 @@ class Notification(Base):
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+
+
+class NotificationPreference(Base):
+    """Per-account external notification destinations (commercial multi-tenant)."""
+    __tablename__ = "notification_preferences"
+
+    account_id: Mapped[str] = mapped_column(String, primary_key=True)
+    email_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    email_address: Mapped[str | None] = mapped_column(String, nullable=True)
+    telegram_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    telegram_chat_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    sms_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    sms_number: Mapped[str | None] = mapped_column(String, nullable=True)
+    whatsapp_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    whatsapp_number: Mapped[str | None] = mapped_column(String, nullable=True)
+    min_confidence: Mapped[float] = mapped_column(nullable=False, default=0.55)
+    signal_alerts: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    execution_alerts: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    system_alerts: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

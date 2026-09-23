@@ -11,10 +11,10 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import select, update, func
+from sqlalchemy import select, update, func, delete
 
 from app.db.base import async_session_factory
-from app.db.models import Notification
+from app.db.models import Notification, NotificationPreference
 
 logger = logging.getLogger("AEGIS.notifications")
 
@@ -74,7 +74,17 @@ class NotificationService:
         if should is None:
             sig = (signal or "").upper()
             conf = float(confidence) if confidence is not None else 0.0
+            prefs = None
+            try:
+                prefs = await self.get_preferences(account_id)
+                min_confidence_external = float(prefs.get("min_confidence") or min_confidence_external)
+            except Exception:
+                prefs = None
             should = sig in ACTIONABLE_SIGNALS and conf >= min_confidence_external
+            if prefs and type == "SIGNAL_GENERATED" and not prefs.get("signal_alerts", True):
+                should = False
+            if prefs and type.startswith("ORDER_") and not prefs.get("execution_alerts", True):
+                should = False
             if type.startswith("ORDER_") or type.startswith("POSITION_") or type.endswith("_ERROR"):
                 should = True
             if type in ("MT5_DISCONNECTED", "OHLC_FEED_ERROR", "SERVER_OFFLINE", "SUBSCRIPTION_EXPIRING"):
@@ -243,6 +253,71 @@ class NotificationService:
             )
             await session.commit()
             return (result.rowcount or 0) > 0
+
+
+    async def get_preferences(self, account_id: str) -> dict[str, Any]:
+        async with async_session_factory() as session:
+            row = (
+                await session.execute(
+                    select(NotificationPreference).where(NotificationPreference.account_id == account_id)
+                )
+            ).scalar_one_or_none()
+            if not row:
+                return {
+                    "account_id": account_id,
+                    "email_enabled": True,
+                    "email_address": None,
+                    "telegram_enabled": False,
+                    "telegram_chat_id": None,
+                    "sms_enabled": False,
+                    "sms_number": None,
+                    "whatsapp_enabled": False,
+                    "whatsapp_number": None,
+                    "min_confidence": DEFAULT_MIN_CONFIDENCE_EXTERNAL,
+                    "signal_alerts": True,
+                    "execution_alerts": True,
+                    "system_alerts": True,
+                }
+            return {
+                "account_id": row.account_id,
+                "email_enabled": row.email_enabled,
+                "email_address": row.email_address,
+                "telegram_enabled": row.telegram_enabled,
+                "telegram_chat_id": row.telegram_chat_id,
+                "sms_enabled": row.sms_enabled,
+                "sms_number": row.sms_number,
+                "whatsapp_enabled": row.whatsapp_enabled,
+                "whatsapp_number": row.whatsapp_number,
+                "min_confidence": row.min_confidence,
+                "signal_alerts": row.signal_alerts,
+                "execution_alerts": row.execution_alerts,
+                "system_alerts": row.system_alerts,
+            }
+
+    async def set_preferences(self, account_id: str, **kwargs: Any) -> dict[str, Any]:
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+        async with async_session_factory() as session:
+            row = (
+                await session.execute(
+                    select(NotificationPreference).where(NotificationPreference.account_id == account_id)
+                )
+            ).scalar_one_or_none()
+            if not row:
+                row = NotificationPreference(account_id=account_id, updated_at=now)
+                session.add(row)
+            for k, v in kwargs.items():
+                if hasattr(row, k) and v is not None:
+                    setattr(row, k, v)
+            row.updated_at = now
+            await session.commit()
+        return await self.get_preferences(account_id)
+
+    async def purge_older_than(self, cutoff) -> int:
+        async with async_session_factory() as session:
+            result = await session.execute(delete(Notification).where(Notification.created_at < cutoff))
+            await session.commit()
+            return int(result.rowcount or 0)
 
     @staticmethod
     def _row(r: Notification) -> dict[str, Any]:

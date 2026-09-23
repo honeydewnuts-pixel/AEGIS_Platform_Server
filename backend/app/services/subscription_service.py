@@ -378,8 +378,15 @@ class SubscriptionService:
         return {"account_id": account_id, "mode": mode_norm, "plan": plan_meta["code"]}
 
 
-    async def activate_demo(self, account_id: str) -> dict[str, str]:
-        """Create/refresh a 14-day demo subscription and ensure a mobile API key exists."""
+    async def activate_demo(
+        self,
+        account_id: str,
+        *,
+        contact_email: str | None = None,
+        allow_refresh_existing: bool = False,
+    ) -> dict[str, str]:
+        """Create a 14-day demo subscription. Public path must pass allow_refresh_existing=False
+        so an unauthenticated caller cannot hijack/reset an existing account."""
         from datetime import datetime, timedelta, timezone
         import secrets as sec
         from sqlalchemy import select as sa_select
@@ -387,6 +394,7 @@ class SubscriptionService:
 
         now = datetime.now(timezone.utc)
         portal_token = sec.token_urlsafe(24)
+        email_n = (contact_email or "").strip().lower() or None
 
         async with async_session_factory() as session:
             result = await session.execute(
@@ -394,12 +402,19 @@ class SubscriptionService:
             )
             existing = result.scalar_one_or_none()
             if existing:
+                if not allow_refresh_existing:
+                    raise ValueError(
+                        "Account already exists. Sign in with your credentials or use password recovery; "
+                        "public demo signup cannot bind to an existing account_id."
+                    )
                 existing.status = "active"
                 existing.plan = "demo"
                 existing.max_devices = 1
                 existing.max_trades_per_day = 5
                 existing.updated_at = now
                 existing.current_period_end = now + timedelta(days=14)
+                if email_n:
+                    existing.contact_email = email_n
                 if not existing.portal_token:
                     existing.portal_token = portal_token
                 else:
@@ -415,6 +430,7 @@ class SubscriptionService:
                         max_devices=1,
                         max_trades_per_day=5,
                         portal_token=portal_token,
+                        contact_email=email_n,
                         current_period_end=now + timedelta(days=14),
                         updated_at=now,
                     )

@@ -33,6 +33,7 @@ from app.services.audit_service import AuditService
 from app.services.upload_diagnostic_service import UploadDiagnosticService
 from app.services.alert_service import AlertService
 from app.services.notification_service import NotificationService
+from app.services.signup_session_service import SignupSessionService
 from app.services.device_binding_service import DeviceBindingService
 from app.services.trade_limit_service import TradeLimitService
 from app.services.retention_service import purge_old_records
@@ -90,6 +91,7 @@ async def on_startup(app: FastAPI) -> None:
     )
     app.state.device_health = DeviceHealthService(app.state.job_queue.get_redis_client())
     app.state.credential_reveal = CredentialRevealService(app.state.job_queue.get_redis_client())
+    app.state.signup_sessions = SignupSessionService(app.state.job_queue.get_redis_client())
     app.state.signal_history = SignalHistoryService()
     app.state.executor_signals = ExecutorSignalService(max_age_sec=300.0)
     app.state.trade_copier = TradeCopierService()
