@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from app.core.auth import require_account_match, verify_api_key
+from app.security import verify_api_key, require_account_match, AuthContext
 
 router = APIRouter(prefix="/api/portfolio", tags=["portfolio-risk"])
 
@@ -37,7 +37,7 @@ class MinNotionalBody(BaseModel):
 async def portfolio_status(
     request: Request,
     account_id: str,
-    auth: dict = Depends(verify_api_key),
+    auth: AuthContext = Depends(verify_api_key),
 ):
     require_account_match(auth, account_id)
     svc = getattr(request.app.state, "portfolio_risk", None)
@@ -53,7 +53,7 @@ async def portfolio_status(
 async def set_equity(
     body: EquityBody,
     request: Request,
-    auth: dict = Depends(verify_api_key),
+    auth: AuthContext = Depends(verify_api_key),
 ):
     require_account_match(auth, body.account_id)
     svc = request.app.state.portfolio_risk
@@ -67,7 +67,7 @@ async def set_equity(
 async def set_tolerance(
     body: ToleranceBody,
     request: Request,
-    auth: dict = Depends(verify_api_key),
+    auth: AuthContext = Depends(verify_api_key),
 ):
     require_account_match(auth, body.account_id)
     svc = request.app.state.portfolio_risk
@@ -81,7 +81,7 @@ async def set_tolerance(
 async def set_mode(
     body: ModeBody,
     request: Request,
-    auth: dict = Depends(verify_api_key),
+    auth: AuthContext = Depends(verify_api_key),
 ):
     require_account_match(auth, body.account_id)
     svc = request.app.state.portfolio_risk
@@ -95,7 +95,7 @@ async def set_mode(
 async def set_min_notional(
     body: MinNotionalBody,
     request: Request,
-    auth: dict = Depends(verify_api_key),
+    auth: AuthContext = Depends(verify_api_key),
 ):
     """EA/broker reports minimum trade size for a symbol."""
     require_account_match(auth, body.account_id)
@@ -109,7 +109,7 @@ async def size_preview(
     request: Request,
     account_id: str,
     symbol: str,
-    auth: dict = Depends(verify_api_key),
+    auth: AuthContext = Depends(verify_api_key),
 ):
     require_account_match(auth, account_id)
     svc = request.app.state.portfolio_risk
