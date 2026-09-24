@@ -25,6 +25,11 @@ import kotlinx.coroutines.launch
 class SettingsActivity : AppCompatActivity() {
 
     companion object {
+        val TOLERANCE_OPTIONS = listOf(5, 10, 15, 20, 25, 30, 35, 40, 45)
+        val MODE_OPTIONS = listOf(
+            "MultiSymbol (auto pairs within risk)" to "multi_symbol",
+            "Chart only (selected pair)" to "chart_only",
+        )
         /** Display label → seconds */
         val INTERVAL_OPTIONS = listOf(
             "2 seconds (scalp / M1)" to 2,
@@ -50,6 +55,10 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var cbAutoExecute: CheckBox
     private lateinit var cbKeepNetwork: CheckBox
     private lateinit var etMinConfidence: EditText
+    private lateinit var etAccountEquity: EditText
+    private lateinit var spinnerRiskTolerance: Spinner
+    private lateinit var spinnerTradingMode: Spinner
+    private lateinit var tvPortfolioStatus: android.widget.TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -80,6 +89,20 @@ class SettingsActivity : AppCompatActivity() {
         cbAutoExecute = findViewById(R.id.cbAutoExecute)
         cbKeepNetwork = findViewById(R.id.cbKeepNetwork)
         etMinConfidence = findViewById(R.id.etMinConfidence)
+        etAccountEquity = findViewById(R.id.etAccountEquity)
+        spinnerRiskTolerance = findViewById(R.id.spinnerRiskTolerance)
+        spinnerTradingMode = findViewById(R.id.spinnerTradingMode)
+        tvPortfolioStatus = findViewById(R.id.tvPortfolioStatus)
+        spinnerRiskTolerance.adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_dropdown_item,
+            TOLERANCE_OPTIONS.map { "$it% of equity" }
+        )
+        spinnerTradingMode.adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_dropdown_item,
+            MODE_OPTIONS.map { it.first }
+        )
         val btnSave = findViewById<Button>(R.id.btnSave)
         val btnSaveAndConnect = findViewById<Button>(R.id.btnSaveAndConnect)
 
@@ -163,6 +186,12 @@ class SettingsActivity : AppCompatActivity() {
                 etMinConfidence.text.toString().trim().ifBlank {
                     DEFAULT_MIN_CONFIDENCE.toString()
                 }
+            settings[PrefKeys.ACCOUNT_EQUITY_USD] =
+                etAccountEquity.text.toString().trim()
+            val ti = spinnerRiskTolerance.selectedItemPosition.coerceIn(0, TOLERANCE_OPTIONS.lastIndex)
+            settings[PrefKeys.RISK_TOLERANCE_PCT] = TOLERANCE_OPTIONS[ti]
+            val mi = spinnerTradingMode.selectedItemPosition.coerceIn(0, MODE_OPTIONS.lastIndex)
+            settings[PrefKeys.TRADING_MODE] = MODE_OPTIONS[mi].second
         }
 
         // Account ID must match the key — resolve from server to prevent 403
@@ -188,6 +217,7 @@ class SettingsActivity : AppCompatActivity() {
                             Toast.makeText(this, "Credentials OK for $resolved", Toast.LENGTH_SHORT).show()
                         }
                     }
+                    pushPortfolioRisk(api, accountId.ifBlank { resolved })
                 } else if (me.code() == 401) {
                     runOnUiThread {
                         Toast.makeText(
@@ -198,6 +228,52 @@ class SettingsActivity : AppCompatActivity() {
                     }
                 }
             } catch (_: Exception) {
+            }
+        }
+    }
+
+    private suspend fun pushPortfolioRisk(api: com.aegis.mobile.network.ApiService, accountId: String) {
+        if (accountId.isBlank()) return
+        try {
+            val equityStr = etAccountEquity.text.toString().trim()
+            if (equityStr.isNotEmpty()) {
+                val equity = equityStr.toDoubleOrNull()
+                if (equity != null && equity >= 0) {
+                    api.setPortfolioEquity(
+                        mapOf(
+                            "account_id" to accountId,
+                            "equity_usd" to equity,
+                            "source" to "mobile"
+                        )
+                    )
+                }
+            }
+            val ti = spinnerRiskTolerance.selectedItemPosition.coerceIn(0, TOLERANCE_OPTIONS.lastIndex)
+            api.setRiskTolerance(
+                mapOf(
+                    "account_id" to accountId,
+                    "risk_tolerance_pct" to TOLERANCE_OPTIONS[ti]
+                )
+            )
+            val mi = spinnerTradingMode.selectedItemPosition.coerceIn(0, MODE_OPTIONS.lastIndex)
+            api.setTradingMode(
+                mapOf(
+                    "account_id" to accountId,
+                    "trading_mode" to MODE_OPTIONS[mi].second
+                )
+            )
+            val st = api.getPortfolioStatus(accountId)
+            if (st.isSuccessful) {
+                val b = st.body()
+                val budget = b?.get("risk_budget_usd")
+                val maxP = b?.get("max_concurrent_pairs")
+                val halted = b?.get("trading_halted")
+                val msg = "Budget $$budget · max pairs $maxP · halted=$halted"
+                runOnUiThread { tvPortfolioStatus.text = msg }
+            }
+        } catch (e: Exception) {
+            runOnUiThread {
+                tvPortfolioStatus.text = "Portfolio sync: ${e.message}"
             }
         }
     }

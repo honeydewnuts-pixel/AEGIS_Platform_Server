@@ -1,13 +1,13 @@
 //+------------------------------------------------------------------+
-//| AEGIS_OHLC_Feed.mq5  v2.02                                       |
+//| AEGIS_OHLC_Feed.mq5  v2.03                                       |
 //| Same ResolveBrokerSymbol strategy as Executor (suffixes + scan). |
 //| ChartOnly | MultiSymbol (explicit list required for multi-pair). |
 //| CLOSED vs CURRENT; no invented OHLC.                             |
 //+------------------------------------------------------------------+
 #property copyright "Honeydewnuts Nigerian Limited / LeverageFx"
-#property version   "2.02"
+#property version   "2.03"
 #property strict
-#property description "AEGIS multi-symbol OHLC feed v2.02"
+#property description "AEGIS multi-symbol OHLC feed v2.03 — equity + min lot report"
 
 enum ENUM_AEGIS_FEED_MODE
   {
@@ -149,7 +149,7 @@ void BuildSymbolList()
      }
    ArrayResize(g_last_bar_time, ArraySize(g_symbols));
    ArrayInitialize(g_last_bar_time, 0);
-   Print("AEGIS OHLC v2.02 symbols=", ArraySize(g_symbols), " mode=", EnumToString(InpMode));
+   Print("AEGIS OHLC v2.03 symbols=", ArraySize(g_symbols), " mode=", EnumToString(InpMode));
   }
 
 bool PostOhlcForSymbol(const string symbol)
@@ -223,6 +223,80 @@ bool PostOhlcForSymbol(const string symbol)
    return true;
   }
 
+
+//--- Portfolio risk: equity + per-symbol min notional/lot -------------------
+bool HttpPostJson(const string path, const string body)
+  {
+   if(StringLen(InpApiKey) < 8 || StringLen(InpAccountId) < 3)
+      return false;
+   string url = BaseUrl() + path;
+   string headers = "Content-Type: application/json\r\nX-API-Key: " + InpApiKey + "\r\n";
+   char post[];
+   char result[];
+   StringToCharArray(body, post, 0, WHOLE_ARRAY, CP_UTF8);
+   ArrayResize(post, ArraySize(post) - 1);
+   string result_headers;
+   ResetLastError();
+   int code = WebRequest("POST", url, headers, 15000, post, result, result_headers);
+   if(code < 200 || code >= 300)
+     {
+      Print("AEGIS risk HTTP ", code, " ", path, " err=", GetLastError());
+      return false;
+     }
+   return true;
+  }
+
+void PostAccountEquity()
+  {
+   double equity = AccountInfoDouble(ACCOUNT_EQUITY);
+   if(equity <= 0) equity = AccountInfoDouble(ACCOUNT_BALANCE);
+   string body = StringFormat(
+      "{\"account_id\":\"%s\",\"equity_usd\":%.2f,\"source\":\"mt5_ea\"}",
+      JsonEscape(InpAccountId), equity);
+   if(HttpPostJson("/api/portfolio/equity", body))
+      Print("AEGIS: equity reported ", DoubleToString(equity, 2));
+  }
+
+void PostSymbolMinLots()
+  {
+   if(ArraySize(g_symbols) == 0) BuildSymbolList();
+   for(int i = 0; i < ArraySize(g_symbols); i++)
+     {
+      string brokerSym = g_symbols[i];
+      string baseSym = NormalizeBase(brokerSym);
+      if(!SymbolSelect(brokerSym, true))
+         continue;
+      double minLot = SymbolInfoDouble(brokerSym, SYMBOL_VOLUME_MIN);
+      if(minLot <= 0) minLot = 0.01;
+      double tickVal = SymbolInfoDouble(brokerSym, SYMBOL_TRADE_TICK_VALUE);
+      double tickSize = SymbolInfoDouble(brokerSym, SYMBOL_TRADE_TICK_SIZE);
+      double point = SymbolInfoDouble(brokerSym, SYMBOL_POINT);
+      // Approximate min notional: value of minLot for a 100-point move, floored at $10
+      double minNotional = 50.0;
+      if(tickSize > 0 && tickVal > 0)
+         minNotional = MathMax(10.0, (minLot * tickVal / tickSize) * (point * 100.0));
+      // Prefer margin for 1 min lot if available
+      double margin = 0;
+      if(OrderCalcMargin(ORDER_TYPE_BUY, brokerSym, minLot,
+                         SymbolInfoDouble(brokerSym, SYMBOL_ASK), margin))
+        {
+         if(margin > 0)
+            minNotional = MathMax(minNotional, margin);
+        }
+      string body = StringFormat(
+         "{\"account_id\":\"%s\",\"symbol\":\"%s\",\"min_notional_usd\":%.2f,\"min_lot\":%.4f}",
+         JsonEscape(InpAccountId), JsonEscape(baseSym), minNotional, minLot);
+      HttpPostJson("/api/portfolio/min-notional", body);
+     }
+  }
+
+void PostAccountRisk()
+  {
+   PostAccountEquity();
+   PostSymbolMinLots();
+  }
+
+
 void PostAll()
   {
    int ok = 0, fail = 0;
@@ -232,7 +306,8 @@ void PostAll()
       if(PostOhlcForSymbol(g_symbols[i])) ok++;
       else fail++;
      }
-   Print("AEGIS OHLC v2.02 cycle ok=", ok, " fail=", fail);
+   Print("AEGIS OHLC v2.03 cycle ok=", ok, " fail=", fail);
+   PostAccountRisk();
   }
 
 int OnInit()

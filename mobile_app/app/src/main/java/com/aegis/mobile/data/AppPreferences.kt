@@ -24,6 +24,10 @@ object PrefKeys {
     val AUTO_EXECUTE = booleanPreferencesKey("auto_execute")
     val MIN_CONFIDENCE = stringPreferencesKey("min_confidence")
 
+    val ACCOUNT_EQUITY_USD = stringPreferencesKey("account_equity_usd")
+    val RISK_TOLERANCE_PCT = intPreferencesKey("risk_tolerance_pct")
+    val TRADING_MODE = stringPreferencesKey("trading_mode")  // multi_symbol | chart_only
+
     // Seconds between screenshot captures (matches trader timeframe preference)
     val CAPTURE_INTERVAL_SEC = intPreferencesKey("capture_interval_sec")
     /** Hold Wi‑Fi lock + aggressive reconnect while capturing (weak networks). */

@@ -124,6 +124,18 @@ interface ApiService {
         @Query("limit") limit: Int = 20
     ): Response<Map<String, @JvmSuppressWildcards Any>>
 
+    @POST("/api/portfolio/equity")
+    suspend fun setPortfolioEquity(@Body body: Map<String, @JvmSuppressWildcards Any>): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @POST("/api/portfolio/risk-tolerance")
+    suspend fun setRiskTolerance(@Body body: Map<String, @JvmSuppressWildcards Any>): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @POST("/api/portfolio/trading-mode")
+    suspend fun setTradingMode(@Body body: Map<String, @JvmSuppressWildcards Any>): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @GET("/api/portfolio/status")
+    suspend fun getPortfolioStatus(@Query("account_id") accountId: String): Response<Map<String, @JvmSuppressWildcards Any>>
+
     @GET("/api/account/status")
     suspend fun getAccountStatus(@Query("account_id") accountId: String): Response<Map<String, @JvmSuppressWildcards Any>>
 }

@@ -23,3 +23,20 @@
 - `POST /api/portfolio/risk-tolerance` `{account_id, risk_tolerance_pct}`
 - `POST /api/portfolio/trading-mode` `{account_id, trading_mode}`
 - `GET /api/portfolio/size?account_id=&symbol=`
+
+
+## Mobile Settings (v2.4.1+)
+
+- **Account equity (USD)** — saved locally and POSTed to `/api/portfolio/equity`
+- **Max risk tolerance %** — 5–45% spinner → `/api/portfolio/risk-tolerance`
+- **Trading mode** — MultiSymbol or Chart only → `/api/portfolio/trading-mode`
+- Status line shows risk budget, max pairs, halt state after Save
+
+## MT5 OHLC Feed v2.03+
+
+Each timer cycle after OHLC posts:
+
+1. `POST /api/portfolio/equity` with `AccountInfoDouble(ACCOUNT_EQUITY)`
+2. `POST /api/portfolio/min-notional` per symbol (min lot + margin/notional estimate)
+
+Allow WebRequest URL for your AEGIS host in MT5 Expert Advisors options.
