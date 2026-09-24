@@ -33,6 +33,7 @@ from app.services.audit_service import AuditService
 from app.services.upload_diagnostic_service import UploadDiagnosticService
 from app.services.alert_service import AlertService
 from app.services.notification_service import NotificationService
+from app.services.portfolio_risk_service import PortfolioRiskService
 from app.services.signup_session_service import SignupSessionService
 from app.services.device_binding_service import DeviceBindingService
 from app.services.trade_limit_service import TradeLimitService
@@ -99,6 +100,7 @@ async def on_startup(app: FastAPI) -> None:
     app.state.upload_diagnostics = UploadDiagnosticService()
     app.state.alert_service = AlertService()
     app.state.notifications = NotificationService(app.state.alert_service)
+    app.state.portfolio_risk = PortfolioRiskService()
     app.state.device_bindings = DeviceBindingService()
     app.state.trade_limits = TradeLimitService()
     app.state.templates = RegistryService()

@@ -417,19 +417,48 @@ async def analyze_screenshot(
                 except Exception as _re:
                     pub_reason = f"registry_check_error:{_re}"
             if allow_pub:
-                exec_svc.publish(
-                    account_id=account_id,
-                    symbol=sym,
-                    side=side,
-                    confidence=float(result.get("confidence") or 0),
-                    rule_name=str(result.get("rule_name") or ""),
-                    volume=float(vol) if vol is not None else None,
-                    stop_loss=result.get("stop_loss") or result.get("sl"),
-                    take_profit=result.get("take_profit") or result.get("tp"),
-                    details=str(result.get("details") or "")[:500],
-                )
-                result["executor_published"] = True
-                result["executor_publish_reason"] = pub_reason
+                # Portfolio risk: equity × tolerance → lot + max pairs (MultiSymbol)
+                sized_vol = float(vol) if vol is not None else None
+                risk_meta = None
+                try:
+                    pr = getattr(request.app.state, "portfolio_risk", None)
+                    sub_svc = getattr(request.app.state, "subscription_service", None)
+                    plan_code = "demo"
+                    if sub_svc is not None:
+                        try:
+                            rec = await sub_svc.get_status(account_id)
+                            if isinstance(rec, dict):
+                                plan_code = rec.get("plan") or "demo"
+                        except Exception:
+                            pass
+                    if pr is not None:
+                        risk_meta = await pr.size_order(account_id, sym, plan_code)
+                        result["portfolio_risk"] = risk_meta
+                        if not risk_meta.get("allow"):
+                            allow_pub = False
+                            pub_reason = risk_meta.get("reason") or "risk_blocked"
+                        else:
+                            sized_vol = float(risk_meta.get("volume") or sized_vol or 0.01)
+                except Exception as _re:
+                    result["portfolio_risk_error"] = str(_re)
+                if allow_pub:
+                    exec_svc.publish(
+                        account_id=account_id,
+                        symbol=sym,
+                        side=side,
+                        confidence=float(result.get("confidence") or 0),
+                        rule_name=str(result.get("rule_name") or ""),
+                        volume=sized_vol,
+                        stop_loss=result.get("stop_loss") or result.get("sl"),
+                        take_profit=result.get("take_profit") or result.get("tp"),
+                        details=str(result.get("details") or "")[:500],
+                    )
+                    result["executor_published"] = True
+                    result["executor_publish_reason"] = pub_reason
+                    result["executor_volume"] = sized_vol
+                else:
+                    result["executor_published"] = False
+                    result["executor_publish_reason"] = pub_reason
             else:
                 result["executor_published"] = False
                 result["executor_publish_reason"] = pub_reason
@@ -458,6 +487,7 @@ async def analyze_screenshot(
                 vault = getattr(request.app.state, "vault", None)
                 if vault is not None:
                     auto.credential_getter = vault.get_credentials_by_account
+                auto.portfolio_risk = getattr(request.app.state, "portfolio_risk", None)
                 execution = await auto.execute_if_signal(
                     account_id=account_id,
                     symbol=symbol.strip(),

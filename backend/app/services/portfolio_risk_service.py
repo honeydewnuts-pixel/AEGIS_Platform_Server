@@ -1,0 +1,319 @@
+"""
+Equity-aware portfolio risk for MultiSymbol and chart-only modes.
+
+Client sets:
+  - account equity (USD)
+  - max risk tolerance % of equity: 5,10,...,45
+  - trading mode: multi_symbol | chart_only
+
+Server:
+  - risk_budget = equity * tolerance_pct / 100
+  - per-symbol min notional / min lot from table or defaults
+  - max concurrent pairs = min(24, floor(budget / min_notional)) when multi_symbol
+  - lot size scaled within plan max_lot and remaining budget
+  - halt when drawdown from peak exceeds risk budget (tolerance of equity)
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Any
+
+from sqlalchemy import select
+
+from app.db.base import async_session_factory
+from app.db.models import InstrumentMinNotional, Subscription
+from app.services.plan_catalog import get_max_lot, resolve_plan
+
+ALLOWED_TOLERANCE_PCT = (5, 10, 15, 20, 25, 30, 35, 40, 45)
+MAX_MULTISYMBOL_PAIRS = 24
+DEFAULT_MIN_NOTIONAL_USD = 50.0
+DEFAULT_MIN_LOT = 0.01
+
+# Conservative default min notionals (USD) when broker has not reported
+DEFAULT_SYMBOL_MIN_NOTIONAL: dict[str, float] = {
+    "EURUSD": 50, "GBPUSD": 50, "USDJPY": 50, "USDCHF": 50, "AUDUSD": 50,
+    "NZDUSD": 50, "USDCAD": 50, "EURGBP": 50, "EURCHF": 50, "EURJPY": 50,
+    "GBPJPY": 50, "GBPNZD": 50, "NZDCHF": 50, "NZDJPY": 50, "AUDNZD": 50,
+    "XAUUSD": 100, "XAGUSD": 100, "BTCUSD": 100, "ETHUSD": 100,
+}
+
+
+class PortfolioRiskService:
+    def __init__(self) -> None:
+        pass
+
+    async def get_state(self, account_id: str) -> dict[str, Any] | None:
+        async with async_session_factory() as session:
+            row = await session.get(Subscription, account_id)
+            if row is None:
+                return None
+            equity = float(row.account_equity_usd) if row.account_equity_usd is not None else None
+            peak = float(row.peak_equity_usd) if row.peak_equity_usd is not None else equity
+            pct = int(row.risk_tolerance_pct or 25)
+            budget = (equity * pct / 100.0) if equity and equity > 0 else 0.0
+            open_risk = float(row.open_risk_usd or 0.0)
+            remaining = max(0.0, budget - open_risk)
+            return {
+                "account_id": account_id,
+                "account_equity_usd": equity,
+                "peak_equity_usd": peak,
+                "risk_tolerance_pct": pct,
+                "risk_budget_usd": round(budget, 2),
+                "open_risk_usd": round(open_risk, 2),
+                "remaining_risk_usd": round(remaining, 2),
+                "trading_mode": row.trading_mode or "multi_symbol",
+                "trading_halted": bool(row.trading_halted),
+                "halted_reason": row.halted_reason,
+                "plan": row.plan,
+            }
+
+    async def set_equity(self, account_id: str, equity_usd: float, source: str = "client") -> dict[str, Any]:
+        if equity_usd < 0:
+            raise ValueError("equity must be >= 0")
+        async with async_session_factory() as session:
+            row = await session.get(Subscription, account_id)
+            if row is None:
+                raise ValueError("account not found")
+            prev = float(row.account_equity_usd) if row.account_equity_usd is not None else None
+            row.account_equity_usd = float(equity_usd)
+            peak = float(row.peak_equity_usd) if row.peak_equity_usd is not None else 0.0
+            if equity_usd > peak:
+                row.peak_equity_usd = float(equity_usd)
+            # Auto-resume if client adds capital and was halted for risk
+            if row.trading_halted and equity_usd > (prev or 0):
+                pct = int(row.risk_tolerance_pct or 25)
+                peak = float(row.peak_equity_usd or equity_usd)
+                dd = max(0.0, peak - equity_usd)
+                budget = equity_usd * pct / 100.0
+                if dd < budget:
+                    row.trading_halted = False
+                    row.halted_reason = None
+            await session.commit()
+        return await self.evaluate_halt(account_id)
+
+    async def set_risk_tolerance_pct(self, account_id: str, pct: int) -> dict[str, Any]:
+        if int(pct) not in ALLOWED_TOLERANCE_PCT:
+            raise ValueError(f"risk_tolerance_pct must be one of {ALLOWED_TOLERANCE_PCT}")
+        async with async_session_factory() as session:
+            row = await session.get(Subscription, account_id)
+            if row is None:
+                raise ValueError("account not found")
+            row.risk_tolerance_pct = int(pct)
+            # Changing tolerance may clear halt if drawdown now within budget
+            await session.commit()
+        return await self.evaluate_halt(account_id)
+
+    async def set_trading_mode(self, account_id: str, mode: str) -> dict[str, Any]:
+        mode = (mode or "").strip().lower()
+        if mode not in ("multi_symbol", "chart_only"):
+            raise ValueError("trading_mode must be multi_symbol or chart_only")
+        async with async_session_factory() as session:
+            row = await session.get(Subscription, account_id)
+            if row is None:
+                raise ValueError("account not found")
+            row.trading_mode = mode
+            await session.commit()
+        return await self.get_state(account_id)  # type: ignore
+
+    async def evaluate_halt(self, account_id: str) -> dict[str, Any]:
+        """Halt if drawdown from peak equity exceeds risk budget."""
+        async with async_session_factory() as session:
+            row = await session.get(Subscription, account_id)
+            if row is None:
+                raise ValueError("account not found")
+            equity = float(row.account_equity_usd) if row.account_equity_usd is not None else None
+            if equity is None or equity <= 0:
+                state = await self.get_state(account_id)
+                return state  # type: ignore
+            peak = float(row.peak_equity_usd) if row.peak_equity_usd is not None else equity
+            if equity > peak:
+                row.peak_equity_usd = equity
+                peak = equity
+            pct = int(row.risk_tolerance_pct or 25)
+            budget = equity * pct / 100.0
+            dd = max(0.0, peak - equity)
+            if dd >= budget and budget > 0:
+                row.trading_halted = True
+                row.halted_reason = (
+                    f"Drawdown ${dd:.2f} reached risk tolerance "
+                    f"({pct}% of equity = ${budget:.2f}). "
+                    "Deposit more equity or lower risk tolerance to resume."
+                )
+            await session.commit()
+        return await self.get_state(account_id)  # type: ignore
+
+    async def get_min_notional(self, symbol: str) -> tuple[float, float]:
+        base = symbol.upper().split(".")[0]
+        async with async_session_factory() as session:
+            row = await session.get(InstrumentMinNotional, base)
+            if row is not None:
+                return float(row.min_notional_usd), float(row.min_lot)
+        return (
+            float(DEFAULT_SYMBOL_MIN_NOTIONAL.get(base, DEFAULT_MIN_NOTIONAL_USD)),
+            DEFAULT_MIN_LOT,
+        )
+
+    async def upsert_min_notional(
+        self, symbol: str, min_notional_usd: float, min_lot: float = 0.01
+    ) -> None:
+        base = symbol.upper().split(".")[0]
+        async with async_session_factory() as session:
+            row = await session.get(InstrumentMinNotional, base)
+            now = datetime.now(timezone.utc)
+            if row is None:
+                session.add(
+                    InstrumentMinNotional(
+                        symbol=base,
+                        min_notional_usd=float(min_notional_usd),
+                        min_lot=float(min_lot),
+                        updated_at=now,
+                    )
+                )
+            else:
+                row.min_notional_usd = float(min_notional_usd)
+                row.min_lot = float(min_lot)
+                row.updated_at = now
+            await session.commit()
+
+    async def max_pairs_for_account(self, account_id: str) -> int:
+        state = await self.get_state(account_id)
+        if not state or not state.get("account_equity_usd"):
+            return 1
+        budget = float(state["risk_budget_usd"] or 0)
+        if budget <= 0:
+            return 0
+        # Use median default min notional for capacity estimate
+        avg_min = DEFAULT_MIN_NOTIONAL_USD
+        n = int(budget // avg_min)
+        return max(0, min(MAX_MULTISYMBOL_PAIRS, n if n > 0 else 0))
+
+    async def size_order(
+        self,
+        account_id: str,
+        symbol: str,
+        plan_code: str,
+        *,
+        active_open_symbols: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Decide whether a new/ongoing signal for `symbol` may trade and at what lot.
+
+        Returns:
+          allow, volume, reason, risk_allocation_usd, max_pairs, ...
+        """
+        state = await self.get_state(account_id)
+        if state is None:
+            return {"allow": False, "volume": 0.0, "reason": "account_not_found"}
+
+        if state.get("trading_halted"):
+            return {
+                "allow": False,
+                "volume": 0.0,
+                "reason": "trading_halted",
+                "halted_reason": state.get("halted_reason"),
+            }
+
+        equity = state.get("account_equity_usd")
+        if equity is None or float(equity) <= 0:
+            # No equity reported yet — fall back to plan lot, single-pair safe path
+            max_lot = get_max_lot(plan_code)
+            return {
+                "allow": True,
+                "volume": float(max_lot if max_lot <= 0.01 else 0.01),
+                "reason": "equity_not_set_fallback_min_lot",
+                "risk_budget_usd": 0,
+            }
+
+        min_notional, min_lot = await self.get_min_notional(symbol)
+        budget = float(state["risk_budget_usd"])
+        open_risk = float(state["open_risk_usd"])
+        remaining = max(0.0, budget - open_risk)
+        mode = state.get("trading_mode") or "multi_symbol"
+        active = [s.upper().split(".")[0] for s in (active_open_symbols or [])]
+        sym = symbol.upper().split(".")[0]
+        already_open = sym in active
+
+        max_pairs = await self.max_pairs_for_account(account_id)
+        if mode == "multi_symbol":
+            if not already_open and len(active) >= max_pairs:
+                return {
+                    "allow": False,
+                    "volume": 0.0,
+                    "reason": "max_pairs_reached",
+                    "max_pairs": max_pairs,
+                    "active_pairs": len(active),
+                }
+            if not already_open and remaining < min_notional:
+                return {
+                    "allow": False,
+                    "volume": 0.0,
+                    "reason": "insufficient_remaining_risk",
+                    "remaining_risk_usd": remaining,
+                    "min_notional_usd": min_notional,
+                }
+        else:
+            # chart_only: only the selected symbol; still respect remaining budget
+            if remaining < min_notional and not already_open:
+                return {
+                    "allow": False,
+                    "volume": 0.0,
+                    "reason": "insufficient_remaining_risk",
+                    "remaining_risk_usd": remaining,
+                }
+
+        plan_max = float(get_max_lot(plan_code))
+        # Capital at risk for this slot: equal-weight remaining budget across free slots
+        free_slots = max(1, max_pairs - len(active) + (1 if already_open else 0))
+        slot_budget = remaining / free_slots if free_slots else remaining
+        # Approximate: scale lots by slot_budget / min_notional * min_lot
+        if min_notional > 0:
+            raw_lots = (slot_budget / min_notional) * min_lot
+        else:
+            raw_lots = min_lot
+        volume = max(min_lot, min(plan_max, round(raw_lots, 2)))
+        if volume < min_lot:
+            volume = min_lot
+        if volume > plan_max:
+            volume = plan_max
+
+        allocation = min(slot_budget, min_notional * (volume / min_lot) if min_lot else min_notional)
+
+        return {
+            "allow": True,
+            "volume": float(volume),
+            "reason": "ok",
+            "risk_allocation_usd": round(allocation, 2),
+            "min_notional_usd": min_notional,
+            "min_lot": min_lot,
+            "max_pairs": max_pairs,
+            "risk_budget_usd": budget,
+            "remaining_risk_usd": remaining,
+            "trading_mode": mode,
+            "plan_max_lot": plan_max,
+        }
+
+    async def record_open_risk(self, account_id: str, delta_usd: float) -> None:
+        async with async_session_factory() as session:
+            row = await session.get(Subscription, account_id)
+            if row is None:
+                return
+            row.open_risk_usd = max(0.0, float(row.open_risk_usd or 0.0) + float(delta_usd))
+            await session.commit()
+
+    async def portfolio_summary(self, account_id: str, universe: list[str] | None = None) -> dict[str, Any]:
+        state = await self.get_state(account_id)
+        if not state:
+            return {"error": "account_not_found"}
+        max_pairs = await self.max_pairs_for_account(account_id)
+        pairs = universe or list(DEFAULT_SYMBOL_MIN_NOTIONAL.keys())[:MAX_MULTISYMBOL_PAIRS]
+        return {
+            **state,
+            "max_concurrent_pairs": max_pairs,
+            "universe_size": len(pairs),
+            "allowed_tolerance_pct": list(ALLOWED_TOLERANCE_PCT),
+            "note": (
+                "In multi_symbol mode clients do not pick pairs; AEGIS allocates "
+                "up to max_concurrent_pairs from live signals within risk budget."
+            ),
+        }

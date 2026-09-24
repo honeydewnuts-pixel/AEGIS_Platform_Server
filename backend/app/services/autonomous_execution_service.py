@@ -66,6 +66,21 @@ class AutonomousDemoExecutionService:
         plan_code = plan if isinstance(plan, str) else "demo"
         preset = await self.subscription_service.get_risk_preset(account_id)
         volume = float(self.subscription_service.calculate_lot_size(plan_code, preset))
+        # Prefer equity-based portfolio sizing when available
+        pr = getattr(self, "portfolio_risk", None)
+        if pr is not None:
+            try:
+                sized = await pr.size_order(account_id, symbol, plan_code)
+                if not sized.get("allow"):
+                    return {
+                        "status": "risk_blocked",
+                        "executed": False,
+                        "message": sized.get("reason") or sized.get("halted_reason") or "portfolio risk",
+                        "portfolio_risk": sized,
+                    }
+                volume = float(sized.get("volume") or volume)
+            except Exception:
+                pass
 
         request = MarketOrderRequest(
             symbol=symbol.strip(),

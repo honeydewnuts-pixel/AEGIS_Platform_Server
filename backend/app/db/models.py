@@ -48,6 +48,14 @@ class Subscription(Base):
     plan: Mapped[str] = mapped_column(String, nullable=False, default="starter")
     # User risk preset: conservative | standard | aggressive (server calculates lot)
     risk_preset: Mapped[str] = mapped_column(String(20), nullable=False, default="standard")
+    # Portfolio risk (equity × tolerance → multi-symbol capacity)
+    account_equity_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
+    peak_equity_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
+    risk_tolerance_pct: Mapped[int] = mapped_column(Integer, nullable=False, default=25)
+    trading_mode: Mapped[str] = mapped_column(String(32), nullable=False, default="multi_symbol")
+    trading_halted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    halted_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    open_risk_usd: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     max_devices: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     max_trades_per_day: Mapped[int] = mapped_column(Integer, nullable=False, default=10)  # 0 = unlimited
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -323,3 +331,12 @@ class NotificationPreference(Base):
     execution_alerts: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     system_alerts: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class InstrumentMinNotional(Base):
+    """Broker minimum trade size (USD notional and min lot) per symbol."""
+    __tablename__ = "instrument_min_notional"
+    symbol: Mapped[str] = mapped_column(String(32), primary_key=True)
+    min_notional_usd: Mapped[float] = mapped_column(Float, nullable=False, default=50.0)
+    min_lot: Mapped[float] = mapped_column(Float, nullable=False, default=0.01)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
