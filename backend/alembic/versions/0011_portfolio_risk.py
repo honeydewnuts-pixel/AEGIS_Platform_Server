@@ -1,13 +1,13 @@
 """Portfolio risk: equity, tolerance %, multi-symbol mode, halt.
 
-Revision ID: 0011
-Revises: 0010
+Revision ID: 0011_portfolio_risk
+Revises: 0010_notification_prefs
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision = "0011"
-down_revision = "0010"
+revision = "0011_portfolio_risk"
+down_revision = "0010_notification_prefs"
 branch_labels = None
 depends_on = None
 
