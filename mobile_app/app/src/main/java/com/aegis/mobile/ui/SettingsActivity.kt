@@ -127,6 +127,13 @@ class SettingsActivity : AppCompatActivity() {
             etMinConfidence.setText(
                 prefs[PrefKeys.MIN_CONFIDENCE] ?: DEFAULT_MIN_CONFIDENCE.toString()
             )
+            etAccountEquity.setText(prefs[PrefKeys.ACCOUNT_EQUITY_USD] ?: "")
+            val tol = prefs[PrefKeys.RISK_TOLERANCE_PCT] ?: 25
+            val tolIdx = TOLERANCE_OPTIONS.indexOf(tol).let { if (it < 0) 4 else it }
+            spinnerRiskTolerance.setSelection(tolIdx)
+            val mode = prefs[PrefKeys.TRADING_MODE] ?: "multi_symbol"
+            val modeIdx = MODE_OPTIONS.indexOfFirst { it.second == mode }.let { if (it < 0) 0 else it }
+            spinnerTradingMode.setSelection(modeIdx)
         }
 
         btnSave.setOnClickListener {
