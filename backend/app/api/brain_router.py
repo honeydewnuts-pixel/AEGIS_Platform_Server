@@ -467,6 +467,27 @@ async def analyze_screenshot(
                     if side in ("BUY", "SELL") and pub_conf < 0.55:
                         pub_conf = 0.55
                         result["confidence"] = pub_conf
+                    sl = result.get("stop_loss") or result.get("sl")
+                    tp = result.get("take_profit") or result.get("tp")
+                    # Default protective levels when rulebook did not supply them (percent of price)
+                    try:
+                        px = float(
+                            result.get("entry_price")
+                            or result.get("close")
+                            or (result.get("ohlc") or {}).get("close")
+                            or 0
+                        )
+                    except Exception:
+                        px = 0.0
+                    if px > 0 and side in ("BUY", "SELL"):
+                        if not sl or float(sl or 0) <= 0:
+                            # ~0.5% stop
+                            sl = px * (0.995 if side == "BUY" else 1.005)
+                        if not tp or float(tp or 0) <= 0:
+                            # ~1.0% target
+                            tp = px * (1.01 if side == "BUY" else 0.99)
+                        result["stop_loss"] = float(sl)
+                        result["take_profit"] = float(tp)
                     exec_svc.publish(
                         account_id=account_id,
                         symbol=sym,
@@ -474,8 +495,8 @@ async def analyze_screenshot(
                         confidence=pub_conf,
                         rule_name=str(result.get("rule_name") or ""),
                         volume=sized_vol,
-                        stop_loss=result.get("stop_loss") or result.get("sl"),
-                        take_profit=result.get("take_profit") or result.get("tp"),
+                        stop_loss=float(sl) if sl else None,
+                        take_profit=float(tp) if tp else None,
                         details=str(result.get("details") or "")[:500],
                     )
                     result["executor_published"] = True

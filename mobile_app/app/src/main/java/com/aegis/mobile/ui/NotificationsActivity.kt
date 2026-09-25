@@ -27,16 +27,21 @@ class NotificationsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_notifications)
-        findViewById<android.widget.Button?>(R.id.btnAlertChannels)?.setOnClickListener {
-            startActivity(Intent(this, AlertChannelsActivity::class.java))
+        try {
+            list = findViewById(R.id.notifList)
+            empty = findViewById(R.id.notifEmpty)
+            badge = findViewById(R.id.notifUnreadBadge)
+            findViewById<AppCompatButton>(R.id.btnAlertChannels)?.setOnClickListener {
+                startActivity(Intent(this, AlertChannelsActivity::class.java))
+            }
+            findViewById<AppCompatButton>(R.id.notifRefreshBtn)?.setOnClickListener { load() }
+            findViewById<AppCompatButton>(R.id.notifReadAllBtn)?.setOnClickListener { markAll() }
+            findViewById<AppCompatButton>(R.id.notifCloseBtn)?.setOnClickListener { finish() }
+            load()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Alerts UI error: ${e.message}", Toast.LENGTH_LONG).show()
+            finish()
         }
-        list = findViewById(R.id.notifList)
-        empty = findViewById(R.id.notifEmpty)
-        badge = findViewById(R.id.notifUnreadBadge)
-        findViewById<AppCompatButton>(R.id.notifRefreshBtn).setOnClickListener { load() }
-        findViewById<AppCompatButton>(R.id.notifReadAllBtn).setOnClickListener { markAll() }
-        findViewById<AppCompatButton>(R.id.notifCloseBtn).setOnClickListener { finish() }
-        load()
     }
 
     private fun load() {

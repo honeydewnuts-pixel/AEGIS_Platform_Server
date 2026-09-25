@@ -9,7 +9,7 @@
 //| - Fill modes from SYMBOL_TRADE_EXECUTION + SYMBOL_FILLING_MODE   |
 //+------------------------------------------------------------------+
 #property copyright "LeverageFx / Honeydewnuts"
-#property version   "2.15"
+#property version   "2.16"
 #property strict
 #property description "AEGIS multi-pair executor v2.15 production"
 
@@ -187,6 +187,73 @@ bool HasOpenPositionOn(const string symbol)
      }
    return false;
   }
+
+// Close all AEGIS-magic positions on symbol (for reverse / flip)
+bool ClosePositionsOn(const string symbol)
+  {
+   bool any=false;
+   for(int i=PositionsTotal()-1;i>=0;i--)
+     {
+      ulong ticket=PositionGetTicket(i);
+      if(ticket==0) continue;
+      if(!PositionSelectByTicket(ticket)) continue;
+      if(PositionGetInteger(POSITION_MAGIC)!=MagicNumber) continue;
+      if(PositionGetString(POSITION_SYMBOL)!=symbol) continue;
+      long ptype=PositionGetInteger(POSITION_TYPE);
+      double vol=PositionGetDouble(POSITION_VOLUME);
+      MqlTradeRequest req; MqlTradeResult res;
+      ZeroMemory(req); ZeroMemory(res);
+      req.action=TRADE_ACTION_DEAL;
+      req.symbol=symbol;
+      req.volume=vol;
+      req.deviation=Slippage;
+      req.magic=MagicNumber;
+      req.position=ticket;
+      req.comment="AEGIS close";
+      if(ptype==POSITION_TYPE_BUY)
+        {
+         req.type=ORDER_TYPE_SELL;
+         req.price=SymbolInfoDouble(symbol,SYMBOL_BID);
+        }
+      else
+        {
+         req.type=ORDER_TYPE_BUY;
+         req.price=SymbolInfoDouble(symbol,SYMBOL_ASK);
+        }
+      ENUM_ORDER_TYPE_FILLING modes[];
+      GetSupportedFillModes(symbol,modes);
+      bool done=false;
+      for(int m=0;m<ArraySize(modes) && !done;m++)
+        {
+         req.type_filling=modes[m];
+         if(OrderSend(req,res) && (res.retcode==TRADE_RETCODE_DONE || res.retcode==TRADE_RETCODE_DONE_PARTIAL))
+           {
+            any=true;
+            done=true;
+            Print("AEGIS: closed position ",ticket," on ",symbol);
+           }
+        }
+     }
+   return any;
+  }
+
+// True if open position side mismatches requested side (need flip)
+bool NeedsFlip(const string symbol, const string side)
+  {
+   for(int i=PositionsTotal()-1;i>=0;i--)
+     {
+      ulong ticket=PositionGetTicket(i);
+      if(ticket==0) continue;
+      if(!PositionSelectByTicket(ticket)) continue;
+      if(PositionGetInteger(POSITION_MAGIC)!=MagicNumber) continue;
+      if(PositionGetString(POSITION_SYMBOL)!=symbol) continue;
+      long ptype=PositionGetInteger(POSITION_TYPE);
+      if(side=="BUY" && ptype==POSITION_TYPE_SELL) return true;
+      if(side=="SELL" && ptype==POSITION_TYPE_BUY) return true;
+     }
+   return false;
+  }
+
 
 ulong FindPositionTicket(const string symbol)
   {
@@ -499,8 +566,18 @@ int ExecuteTradeOn(const string brokerSymbol, const string side, double volume,
      }
    if(OnePositionPerSymbol && HasOpenPositionOn(brokerSymbol))
      {
-      AckServerFull(signalId,brokerSymbol,side,0,0,0,0,-2,false,"already_open");
-      return -1;
+      // Same direction → skip; opposite direction → close then open
+      if(NeedsFlip(brokerSymbol, side))
+        {
+         Print("AEGIS: flipping position on ", brokerSymbol, " for ", side);
+         ClosePositionsOn(brokerSymbol);
+         Sleep(300);
+        }
+      else
+        {
+         AckServerFull(signalId,brokerSymbol,side,0,0,0,0,-2,false,"already_open");
+         return -1;
+        }
      }
    if(!SpreadOk(brokerSymbol))
      {
@@ -763,7 +840,7 @@ void PollLocalFallback()
 
 int OnInit()
   {
-   Print("AEGIS_Executor v2.15 PRODUCTION mode=",EnumToString(ExecMode)," account=",AccountId);
+   Print("AEGIS_Executor v2.16 PRODUCTION mode=",EnumToString(ExecMode)," account=",AccountId);
    EventSetTimer(MathMax(2,PollSeconds));
    return INIT_SUCCEEDED;
   }

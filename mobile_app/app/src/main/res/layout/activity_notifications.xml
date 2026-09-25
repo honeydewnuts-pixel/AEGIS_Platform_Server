@@ -33,6 +33,16 @@
             android:paddingEnd="8dp"/>
     </LinearLayout>
 
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btnAlertChannels"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:text="Alert channels · Email / Telegram / SMS / WhatsApp"
+        android:textColor="#0A1628"
+        android:textSize="12sp"
+        android:background="@drawable/btn_secondary_bg"
+        android:layout_marginBottom="8dp"/>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -78,16 +88,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"/>
-    
-        <Button
-            android:id="@+id/btnAlertChannels"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Set Email / Telegram / SMS / WhatsApp"
-            android:textColor="#0A1628"
-            android:backgroundTint="#FFD600"
-            android:layout_marginBottom="8dp"/>
-</ScrollView>
+    </ScrollView>
 
     <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/notifCloseBtn"

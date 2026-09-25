@@ -29,6 +29,10 @@ ALLOWED_TOLERANCE_PCT = (0.5, 1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0,
 MAX_MULTISYMBOL_PAIRS = 24
 DEFAULT_MIN_NOTIONAL_USD = 10.0
 DEFAULT_MIN_LOT = 0.01
+# Used to convert risk-slot USD into lots when broker min_notional is only a floor.
+# volume ≈ (slot_budget_usd * leverage) / 100_000  for FX-style notionals.
+ASSUMED_ACCOUNT_LEVERAGE = 100.0
+STANDARD_LOT_NOTIONAL_USD = 100_000.0
 
 # Conservative default min notionals (USD) when broker has not reported
 DEFAULT_SYMBOL_MIN_NOTIONAL: dict[str, float] = {
@@ -280,27 +284,40 @@ class PortfolioRiskService:
                 }
 
         plan_max = float(get_max_lot(plan_code))
-        # Capital at risk for this slot: equal-weight remaining budget across free slots
+        # Equal-weight remaining risk budget across free MultiSymbol slots
         free_slots = max(1, max_pairs - len(active) + (1 if already_open else 0))
         slot_budget = remaining / free_slots if free_slots else remaining
-        # Approximate: scale lots by slot_budget / min_notional * min_lot
-        if min_notional > 0:
-            raw_lots = (slot_budget / min_notional) * min_lot
+
+        # Primary: treat slot_budget as *margin* available for this pair under assumed leverage.
+        # notional ≈ margin * leverage; lots ≈ notional / 100k (FX-style).
+        # Example: equity $10k, 25% → $2500 budget, 11 pairs → ~$227/slot
+        #          * 100 lev → ~$22.7k notional → ~0.23 lots (not 0.01).
+        margin_per_standard_lot = STANDARD_LOT_NOTIONAL_USD / max(1.0, ASSUMED_ACCOUNT_LEVERAGE)
+        if margin_per_standard_lot > 0:
+            raw_lots = slot_budget / margin_per_standard_lot
         else:
             raw_lots = min_lot
+
+        # Floor: at least enough to open min_lot if budget covers min_notional margin
+        if raw_lots < min_lot and slot_budget >= max(0.5, min_notional * 0.05):
+            raw_lots = min_lot
+
         volume = max(min_lot, min(plan_max, round(raw_lots, 2)))
         if volume < min_lot:
             volume = min_lot
         if volume > plan_max:
             volume = plan_max
 
-        allocation = min(slot_budget, min_notional * (volume / min_lot) if min_lot else min_notional)
+        # Estimated margin reserved for this open (for open_risk tracking)
+        allocation = round(volume * margin_per_standard_lot, 2)
 
         return {
             "allow": True,
             "volume": float(volume),
             "reason": "ok",
-            "risk_allocation_usd": round(allocation, 2),
+            "risk_allocation_usd": allocation,
+            "slot_budget_usd": round(slot_budget, 2),
+            "assumed_leverage": ASSUMED_ACCOUNT_LEVERAGE,
             "min_notional_usd": min_notional,
             "min_lot": min_lot,
             "max_pairs": max_pairs,
