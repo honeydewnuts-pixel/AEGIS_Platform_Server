@@ -1,6 +1,11 @@
 package com.aegis.mobile.ui
 
 import android.graphics.Color
+import android.net.Uri
+import androidx.activity.result.contract.ActivityResultContracts
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -27,7 +32,7 @@ import kotlinx.coroutines.launch
 
 class CommunityActivity : AppCompatActivity() {
     private data class Room(val id: String, val title: String)
-    private data class Msg(val id: Int, val name: String, val body: String, val at: String)
+    private data class Msg(val id: Int, val name: String, val body: String, val at: String, val hasImage: Boolean = false)
 
     private val rooms = mutableListOf<Room>()
     private val messages = mutableListOf<Msg>()
@@ -39,6 +44,11 @@ class CommunityActivity : AppCompatActivity() {
     private lateinit var myNameLabel: TextView
     private var accountId: String = ""
     private var lastMsgId: Int = 0
+    private var pendingAttachmentUrl: String? = null
+    private var pendingAttachmentMime: String? = null
+    private val imagePicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri != null) uploadImage(uri)
+    }
     private val handler = Handler(Looper.getMainLooper())
     private val pollRunnable = object : Runnable {
         override fun run() {
@@ -60,6 +70,9 @@ class CommunityActivity : AppCompatActivity() {
         list.layoutManager = LinearLayoutManager(this)
         list.adapter = adapter
         findViewById<Button>(R.id.sendBtn).setOnClickListener { send() }
+        findViewById<Button>(R.id.attachBtn).setOnClickListener {
+            imagePicker.launch("image/*")
+        }
         findViewById<TextView>(R.id.editNameBtn).setOnClickListener { promptDisplayName(force = true) }
         findViewById<TextView>(R.id.editNameBtn).setOnLongClickListener {
             openDmDialog(); true
@@ -232,12 +245,15 @@ class CommunityActivity : AppCompatActivity() {
                 rows.forEach {
                     val id = (it["id"] as? Number)?.toInt() ?: 0
                     if (id > 0 && messages.none { m -> m.id == id }) {
+                        val att = (it["attachment_url"] ?: "").toString()
+                        val body = (it["body"] ?: "").toString()
                         messages.add(
                             Msg(
                                 id,
                                 (it["display_name"] ?: "?").toString(),
-                                (it["body"] ?: "").toString(),
-                                (it["created_at"] ?: "").toString().take(19).replace('T', ' ')
+                                if (att.isNotBlank() && !body.contains("http")) "$body\n[image attached]" else body,
+                                (it["created_at"] ?: "").toString().take(19).replace('T', ' '),
+                                hasImage = att.isNotBlank()
                             )
                         )
                         if (id > lastMsgId) lastMsgId = id
@@ -248,9 +264,55 @@ class CommunityActivity : AppCompatActivity() {
         }
     }
 
+    private fun uploadImage(uri: Uri) {
+        if (accountId.isEmpty()) {
+            Toast.makeText(this, "Set Account ID in Settings", Toast.LENGTH_SHORT).show()
+            return
+        }
+        lifecycleScope.launch {
+            try {
+                val resolver = contentResolver
+                val mime = resolver.getType(uri) ?: "image/jpeg"
+                val bytes = resolver.openInputStream(uri)?.use { it.readBytes() }
+                if (bytes == null || bytes.isEmpty()) {
+                    Toast.makeText(this@CommunityActivity, "Could not read image", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                if (bytes.size > 1_500_000) {
+                    Toast.makeText(this@CommunityActivity, "Image too large (max ~1.5MB)", Toast.LENGTH_LONG).show()
+                    return@launch
+                }
+                val ext = when {
+                    mime.contains("png") -> "png"
+                    mime.contains("webp") -> "webp"
+                    mime.contains("gif") -> "gif"
+                    else -> "jpg"
+                }
+                val mediaType = mime.toMediaTypeOrNull()
+                val fileBody = bytes.toRequestBody(mediaType)
+                val part = MultipartBody.Part.createFormData("file", "chat.$ext", fileBody)
+                val accountPart = accountId.toRequestBody("text/plain".toMediaTypeOrNull())
+                val api = RetrofitClient.getApiService(this@CommunityActivity)
+                val resp = api.communityUploadMedia(accountPart, part)
+                if (!resp.isSuccessful) {
+                    Toast.makeText(this@CommunityActivity, "Upload failed (${resp.code()})", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                pendingAttachmentUrl = (resp.body()?.get("attachment_url") ?: "").toString()
+                pendingAttachmentMime = (resp.body()?.get("attachment_mime") ?: mime).toString()
+                runOnUiThread {
+                    Toast.makeText(this@CommunityActivity, "Image attached — tap Send", Toast.LENGTH_SHORT).show()
+                    input.hint = "Caption (optional) — image ready"
+                }
+            } catch (e: Exception) {
+                Toast.makeText(this@CommunityActivity, e.message ?: "upload error", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     private fun send() {
         val text = input.text?.toString()?.trim().orEmpty()
-        if (text.isEmpty()) return
+        if (text.isEmpty() && pendingAttachmentUrl.isNullOrBlank()) return
         val pos = spinner.selectedItemPosition
         if (pos < 0 || pos >= rooms.size) return
         val roomId = rooms[pos].id
@@ -261,13 +323,27 @@ class CommunityActivity : AppCompatActivity() {
                     return@launch
                 }
                 val api = RetrofitClient.getApiService(this@CommunityActivity)
-                val resp = api.communityPost(roomId, mapOf("account_id" to accountId, "body" to text))
+                val payload = mutableMapOf<String, Any>(
+                    "account_id" to accountId,
+                    "body" to text
+                )
+                pendingAttachmentUrl?.let {
+                    if (it.isNotBlank()) {
+                        payload["attachment_url"] = it
+                        payload["attachment_mime"] = pendingAttachmentMime ?: "image/jpeg"
+                        if (text.isEmpty()) payload["body"] = "[image]"
+                    }
+                }
+                val resp = api.communityPost(roomId, payload)
                 if (!resp.isSuccessful) {
                     Toast.makeText(this@CommunityActivity, "Send failed (${resp.code()})", Toast.LENGTH_SHORT).show()
                     return@launch
                 }
+                pendingAttachmentUrl = null
+                pendingAttachmentMime = null
                 runOnUiThread {
                     input.setText("")
+                    input.hint = "Message…"
                     loadMessages(full = false)
                 }
             } catch (e: Exception) {
@@ -289,8 +365,8 @@ class CommunityActivity : AppCompatActivity() {
         override fun getItemCount() = items.size
         override fun onBindViewHolder(holder: VH, position: Int) {
             val m = items[position]
-            val att = if (m.body.startsWith("[image]")) " 📎" else ""
-            holder.tv.text = "${m.name}  ·  ${m.at}$att\n${m.body}"
+            val att = if (m.body.contains("[image]") || m.body.contains("attachment")) " 📎" else ""
+            holder.tv.text = "${m.name}  ·  ${m.at}${if (m.hasImage) " 📎" else ""}\n${m.body}"
             holder.tv.setOnLongClickListener {
                 reportMessage(m.id, m.name)
                 true
