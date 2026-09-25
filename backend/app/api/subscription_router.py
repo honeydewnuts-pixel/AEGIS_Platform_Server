@@ -319,11 +319,8 @@ async def demo_signup(body: DemoSignupRequest, request: Request):
             status_code=503,
             detail="Signup session service unavailable; try again later",
         )
-    sess = await signup_svc.create(email=email, plan="demo", purpose="demo")
-    account_id = sess["account_id"]
-
     sub = request.app.state.subscription_service
-    # One active demo entitlement per email (commercial abuse control)
+    # Check existing demo BEFORE creating a signup session (avoid orphan Redis keys)
     try:
         existing = await sub.find_active_demo_by_email(email)
         if existing:
@@ -340,6 +337,9 @@ async def demo_signup(body: DemoSignupRequest, request: Request):
         pass
     except Exception:
         pass
+
+    sess = await signup_svc.create(email=email, plan="demo", purpose="demo")
+    account_id = sess["account_id"]
     try:
         issued = await sub.activate_demo(
             account_id, contact_email=email, allow_refresh_existing=False

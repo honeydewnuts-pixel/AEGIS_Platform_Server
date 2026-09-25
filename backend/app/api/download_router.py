@@ -81,7 +81,7 @@ async def download_apk(
 
 class IssueDownloadTokenRequest(BaseModel):
     account_id: str
-    plan: str = Field(default="live", pattern="^(live|demo)$")
+    plan: str = Field(default="starter", pattern="^(live|demo|starter|pro|business)$")
     max_uses: int = Field(default=1, ge=1, le=5)
     ttl_hours: int = Field(default=48, ge=1, le=720)
 

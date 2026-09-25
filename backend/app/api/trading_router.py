@@ -87,13 +87,15 @@ async def connect(
             status_code=402,
             detail="No subscription for this account. Use the mobile API key from portal (not the admin bootstrap key). Start Free demo or subscribe first.",
         )
-    # Demo plan: allow connect only when execution targets are demo; still require vault save.
-    if plan == "demo" and request.execution_enabled:
-        # Soft gate: force execution_enabled false for pure safety on live brokers
-        # Callers can still analyze charts; live server-side execution needs plan=live.
-        pass
-    if plan != "live" and plan != "demo":
-        raise HTTPException(status_code=402, detail="Subscription not eligible.")
+    # Entitlement from plan_catalog capabilities (demo + starter/pro/business/…).
+    # Do not hard-code plan name "live" — paid catalogue uses starter/pro/business.
+    if plan == "demo":
+        pass  # demo may connect vault; execution still gated elsewhere for live brokers
+    elif not await subscription_service.allows_brain(request.account_id):
+        raise HTTPException(
+            status_code=402,
+            detail="Subscription not eligible. Active demo or paid plan required.",
+        )
 
 
     credential_id = request.account_id  # 1:1 for now; see note below if you add multi-credential-per-account later

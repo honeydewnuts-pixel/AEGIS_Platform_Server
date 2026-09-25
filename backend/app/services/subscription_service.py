@@ -301,7 +301,10 @@ class SubscriptionService:
             row = result.scalar_one_or_none()
         if row is None:
             return "none"
-        plan = getattr(row, "plan", None) or "live"
+        plan = getattr(row, "plan", None) or "starter"
+        # Legacy alias: historical rows may still say "live"
+        if (plan or "").lower() == "live":
+            plan = "starter"
         if row.status in ("active", "past_due", "demo"):
             if row.status == "demo":
                 return "demo"
@@ -309,7 +312,21 @@ class SubscriptionService:
         return "none"
 
     async def allows_brain(self, account_id: str) -> bool:
-        return (await self.get_plan(account_id)) in ("live", "demo")
+        """Analysis / connect eligibility from plan_catalog (not hard-coded names)."""
+        plan_code = await self.get_plan(account_id)
+        if plan_code in ("none", ""):
+            return False
+        if plan_code == "demo":
+            return True
+        # Paid tiers and any plan with live_trading or explicit analysis access
+        try:
+            resolved = resolve_plan(plan_code)
+        except Exception:
+            return False
+        if resolved.get("live_trading"):
+            return True
+        # Future analysis-only plans can set brain_access=True in catalogue
+        return bool(resolved.get("brain_access", False))
 
     async def allows_live_trading(self, account_id: str) -> bool:
         plan_code = await self.get_plan(account_id)
