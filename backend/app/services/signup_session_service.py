@@ -28,13 +28,15 @@ class SignupSessionService:
         email_n = (email or "").strip().lower()
         if not email_n or "@" not in email_n:
             raise ValueError("valid email required")
-        plan = (plan or "demo" if purpose == "demo" else "starter").strip().lower()
         purpose = (purpose or "demo").strip().lower()
         if purpose == "checkout":
             from app.services.plan_catalog import normalize_checkout_plan
-            plan = normalize_checkout_plan(plan)
+            # Explicit default — do not use ambiguous "or/if" precedence
+            plan = normalize_checkout_plan(plan if plan else "starter")
         elif purpose == "demo":
             plan = "demo"
+        else:
+            plan = (plan or "starter").strip().lower()
         account_id = f"{'DEMO' if purpose == 'demo' else 'ACC'}-{uuid.uuid4().hex[:10].upper()}"
         session_id = secrets.token_urlsafe(32)
         payload = {
