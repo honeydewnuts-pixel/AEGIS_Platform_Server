@@ -6,14 +6,60 @@
     android:background="#0A1628"
     android:padding="12dp">
 
-    <TextView
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Community"
-        android:textColor="#00D4FF"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:paddingBottom="8dp" />
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Community"
+            android:textColor="#00D4FF"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/onlineBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="● 0 online"
+            android:textColor="#00FF88"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:paddingEnd="8dp" />
+
+        <TextView
+            android:id="@+id/editNameBtn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Name"
+            android:textColor="#FFD600"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:padding="6dp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/myNameLabel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="You: —"
+        android:textColor="#8BA3B8"
+        android:textSize="12sp"
+        android:paddingBottom="4dp" />
+
+    <TextView
+        android:id="@+id/onlineList"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Online: —"
+        android:textColor="#668899"
+        android:textSize="11sp"
+        android:maxLines="2"
+        android:paddingBottom="6dp" />
 
     <Spinner
         android:id="@+id/roomSpinner"

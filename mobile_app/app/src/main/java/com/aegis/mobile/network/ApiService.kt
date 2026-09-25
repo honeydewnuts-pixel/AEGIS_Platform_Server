@@ -145,7 +145,8 @@ interface ApiService {
     @GET("/api/community/rooms/{roomId}/messages")
     suspend fun communityMessages(
         @Path("roomId") roomId: String,
-        @Query("limit") limit: Int = 50
+        @Query("limit") limit: Int = 50,
+        @Query("after_id") afterId: Int? = null
     ): Response<Map<String, @JvmSuppressWildcards Any>>
 
     @POST("/api/community/rooms/{roomId}/messages")
@@ -162,5 +163,17 @@ interface ApiService {
 
     @POST("/api/ai/chat")
     suspend fun aiChat(@Body body: Map<String, @JvmSuppressWildcards Any>): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @GET("/api/community/profile")
+    suspend fun communityProfile(@Query("account_id") accountId: String): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @PUT("/api/community/profile")
+    suspend fun communitySetProfile(@Body body: Map<String, @JvmSuppressWildcards Any>): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @POST("/api/community/presence")
+    suspend fun communityPresence(@Body body: Map<String, @JvmSuppressWildcards Any>): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @GET("/api/community/online")
+    suspend fun communityOnline(): Response<Map<String, @JvmSuppressWildcards Any>>
 }
 

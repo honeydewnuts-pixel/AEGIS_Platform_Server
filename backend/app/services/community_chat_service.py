@@ -1,24 +1,43 @@
-"""Peer community chat — isolated from trading / execution path."""
+"""Peer community chat — display names, presence, rooms. Isolated from trading."""
 
 from __future__ import annotations
 
 import re
-import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import select
 
 from app.db.base import async_session_factory
-from app.db.models import ChatMessage, ChatRoom
+from app.db.models import ChatMessage, ChatRoom, CommunityProfile
 
 MAX_BODY = 2000
 RATE_WINDOW_SEC = 60
-RATE_MAX = 20
-
-# Mild client-side style filter (server-side safety net)
+RATE_MAX = 30
+ONLINE_WINDOW_SEC = 90
+NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{2,23}$")
+RESERVED_NAMES = frozenset(
+    {
+        "admin",
+        "administrator",
+        "aegis",
+        "aegisai",
+        "aegis_ai",
+        "system",
+        "moderator",
+        "mod",
+        "support",
+        "official",
+        "leveragefx",
+        "honeydewnuts",
+        "staff",
+        "root",
+        "null",
+        "undefined",
+    }
+)
 _BLOCK = re.compile(
-    r"(api[_-]?key\s*[:=]|password\s*[:=]|private\s*key)",
+    r"(api[_-]?key\s*[:=]|password\s*[:=]|private\s*key|sk_live|Bearer\s+[A-Za-z0-9_\-]{20,})",
     re.I,
 )
 
@@ -62,11 +81,147 @@ class CommunityChatService:
         return True
 
     @staticmethod
-    def _display_name(account_id: str) -> str:
+    def default_display_name(account_id: str) -> str:
         aid = (account_id or "").strip()
         if len(aid) <= 8:
-            return f"Trader-{aid}"
-        return f"Trader-{aid[-6:]}"
+            return f"Trader_{aid}"
+        return f"Trader_{aid[-6:]}"
+
+    @classmethod
+    def validate_display_name(cls, name: str) -> str:
+        raw = (name or "").strip()
+        if not NAME_RE.match(raw):
+            raise ValueError(
+                "display_name must be 3–24 chars, start with a letter, "
+                "and use only letters, numbers, underscore"
+            )
+        if raw.lower() in RESERVED_NAMES:
+            raise ValueError("display_name is reserved")
+        if raw.lower().startswith("trader_") and len(raw) <= 12:
+            # allow auto names; custom names should not look like system
+            pass
+        return raw
+
+    async def get_profile(self, account_id: str) -> dict[str, Any]:
+        async with async_session_factory() as session:
+            row = await session.get(CommunityProfile, account_id)
+            if row is None:
+                return {
+                    "account_id": account_id,
+                    "display_name": self.default_display_name(account_id),
+                    "display_name_set": False,
+                    "last_seen_at": None,
+                    "online": False,
+                }
+            online = False
+            if row.last_seen_at:
+                online = (
+                    datetime.now(timezone.utc) - row.last_seen_at
+                ) <= timedelta(seconds=ONLINE_WINDOW_SEC)
+            return {
+                "account_id": account_id,
+                "display_name": row.display_name,
+                "display_name_set": True,
+                "last_seen_at": row.last_seen_at.isoformat() if row.last_seen_at else None,
+                "online": online,
+            }
+
+    async def set_display_name(self, account_id: str, display_name: str) -> dict[str, Any]:
+        name = self.validate_display_name(display_name)
+        lower = name.lower()
+        now = datetime.now(timezone.utc)
+        async with async_session_factory() as session:
+            # uniqueness
+            taken = (
+                await session.execute(
+                    select(CommunityProfile).where(
+                        CommunityProfile.display_name_lower == lower,
+                        CommunityProfile.account_id != account_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if taken is not None:
+                raise ValueError("display_name_taken")
+            row = await session.get(CommunityProfile, account_id)
+            if row is None:
+                row = CommunityProfile(
+                    account_id=account_id,
+                    display_name=name,
+                    display_name_lower=lower,
+                    last_seen_at=now,
+                    created_at=now,
+                    updated_at=now,
+                )
+                session.add(row)
+            else:
+                row.display_name = name
+                row.display_name_lower = lower
+                row.updated_at = now
+                row.last_seen_at = now
+            await session.commit()
+        return await self.get_profile(account_id)
+
+    async def heartbeat(self, account_id: str) -> dict[str, Any]:
+        """Mark user online; create profile with default name if missing."""
+        now = datetime.now(timezone.utc)
+        async with async_session_factory() as session:
+            row = await session.get(CommunityProfile, account_id)
+            if row is None:
+                base = self.default_display_name(account_id)
+                # ensure unique default
+                candidate = base
+                n = 0
+                while True:
+                    exists = (
+                        await session.execute(
+                            select(CommunityProfile).where(
+                                CommunityProfile.display_name_lower == candidate.lower()
+                            )
+                        )
+                    ).scalar_one_or_none()
+                    if exists is None:
+                        break
+                    n += 1
+                    candidate = f"{base}_{n}"
+                row = CommunityProfile(
+                    account_id=account_id,
+                    display_name=candidate,
+                    display_name_lower=candidate.lower(),
+                    last_seen_at=now,
+                    created_at=now,
+                    updated_at=now,
+                )
+                session.add(row)
+            else:
+                row.last_seen_at = now
+            await session.commit()
+        return await self.get_profile(account_id)
+
+    async def list_online(self, *, limit: int = 50) -> list[dict[str, Any]]:
+        limit = max(1, min(100, limit))
+        cutoff = datetime.now(timezone.utc) - timedelta(seconds=ONLINE_WINDOW_SEC)
+        async with async_session_factory() as session:
+            rows = (
+                await session.execute(
+                    select(CommunityProfile)
+                    .where(CommunityProfile.last_seen_at >= cutoff)
+                    .order_by(CommunityProfile.last_seen_at.desc())
+                    .limit(limit)
+                )
+            ).scalars().all()
+            return [
+                {
+                    "display_name": r.display_name,
+                    "last_seen_at": r.last_seen_at.isoformat() if r.last_seen_at else None,
+                }
+                for r in rows
+            ]
+
+    async def _resolve_name(self, session, account_id: str) -> str:
+        row = await session.get(CommunityProfile, account_id)
+        if row is not None:
+            return row.display_name
+        return self.default_display_name(account_id)
 
     async def list_rooms(self) -> list[dict[str, Any]]:
         await self.ensure_default_rooms()
@@ -85,20 +240,41 @@ class CommunityChatService:
                 for r in rows
             ]
 
+    async def _resolve_room_id(self, session, room_id: str) -> str:
+        room = await session.get(ChatRoom, room_id)
+        if room is not None:
+            return room.id
+        r = (
+            await session.execute(select(ChatRoom).where(ChatRoom.slug == room_id))
+        ).scalar_one_or_none()
+        if r is None:
+            raise ValueError("room_not_found")
+        return r.id
+
     async def list_messages(
-        self, room_id: str, *, limit: int = 50, before_id: int | None = None
+        self,
+        room_id: str,
+        *,
+        limit: int = 50,
+        before_id: int | None = None,
+        after_id: int | None = None,
     ) -> list[dict[str, Any]]:
         limit = max(1, min(100, limit))
         async with async_session_factory() as session:
+            rid = await self._resolve_room_id(session, room_id)
             q = select(ChatMessage).where(
-                ChatMessage.room_id == room_id,
+                ChatMessage.room_id == rid,
                 ChatMessage.deleted.is_(False),
             )
-            if before_id:
-                q = q.where(ChatMessage.id < before_id)
-            q = q.order_by(ChatMessage.id.desc()).limit(limit)
-            rows = list((await session.execute(q)).scalars().all())
-            rows.reverse()
+            if after_id:
+                q = q.where(ChatMessage.id > after_id).order_by(ChatMessage.id.asc()).limit(limit)
+                rows = list((await session.execute(q)).scalars().all())
+            else:
+                if before_id:
+                    q = q.where(ChatMessage.id < before_id)
+                q = q.order_by(ChatMessage.id.desc()).limit(limit)
+                rows = list((await session.execute(q)).scalars().all())
+                rows.reverse()
             return [
                 {
                     "id": m.id,
@@ -106,7 +282,6 @@ class CommunityChatService:
                     "display_name": m.display_name,
                     "body": m.body,
                     "created_at": m.created_at.isoformat(),
-                    "mine_hint_account_suffix": (m.account_id or "")[-4:],
                 }
                 for m in rows
             ]
@@ -123,22 +298,20 @@ class CommunityChatService:
             raise ValueError("message_too_long")
         if _BLOCK.search(text):
             raise ValueError("message_blocked_sensitive")
+        now = datetime.now(timezone.utc)
         async with async_session_factory() as session:
-            room = await session.get(ChatRoom, room_id)
-            if room is None:
-                # try slug
-                r = (
-                    await session.execute(select(ChatRoom).where(ChatRoom.slug == room_id))
-                ).scalar_one_or_none()
-                if r is None:
-                    raise ValueError("room_not_found")
-                room_id = r.id
+            rid = await self._resolve_room_id(session, room_id)
+            # presence + name
+            name = await self._resolve_name(session, account_id)
+            prof = await session.get(CommunityProfile, account_id)
+            if prof is not None:
+                prof.last_seen_at = now
             msg = ChatMessage(
-                room_id=room_id,
+                room_id=rid,
                 account_id=account_id,
-                display_name=self._display_name(account_id),
+                display_name=name,
                 body=text,
-                created_at=datetime.now(timezone.utc),
+                created_at=now,
                 deleted=False,
             )
             session.add(msg)

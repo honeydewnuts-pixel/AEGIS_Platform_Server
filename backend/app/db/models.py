@@ -374,3 +374,15 @@ class AiChatMessage(Base):
     role: Mapped[str] = mapped_column(String(16), nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+
+
+class CommunityProfile(Base):
+    """Public chat identity + presence (not used for trading auth)."""
+    __tablename__ = "community_profiles"
+
+    account_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    display_name: Mapped[str] = mapped_column(String(32), nullable=False)
+    display_name_lower: Mapped[str] = mapped_column(String(32), nullable=False, unique=True)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
