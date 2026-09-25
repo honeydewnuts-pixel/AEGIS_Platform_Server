@@ -52,7 +52,7 @@ class Subscription(Base):
     # Portfolio risk (equity × tolerance → multi-symbol capacity)
     account_equity_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
     peak_equity_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
-    risk_tolerance_pct: Mapped[int] = mapped_column(Integer, nullable=False, default=25)
+    risk_tolerance_pct: Mapped[float] = mapped_column(Float, nullable=False, default=25.0)
     trading_mode: Mapped[str] = mapped_column(String(32), nullable=False, default="multi_symbol")
     trading_halted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     halted_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)

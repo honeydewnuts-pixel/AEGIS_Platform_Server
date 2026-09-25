@@ -28,7 +28,7 @@
 ## Mobile Settings (v2.4.1+)
 
 - **Account equity (USD)** — saved locally and POSTed to `/api/portfolio/equity`
-- **Max risk tolerance %** — 5–45% spinner → `/api/portfolio/risk-tolerance`
+- **Max risk tolerance %** — 0.5–50% spinner → `/api/portfolio/risk-tolerance`
 - **Trading mode** — MultiSymbol or Chart only → `/api/portfolio/trading-mode`
 - Status line shows risk budget, max pairs, halt state after Save
 

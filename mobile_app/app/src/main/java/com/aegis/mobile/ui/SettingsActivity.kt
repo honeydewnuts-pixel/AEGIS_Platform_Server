@@ -25,7 +25,7 @@ import kotlinx.coroutines.launch
 class SettingsActivity : AppCompatActivity() {
 
     companion object {
-        val TOLERANCE_OPTIONS = listOf(5, 10, 15, 20, 25, 30, 35, 40, 45)
+        val TOLERANCE_OPTIONS = listOf(0.5, 1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0)
         val MODE_OPTIONS = listOf(
             "MultiSymbol (auto pairs within risk)" to "multi_symbol",
             "Chart only (selected pair)" to "chart_only",
@@ -128,8 +128,8 @@ class SettingsActivity : AppCompatActivity() {
                 prefs[PrefKeys.MIN_CONFIDENCE] ?: DEFAULT_MIN_CONFIDENCE.toString()
             )
             etAccountEquity.setText(prefs[PrefKeys.ACCOUNT_EQUITY_USD] ?: "")
-            val tol = prefs[PrefKeys.RISK_TOLERANCE_PCT] ?: 25
-            val tolIdx = TOLERANCE_OPTIONS.indexOf(tol).let { if (it < 0) 4 else it }
+            val tol = prefs[PrefKeys.RISK_TOLERANCE_PCT]?.toDoubleOrNull() ?: 25.0
+            val tolIdx = TOLERANCE_OPTIONS.indexOfFirst { it == tol }.let { if (it < 0) TOLERANCE_OPTIONS.indexOf(25.0).coerceAtLeast(0) else it }
             spinnerRiskTolerance.setSelection(tolIdx)
             val mode = prefs[PrefKeys.TRADING_MODE] ?: "multi_symbol"
             val modeIdx = MODE_OPTIONS.indexOfFirst { it.second == mode }.let { if (it < 0) 0 else it }
@@ -196,7 +196,7 @@ class SettingsActivity : AppCompatActivity() {
             settings[PrefKeys.ACCOUNT_EQUITY_USD] =
                 etAccountEquity.text.toString().trim()
             val ti = spinnerRiskTolerance.selectedItemPosition.coerceIn(0, TOLERANCE_OPTIONS.lastIndex)
-            settings[PrefKeys.RISK_TOLERANCE_PCT] = TOLERANCE_OPTIONS[ti]
+            settings[PrefKeys.RISK_TOLERANCE_PCT] = TOLERANCE_OPTIONS[ti].toString()
             val mi = spinnerTradingMode.selectedItemPosition.coerceIn(0, MODE_OPTIONS.lastIndex)
             settings[PrefKeys.TRADING_MODE] = MODE_OPTIONS[mi].second
         }

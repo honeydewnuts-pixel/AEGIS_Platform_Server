@@ -18,7 +18,7 @@ class EquityBody(BaseModel):
 
 class ToleranceBody(BaseModel):
     account_id: str
-    risk_tolerance_pct: int
+    risk_tolerance_pct: float
 
 
 class ModeBody(BaseModel):

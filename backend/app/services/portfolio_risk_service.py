@@ -25,7 +25,7 @@ from app.db.base import async_session_factory
 from app.db.models import InstrumentMinNotional, Subscription
 from app.services.plan_catalog import get_max_lot, resolve_plan
 
-ALLOWED_TOLERANCE_PCT = (5, 10, 15, 20, 25, 30, 35, 40, 45)
+ALLOWED_TOLERANCE_PCT = (0.5, 1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0)
 MAX_MULTISYMBOL_PAIRS = 24
 DEFAULT_MIN_NOTIONAL_USD = 50.0
 DEFAULT_MIN_LOT = 0.01
@@ -50,7 +50,7 @@ class PortfolioRiskService:
                 return None
             equity = float(row.account_equity_usd) if row.account_equity_usd is not None else None
             peak = float(row.peak_equity_usd) if row.peak_equity_usd is not None else equity
-            pct = int(row.risk_tolerance_pct or 25)
+            pct = float(row.risk_tolerance_pct if row.risk_tolerance_pct is not None else 25.0)
             budget = (equity * pct / 100.0) if equity and equity > 0 else 0.0
             open_risk = float(row.open_risk_usd or 0.0)
             remaining = max(0.0, budget - open_risk)
@@ -82,7 +82,7 @@ class PortfolioRiskService:
                 row.peak_equity_usd = float(equity_usd)
             # Auto-resume if client adds capital and was halted for risk
             if row.trading_halted and equity_usd > (prev or 0):
-                pct = int(row.risk_tolerance_pct or 25)
+                pct = float(row.risk_tolerance_pct if row.risk_tolerance_pct is not None else 25.0)
                 peak = float(row.peak_equity_usd or equity_usd)
                 dd = max(0.0, peak - equity_usd)
                 budget = equity_usd * pct / 100.0
@@ -92,14 +92,18 @@ class PortfolioRiskService:
             await session.commit()
         return await self.evaluate_halt(account_id)
 
-    async def set_risk_tolerance_pct(self, account_id: str, pct: int) -> dict[str, Any]:
-        if int(pct) not in ALLOWED_TOLERANCE_PCT:
+    async def set_risk_tolerance_pct(self, account_id: str, pct: float) -> dict[str, Any]:
+        try:
+            val = float(pct)
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"risk_tolerance_pct must be one of {ALLOWED_TOLERANCE_PCT}") from e
+        if val not in ALLOWED_TOLERANCE_PCT:
             raise ValueError(f"risk_tolerance_pct must be one of {ALLOWED_TOLERANCE_PCT}")
         async with async_session_factory() as session:
             row = await session.get(Subscription, account_id)
             if row is None:
                 raise ValueError("account not found")
-            row.risk_tolerance_pct = int(pct)
+            row.risk_tolerance_pct = val
             # Changing tolerance may clear halt if drawdown now within budget
             await session.commit()
         return await self.evaluate_halt(account_id)
@@ -130,7 +134,7 @@ class PortfolioRiskService:
             if equity > peak:
                 row.peak_equity_usd = equity
                 peak = equity
-            pct = int(row.risk_tolerance_pct or 25)
+            pct = float(row.risk_tolerance_pct if row.risk_tolerance_pct is not None else 25.0)
             budget = equity * pct / 100.0
             dd = max(0.0, peak - equity)
             if dd >= budget and budget > 0:

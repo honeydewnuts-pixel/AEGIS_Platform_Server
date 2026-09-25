@@ -25,7 +25,7 @@ object PrefKeys {
     val MIN_CONFIDENCE = stringPreferencesKey("min_confidence")
 
     val ACCOUNT_EQUITY_USD = stringPreferencesKey("account_equity_usd")
-    val RISK_TOLERANCE_PCT = intPreferencesKey("risk_tolerance_pct")
+    val RISK_TOLERANCE_PCT = stringPreferencesKey("risk_tolerance_pct")  // e.g. "0.5", "25"
     val TRADING_MODE = stringPreferencesKey("trading_mode")  // multi_symbol | chart_only
 
     // Seconds between screenshot captures (matches trader timeframe preference)
