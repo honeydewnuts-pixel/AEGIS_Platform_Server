@@ -60,6 +60,8 @@ from app.api.status_router import router as status_router
 from app.api.rulebook_router import router as rulebook_router
 from app.api.transfer_router import router as transfer_router
 from app.api.ohlc_router import router as ohlc_router
+from app.api.community_router import router as community_router
+from app.api.ai_chat_router import router as ai_chat_router
 
 logger = configure_logging(__name__)
 
@@ -147,6 +149,8 @@ app.include_router(config_router)
 app.include_router(rulebook_router)
 app.include_router(transfer_router)
 app.include_router(ohlc_router)
+app.include_router(community_router)
+app.include_router(ai_chat_router)
 
 # /metrics - HTTP request counts/latencies auto-instrumented, plus custom
 # business gauges from app.core.metrics (populated by a background loop

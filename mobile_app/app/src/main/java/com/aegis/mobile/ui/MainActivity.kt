@@ -144,6 +144,9 @@ class MainActivity : AppCompatActivity() {
         panelSettings = findViewById(R.id.panelSettings)
         navHome = findViewById(R.id.navHome)
         notifBtn = findViewById(R.id.notifBtn)
+        findViewById<TextView?>(R.id.aiChatBtn)?.setOnClickListener {
+            startActivity(Intent(this, AiChatActivity::class.java))
+        }
         notifBtn?.setOnClickListener {
             startActivity(Intent(this, NotificationsActivity::class.java))
             pollExecutionNotifications()
@@ -176,9 +179,9 @@ class MainActivity : AppCompatActivity() {
             navSettings?.setTextColor(if (which == "settings") active else muted)
         }
         navHome?.setOnClickListener { showPanel("home") }
-        navAnalysis?.setOnClickListener { showPanel("analysis") }
+        navAnalysis?.setOnClickListener { startActivity(Intent(this, AiChatActivity::class.java)) }
         navTrade?.setOnClickListener { showPanel("trade") }
-        navReports?.setOnClickListener { showPanel("reports") }
+        navReports?.setOnClickListener { startActivity(Intent(this, CommunityActivity::class.java)) }
         navSettings?.setOnClickListener { showPanel("settings") }
         findViewById<TextView?>(R.id.viewAllPairs)?.setOnClickListener {
             startActivity(Intent(this, RegistryActivity::class.java))

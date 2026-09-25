@@ -110,6 +110,17 @@ async def on_startup(app: FastAPI) -> None:
     app.state.ohlc_stream = OhlcStreamService()
     logger.info("OHLC stream service ready (independent of screenshots)")
 
+    from app.services.community_chat_service import CommunityChatService
+    from app.services.aegis_ai_service import AegisAiService
+    app.state.community_chat = CommunityChatService()
+    app.state.aegis_ai = AegisAiService()
+    try:
+        await app.state.community_chat.ensure_default_rooms()
+        logger.info("Community chat rooms ready")
+    except Exception:
+        logger.exception("Community default rooms seed failed (tables may migrate next boot)")
+
+
     app.state.subscription_sweep_task = asyncio.create_task(_subscription_sweep_loop(app))
     app.state.metrics_task = asyncio.create_task(refresh_metrics_loop(app))
 

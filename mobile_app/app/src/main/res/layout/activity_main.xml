@@ -38,6 +38,15 @@
             android:letterSpacing="0.08"/>
 
         <TextView
+            android:id="@+id/aiChatBtn"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:gravity="center"
+            android:text="AI"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="#00FF88"/>
+        <TextView
             android:id="@+id/notifBtn"
             android:layout_width="36dp"
             android:layout_height="36dp"
@@ -580,7 +589,7 @@
 
         <!-- REPORTS PANEL -->
         <ScrollView
-            android:id="@+id/panelReports"
+            android:id="@+id/panelCommunity"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:visibility="gone"
@@ -590,7 +599,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
                 <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="Reports &amp; Registry" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/aegis_text"/>
+                    android:text="Community &amp; Registry" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/aegis_text"/>
                 <androidx.appcompat.widget.AppCompatButton
                     android:id="@+id/registryBtn"
                     android:layout_width="match_parent" android:layout_height="44dp" android:layout_marginTop="8dp"
@@ -662,7 +671,7 @@
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:gravity="center"
-            android:text="▤\nAnalysis"
+            android:text="AI\nAssist"
             android:textSize="13sp"
             android:textStyle="bold"
             android:textColor="@color/aegis_muted"/>
@@ -679,12 +688,12 @@
             android:textColor="@color/aegis_muted"/>
 
         <TextView
-            android:id="@+id/navReports"
+            android:id="@+id/navCommunity"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:gravity="center"
-            android:text="▥\nReports"
+            android:text="▥\nCommunity"
             android:textSize="13sp"
             android:textStyle="bold"
             android:textColor="@color/aegis_muted"/>

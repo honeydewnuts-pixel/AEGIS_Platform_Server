@@ -138,4 +138,29 @@ interface ApiService {
 
     @GET("/api/account/status")
     suspend fun getAccountStatus(@Query("account_id") accountId: String): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @GET("/api/community/rooms")
+    suspend fun communityRooms(): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @GET("/api/community/rooms/{roomId}/messages")
+    suspend fun communityMessages(
+        @Path("roomId") roomId: String,
+        @Query("limit") limit: Int = 50
+    ): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @POST("/api/community/rooms/{roomId}/messages")
+    suspend fun communityPost(
+        @Path("roomId") roomId: String,
+        @Body body: Map<String, @JvmSuppressWildcards Any>
+    ): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @GET("/api/ai/history")
+    suspend fun aiHistory(
+        @Query("account_id") accountId: String,
+        @Query("limit") limit: Int = 40
+    ): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @POST("/api/ai/chat")
+    suspend fun aiChat(@Body body: Map<String, @JvmSuppressWildcards Any>): Response<Map<String, @JvmSuppressWildcards Any>>
 }
+
