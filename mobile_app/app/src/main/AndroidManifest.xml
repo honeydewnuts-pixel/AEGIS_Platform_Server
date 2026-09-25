@@ -77,6 +77,7 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
 
+            <activity android:name=".ui.AlertChannelsActivity" android:exported="false" android:theme="@style/Theme.AEGIS"/>
             <activity android:name=".ui.NotificationsActivity" android:exported="false" android:theme="@style/Theme.AEGIS"/>
             <activity android:name=".ui.CommunityActivity" android:exported="false" android:theme="@style/Theme.AEGIS"/>
             <activity android:name=".ui.AiChatActivity" android:exported="false" android:theme="@style/Theme.AEGIS"/>

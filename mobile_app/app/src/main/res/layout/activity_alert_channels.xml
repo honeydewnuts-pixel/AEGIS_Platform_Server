@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0A1628"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Alert channels"
+            android:textColor="#00D4FF"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:paddingBottom="4dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Receive BUY/SELL and execution alerts even when the app is closed. Configure at least one channel. Operator must enable delivery on the server (SMTP / Telegram bot / Twilio)."
+            android:textColor="#8BA3B8"
+            android:textSize="12sp"
+            android:paddingBottom="12dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="What to send"
+            android:textColor="#FFD600"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:paddingBottom="4dp" />
+
+        <CheckBox
+            android:id="@+id/cbSignalAlerts"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Trading signals (BUY / SELL)"
+            android:textColor="#E8F0FF"
+            android:checked="true" />
+
+        <CheckBox
+            android:id="@+id/cbExecutionAlerts"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Execution confirmations (order filled)"
+            android:textColor="#E8F0FF"
+            android:checked="true" />
+
+        <CheckBox
+            android:id="@+id/cbSystemAlerts"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="System / account alerts"
+            android:textColor="#E8F0FF"
+            android:checked="true" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Min confidence for external alerts (0.0–1.0)"
+            android:textColor="#8BA3B8"
+            android:textSize="12sp"
+            android:paddingTop="8dp" />
+
+        <EditText
+            android:id="@+id/etMinConfidence"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="0.55"
+            android:inputType="numberDecimal"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#668899"
+            android:background="#132238"
+            android:padding="10dp"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Email -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Email"
+            android:textColor="#00FF88"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <CheckBox
+            android:id="@+id/cbEmail"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Enable email alerts"
+            android:textColor="#E8F0FF" />
+
+        <EditText
+            android:id="@+id/etEmail"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="you@example.com"
+            android:inputType="textEmailAddress"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#668899"
+            android:background="#132238"
+            android:padding="10dp"
+            android:layout_marginBottom="10dp" />
+
+        <!-- Telegram -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Telegram"
+            android:textColor="#00FF88"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Open your AEGIS bot in Telegram, send /start, then paste your numeric Chat ID."
+            android:textColor="#668899"
+            android:textSize="11sp" />
+
+        <CheckBox
+            android:id="@+id/cbTelegram"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Enable Telegram alerts"
+            android:textColor="#E8F0FF" />
+
+        <EditText
+            android:id="@+id/etTelegram"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Telegram chat ID (e.g. 123456789)"
+            android:inputType="text"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#668899"
+            android:background="#132238"
+            android:padding="10dp"
+            android:layout_marginBottom="10dp" />
+
+        <!-- SMS -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="SMS"
+            android:textColor="#00FF88"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <CheckBox
+            android:id="@+id/cbSms"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Enable SMS alerts"
+            android:textColor="#E8F0FF" />
+
+        <EditText
+            android:id="@+id/etSms"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="+2348012345678 (E.164)"
+            android:inputType="phone"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#668899"
+            android:background="#132238"
+            android:padding="10dp"
+            android:layout_marginBottom="10dp" />
+
+        <!-- WhatsApp -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="WhatsApp"
+            android:textColor="#00FF88"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Use full international number. Requires Twilio WhatsApp on the server."
+            android:textColor="#668899"
+            android:textSize="11sp" />
+
+        <CheckBox
+            android:id="@+id/cbWhatsapp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Enable WhatsApp alerts"
+            android:textColor="#E8F0FF" />
+
+        <EditText
+            android:id="@+id/etWhatsapp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="+2348012345678"
+            android:inputType="phone"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#668899"
+            android:background="#132238"
+            android:padding="10dp"
+            android:layout_marginBottom="16dp" />
+
+        <Button
+            android:id="@+id/btnSaveAlerts"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Save alert preferences"
+            android:textColor="#0A1628"
+            android:backgroundTint="#00D4FF"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvAlertStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="#8BA3B8"
+            android:textSize="12sp"
+            android:paddingTop="10dp" />
+    </LinearLayout>
+</ScrollView>

@@ -114,6 +114,17 @@ interface ApiService {
         @Query("account_id") accountId: String
     ): Response<Map<String, @JvmSuppressWildcards Any>>
 
+    @GET("/api/notifications/preferences")
+    suspend fun getNotificationPreferences(
+        @Query("account_id") accountId: String
+    ): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @PUT("/api/notifications/preferences")
+    suspend fun putNotificationPreferences(
+        @Query("account_id") accountId: String,
+        @Body body: Map<String, @JvmSuppressWildcards Any>
+    ): Response<Map<String, @JvmSuppressWildcards Any>>
+
     @GET("/api/notifications/unread-count")
     suspend fun notificationUnreadCount(
         @Query("account_id") accountId: String

@@ -2,6 +2,7 @@ package com.aegis.mobile.ui
 
 import android.graphics.Color
 import android.graphics.Typeface
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.LinearLayout
@@ -26,6 +27,9 @@ class NotificationsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_notifications)
+        findViewById<android.widget.Button?>(R.id.btnAlertChannels)?.setOnClickListener {
+            startActivity(Intent(this, AlertChannelsActivity::class.java))
+        }
         list = findViewById(R.id.notifList)
         empty = findViewById(R.id.notifEmpty)
         badge = findViewById(R.id.notifUnreadBadge)

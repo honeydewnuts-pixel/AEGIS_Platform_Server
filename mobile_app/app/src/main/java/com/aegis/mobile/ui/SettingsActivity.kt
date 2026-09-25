@@ -1,5 +1,6 @@
 package com.aegis.mobile.ui
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
 import android.widget.CheckBox
@@ -103,6 +104,9 @@ class SettingsActivity : AppCompatActivity() {
             android.R.layout.simple_spinner_dropdown_item,
             MODE_OPTIONS.map { it.first }
         )
+        findViewById<Button>(R.id.btnAlertChannels).setOnClickListener {
+            startActivity(Intent(this, AlertChannelsActivity::class.java))
+        }
         val btnSave = findViewById<Button>(R.id.btnSave)
         val btnSaveAndConnect = findViewById<Button>(R.id.btnSaveAndConnect)
 

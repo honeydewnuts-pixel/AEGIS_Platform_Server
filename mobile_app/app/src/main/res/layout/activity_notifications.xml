@@ -78,7 +78,16 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"/>
-    </ScrollView>
+    
+        <Button
+            android:id="@+id/btnAlertChannels"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Set Email / Telegram / SMS / WhatsApp"
+            android:textColor="#0A1628"
+            android:backgroundTint="#FFD600"
+            android:layout_marginBottom="8dp"/>
+</ScrollView>
 
     <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/notifCloseBtn"
