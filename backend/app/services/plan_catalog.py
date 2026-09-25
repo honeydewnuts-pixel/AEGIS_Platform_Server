@@ -14,12 +14,13 @@ PLAN_CATALOG: dict[str, dict[str, Any]] = {
     "demo": {
         "label": "Demo / Trial",
         "max_devices": 1,
-        "max_trades_per_day": 5,
-        "live_trading": False,
+        # Higher cap so VPS/demo tests can show multiple BUY/SELL days
+        "max_trades_per_day": 100,
+        "live_trading": False,  # live capital still gated; demo MT5 execution is separate
         "price_usd": 0,
         "price_hint": "Free 14-day trial",
         "base_lot": 0.01,
-        "max_lot": 0.01,
+        "max_lot": 0.01,  # standard 0.01; micro accounts still use broker min lot
     },
     "starter": {
         "label": "Starter",

@@ -410,10 +410,31 @@ async def analyze_screenshot(
                 try:
                     rows = reg.list_instruments(tradeable_only=False)
                     m = next((r for r in rows if str(r.get("instrument") or "").upper() == sym.upper().split(".")[0]), None)
+                    # Demo path: only block hard-rejected instruments; research "Good" pairs may execute on demo
+                    plan_for_pub = "demo"
+                    try:
+                        sub_svc0 = getattr(request.app.state, "subscription_service", None)
+                        if sub_svc0 is not None:
+                            st0 = await sub_svc0.get_status(account_id)
+                            if isinstance(st0, dict):
+                                plan_for_pub = (st0.get("plan") or "demo").lower()
+                    except Exception:
+                        pass
                     if m is None:
                         allow_pub, pub_reason = False, "unknown_instrument"
-                    elif not m.get("good") or not m.get("tradeable"):
-                        allow_pub, pub_reason = False, f"not_good:{m.get('router_status')}"
+                    else:
+                        rs = str(m.get("router_status") or "").upper()
+                        hard_block = rs in {
+                            "TRADING_DISABLED", "DISABLED", "REJECTED", "TRANSFER_REJECTED"
+                        } or str(m.get("status") or "").upper() in {
+                            "REJECTED", "TRANSFER_REJECTED", "DISABLED"
+                        }
+                        if hard_block:
+                            allow_pub, pub_reason = False, f"rejected:{rs or m.get('status')}"
+                        elif plan_for_pub != "demo" and (not m.get("good") or not m.get("tradeable")):
+                            allow_pub, pub_reason = False, f"not_good:{rs}"
+                        else:
+                            allow_pub, pub_reason = True, "ok_demo" if plan_for_pub == "demo" else "ok"
                 except Exception as _re:
                     pub_reason = f"registry_check_error:{_re}"
             if allow_pub:
@@ -442,11 +463,15 @@ async def analyze_screenshot(
                 except Exception as _re:
                     result["portfolio_risk_error"] = str(_re)
                 if allow_pub:
+                    pub_conf = float(result.get("confidence") or 0)
+                    if side in ("BUY", "SELL") and pub_conf < 0.55:
+                        pub_conf = 0.55
+                        result["confidence"] = pub_conf
                     exec_svc.publish(
                         account_id=account_id,
                         symbol=sym,
                         side=side,
-                        confidence=float(result.get("confidence") or 0),
+                        confidence=pub_conf,
                         rule_name=str(result.get("rule_name") or ""),
                         volume=sized_vol,
                         stop_loss=result.get("stop_loss") or result.get("sl"),

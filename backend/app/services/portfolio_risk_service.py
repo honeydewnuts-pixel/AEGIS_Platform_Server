@@ -27,15 +27,16 @@ from app.services.plan_catalog import get_max_lot, resolve_plan
 
 ALLOWED_TOLERANCE_PCT = (0.5, 1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0)
 MAX_MULTISYMBOL_PAIRS = 24
-DEFAULT_MIN_NOTIONAL_USD = 50.0
+DEFAULT_MIN_NOTIONAL_USD = 10.0
 DEFAULT_MIN_LOT = 0.01
 
 # Conservative default min notionals (USD) when broker has not reported
 DEFAULT_SYMBOL_MIN_NOTIONAL: dict[str, float] = {
-    "EURUSD": 50, "GBPUSD": 50, "USDJPY": 50, "USDCHF": 50, "AUDUSD": 50,
-    "NZDUSD": 50, "USDCAD": 50, "EURGBP": 50, "EURCHF": 50, "EURJPY": 50,
-    "GBPJPY": 50, "GBPNZD": 50, "NZDCHF": 50, "NZDJPY": 50, "AUDNZD": 50,
-    "XAUUSD": 100, "XAGUSD": 100, "BTCUSD": 100, "ETHUSD": 100,
+    # Micro-friendly defaults: Feed may overwrite with broker SymbolInfo
+    "EURUSD": 10, "GBPUSD": 10, "USDJPY": 10, "USDCHF": 10, "AUDUSD": 10,
+    "NZDUSD": 10, "USDCAD": 10, "EURGBP": 10, "EURCHF": 10, "EURJPY": 10,
+    "GBPJPY": 10, "GBPNZD": 10, "NZDCHF": 10, "NZDJPY": 10, "AUDNZD": 10,
+    "XAUUSD": 50, "XAGUSD": 25, "BTCUSD": 50, "ETHUSD": 25,
 }
 
 
@@ -249,6 +250,18 @@ class PortfolioRiskService:
                     "active_pairs": len(active),
                 }
             if not already_open and remaining < min_notional:
+                # Micro / small equity: still allow one min_lot if equity is positive
+                # and remaining covers a fraction of min_notional (cent-account safe).
+                equity_f = float(equity or 0)
+                if equity_f >= 5.0 and remaining >= max(1.0, min_notional * 0.05):
+                    return {
+                        "allow": True,
+                        "volume": float(min_lot),
+                        "reason": "micro_min_lot_fallback",
+                        "remaining_risk_usd": remaining,
+                        "min_notional_usd": min_notional,
+                        "min_lot": min_lot,
+                    }
                 return {
                     "allow": False,
                     "volume": 0.0,

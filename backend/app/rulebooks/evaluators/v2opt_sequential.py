@@ -134,6 +134,8 @@ def evaluate_v2opt_from_bars(
     base.update(
         {
             "signal": signal,
+            "demo_actionable": True,
+            "production_authorized": False,
             "confidence": float(max(0.0, min(conf, 0.85))),
             "rule_name": rulebook.get("winner_rule_id") or rulebook.get("rulebook_id"),
             "details": (

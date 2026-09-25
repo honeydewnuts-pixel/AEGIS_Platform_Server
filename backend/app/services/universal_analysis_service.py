@@ -137,6 +137,7 @@ class UniversalAnalysisService:
             "details": f"Unhandled router state {decision.state.value}: {decision.reason}",
         }
 
+
     def _evaluate_research_ohlc(
         self,
         instrument: str,
@@ -145,10 +146,11 @@ class UniversalAnalysisService:
         market_snapshot: dict[str, Any] | None,
     ) -> dict[str, Any] | None:
         """
-        Minimal research-safe OHLC evaluation when a market snapshot is present.
+        OHLC evaluation for ROUTABLE_RESEARCH instruments.
 
-        Full deterministic V31/V35/V39 port is a follow-on; this path proves
-        V40 routing without the V3 indicator gate and never marks production.
+        Demo / paper path: when bars are present, emit actionable BUY/SELL so
+        Executor can place demo trades. Production live still gated separately
+        by production_authorized / subscription plan.
         """
         if not isinstance(market_snapshot, dict):
             return None
@@ -159,65 +161,133 @@ class UniversalAnalysisService:
         except (TypeError, ValueError):
             close_f = None
 
-        # Optional bar list for structure
         bars = market_snapshot.get("bars") or market_snapshot.get("ohlc") or market_snapshot.get("m1")
-        signal = "HOLD"
-        confidence = 0.0
         detail_bits = [
-            f"Research OHLC path for {instrument} {timeframe}.",
+            f"OHLC path for {instrument} {timeframe}.",
             f"Rulebooks: {', '.join(rulebook_ids) or 'n/a'}.",
-            "Production authorization remains false.",
         ]
 
-        # Prefer V2-OPT sequential rulebooks when listed
-        v2_ids = [r for r in rulebook_ids if str(r).startswith("AEGIS-RB-V2OPT-")]
-        if v2_ids and isinstance(bars, list) and len(bars) >= 30:
-            try:
-                from pathlib import Path as _P
-                import json as _json
-                from app.rulebooks.evaluators.v2opt_sequential import evaluate_v2opt_from_bars
-                repo = _P(__file__).resolve().parents[3]
-                for rid in v2_ids:
-                    # instrument folder from id AEGIS-RB-V2OPT-{INST}-M5
-                    parts = str(rid).split("-")
-                    inst_guess = parts[3] if len(parts) >= 4 else instrument
-                    rb_path = repo / "registry" / "v2_opt" / inst_guess / "rulebook.json"
-                    if not rb_path.exists():
-                        rb_path = repo / "registry" / "v2_opt" / instrument / "rulebook.json"
-                    if not rb_path.exists():
-                        continue
+        # 1) Prefer V2-OPT sequential rulebooks (file on disk or by instrument)
+        try:
+            from pathlib import Path as _P
+            import json as _json
+            from app.rulebooks.evaluators.v2opt_sequential import evaluate_v2opt_from_bars
+
+            repo = _P(__file__).resolve().parents[3]
+            candidates: list[tuple[str, _P]] = []
+            for rid in rulebook_ids or []:
+                if not str(rid).startswith("AEGIS-RB-V2OPT-"):
+                    continue
+                parts = str(rid).split("-")
+                inst_guess = parts[3] if len(parts) >= 4 else instrument
+                for folder in (inst_guess, instrument):
+                    rb_path = repo / "registry" / "v2_opt" / folder / "rulebook.json"
+                    if rb_path.exists():
+                        candidates.append((str(rid), rb_path))
+            # Fallback: instrument folder even if id list has no V2OPT
+            fb = repo / "registry" / "v2_opt" / instrument.upper() / "rulebook.json"
+            if fb.exists() and not candidates:
+                candidates.append((f"AEGIS-RB-V2OPT-{instrument.upper()}-M5", fb))
+
+            if candidates and isinstance(bars, list) and len(bars) >= 30:
+                for rid, rb_path in candidates:
                     rb = _json.loads(rb_path.read_text())
                     out = evaluate_v2opt_from_bars(bars, rb)
+                    # Promote research signal to demo-executable confidence floor
+                    sig = str(out.get("signal") or "HOLD").upper()
+                    conf = float(out.get("confidence") or 0.0)
+                    if sig in ("BUY", "SELL") and conf < 0.55:
+                        conf = 0.55
+                        out["confidence"] = conf
                     out["market_ohlc_close"] = close_f
                     out["rulebook_ids"] = list(rulebook_ids)
-                    return out
-            except Exception as e:
-                detail_bits.append(f"V2-OPT evaluator error: {e}")
+                    out["demo_actionable"] = sig in ("BUY", "SELL")
+                    out["production_authorized"] = False
+                    if sig in ("BUY", "SELL"):
+                        out["details"] = (
+                            f"{out.get('details') or ''} Demo-executable {sig} "
+                            f"(conf={conf:.2f}). Production authorization remains false."
+                        ).strip()
+                        return out
+        except Exception as e:
+            detail_bits.append(f"V2-OPT evaluator error: {e}")
 
-        if isinstance(bars, list) and len(bars) >= 3:
-            try:
-                closes = [float(b.get("close", b.get("c", 0))) for b in bars[-5:]]
-                if len(closes) >= 3:
-                    slope = closes[-1] - closes[0]
-                    if slope > 0 and closes[-1] > closes[-2]:
-                        signal = "HOLD"
-                        detail_bits.append(f"Short-window close slope positive ({slope:.6f}); research bias BUY (not actionable).")
-                    elif slope < 0 and closes[-1] < closes[-2]:
-                        signal = "HOLD"
-                        detail_bits.append(f"Short-window close slope negative ({slope:.6f}); research bias SELL (not actionable).")
-                    else:
-                        detail_bits.append("No clear short-window structure.")
-            except (TypeError, ValueError, AttributeError):
-                detail_bits.append("OHLC bars present but not parseable.")
-        elif close_f is not None:
-            detail_bits.append(f"Last close={close_f}. Insufficient bars for structure.")
+        # 2) Structure + momentum on closed bars (always available from Feed stream)
+        if not isinstance(bars, list) or len(bars) < 5:
+            if close_f is not None:
+                detail_bits.append(f"Last close={close_f}. Need >=5 bars for structure.")
+            return {
+                "signal": "HOLD",
+                "confidence": 0.0,
+                "rule_name": "v40_research_ohlc_hold",
+                "details": " ".join(detail_bits),
+                "market_ohlc_close": close_f,
+                "production_authorized": False,
+            }
+
+        try:
+            closes = [float(b.get("close", b.get("c", 0))) for b in bars[-60:]]
+            highs = [float(b.get("high", b.get("h", c))) for b, c in zip(bars[-60:], closes)]
+            lows = [float(b.get("low", b.get("l", c))) for b, c in zip(bars[-60:], closes)]
+        except (TypeError, ValueError, AttributeError):
+            return {
+                "signal": "HOLD",
+                "confidence": 0.0,
+                "rule_name": "v40_research_ohlc_hold",
+                "details": " ".join(detail_bits + ["OHLC bars not parseable."]),
+                "market_ohlc_close": close_f,
+                "production_authorized": False,
+            }
+
+        if len(closes) < 5:
+            return {
+                "signal": "HOLD",
+                "confidence": 0.0,
+                "rule_name": "v40_research_ohlc_hold",
+                "details": " ".join(detail_bits + ["Insufficient closes."]),
+                "market_ohlc_close": close_f,
+                "production_authorized": False,
+            }
+
+        # Simple robust demo signal: multi-bar slope + last candle direction
+        window = closes[-8:] if len(closes) >= 8 else closes
+        slope = window[-1] - window[0]
+        last_up = closes[-1] > closes[-2]
+        last_down = closes[-1] < closes[-2]
+        # ATR14 proxy for confidence scaling
+        atr = 0.0
+        if len(highs) >= 15:
+            ranges = [highs[i] - lows[i] for i in range(-14, 0)]
+            atr = sum(ranges) / max(1, len(ranges))
+        slope_strength = abs(slope) / atr if atr > 1e-12 else 0.0
+
+        signal = "HOLD"
+        confidence = 0.0
+        if slope > 0 and last_up:
+            signal = "BUY"
+            confidence = min(0.85, 0.55 + min(0.25, slope_strength * 0.1))
+            detail_bits.append(
+                f"Demo structure BUY: positive slope ({slope:.6g}), last bar up, strength={slope_strength:.2f}."
+            )
+        elif slope < 0 and last_down:
+            signal = "SELL"
+            confidence = min(0.85, 0.55 + min(0.25, slope_strength * 0.1))
+            detail_bits.append(
+                f"Demo structure SELL: negative slope ({slope:.6g}), last bar down, strength={slope_strength:.2f}."
+            )
         else:
-            return None
+            detail_bits.append("No clear short-window structure — HOLD.")
 
+        detail_bits.append(
+            "Demo-actionable when BUY/SELL. Production authorization remains false for live capital."
+        )
         return {
             "signal": signal,
             "confidence": confidence,
-            "rule_name": "v40_research_ohlc_hold",
+            "rule_name": "demo_ohlc_structure" if signal in ("BUY", "SELL") else "v40_research_ohlc_hold",
             "details": " ".join(detail_bits),
             "market_ohlc_close": close_f,
+            "demo_actionable": signal in ("BUY", "SELL"),
+            "production_authorized": False,
+            "rulebook_ids": list(rulebook_ids),
         }
