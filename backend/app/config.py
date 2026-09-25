@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     MAX_CONCURRENT_WORKERS: int = 100
 
     # Autonomous V3 DEMO execution. Live execution is intentionally not enabled by this checkpoint.
+    EXEC_MIN_CONFIDENCE: float = 0.75  # entry + flip only at/above this
     AUTONOMOUS_EXECUTION_ENABLED: bool = True
     AUTONOMOUS_DEMO_ONLY: bool = True
     AUTONOMOUS_DEFAULT_VOLUME: float = 0.01

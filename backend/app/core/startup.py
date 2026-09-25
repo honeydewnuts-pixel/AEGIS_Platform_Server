@@ -101,6 +101,8 @@ async def on_startup(app: FastAPI) -> None:
     app.state.alert_service = AlertService()
     app.state.notifications = NotificationService(app.state.alert_service)
     app.state.portfolio_risk = PortfolioRiskService()
+    from app.services.autonomous_ohlc_signal_service import AutonomousOhlcSignalService
+    app.state.autonomous_ohlc = AutonomousOhlcSignalService()
     app.state.device_bindings = DeviceBindingService()
     app.state.trade_limits = TradeLimitService()
     app.state.templates = RegistryService()

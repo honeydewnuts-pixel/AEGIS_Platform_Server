@@ -196,9 +196,7 @@ class UniversalAnalysisService:
                     # Promote research signal to demo-executable confidence floor
                     sig = str(out.get("signal") or "HOLD").upper()
                     conf = float(out.get("confidence") or 0.0)
-                    if sig in ("BUY", "SELL") and conf < 0.55:
-                        conf = 0.55
-                        out["confidence"] = conf
+                    # Do not floor confidence — EXEC_MIN_CONFIDENCE gates publish
                     out["market_ohlc_close"] = close_f
                     out["rulebook_ids"] = list(rulebook_ids)
                     out["demo_actionable"] = sig in ("BUY", "SELL")

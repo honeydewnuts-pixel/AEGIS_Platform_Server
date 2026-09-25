@@ -61,7 +61,37 @@ async def ingest_ohlc_stream(
     )
     if not result.get("ok"):
         raise HTTPException(400, result.get("error") or "ingest failed")
-    return {"status": "ok", **result}
+
+    # Autonomous MultiSymbol path: CLOSED bar → evaluate → confidence gate → Executor
+    # Does NOT depend on mobile app being open or dropdown symbol selection.
+    auto_out = None
+    try:
+        closed = body.closed_bar
+        is_closed = closed is not None or any(
+            (b.bar_status or "").upper() == "CLOSED" for b in (body.bars or [])[-1:]
+        )
+        if is_closed or body.closed_bar is not None:
+            auto = getattr(request.app.state, "autonomous_ohlc", None)
+            if auto is not None:
+                # Prefer full payload from stream service
+                svc = getattr(request.app.state, "ohlc_stream", None)
+                payload = (
+                    svc.get(account_id, body.symbol, body.timeframe) if svc else None
+                ) or result
+                auto_out = await auto.process_closed_bar(
+                    app=request.app,
+                    account_id=account_id,
+                    symbol=body.symbol,
+                    timeframe=body.timeframe or "M5",
+                    stream_payload=payload if isinstance(payload, dict) else {},
+                )
+    except Exception as e:
+        auto_out = {"published": False, "reason": f"auto_error:{e}"}
+
+    resp = {"status": "ok", **result}
+    if auto_out is not None:
+        resp["autonomous"] = auto_out
+    return resp
 
 
 @router.get("/ohlc/latest")
