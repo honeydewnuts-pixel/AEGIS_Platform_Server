@@ -53,7 +53,7 @@ class MainActivity : AppCompatActivity() {
     private var panelHome: android.view.View? = null
     private var panelAnalysis: android.view.View? = null
     private var panelTrade: android.view.View? = null
-    private var panelReports: android.view.View? = null
+    private var panelCommunity: android.view.View? = null
     private var panelSettings: android.view.View? = null
     private var navHome: TextView? = null
     private var notifBtn: TextView? = null
@@ -140,7 +140,7 @@ class MainActivity : AppCompatActivity() {
         panelHome = findViewById(R.id.panelHome)
         panelAnalysis = findViewById(R.id.panelAnalysis)
         panelTrade = findViewById(R.id.panelTrade)
-        panelReports = findViewById(R.id.panelReports)
+        panelCommunity = findViewById(R.id.panelCommunity)
         panelSettings = findViewById(R.id.panelSettings)
         navHome = findViewById(R.id.navHome)
         notifBtn = findViewById(R.id.notifBtn)
@@ -168,14 +168,14 @@ class MainActivity : AppCompatActivity() {
             panelHome?.visibility = if (which == "home") android.view.View.VISIBLE else android.view.View.GONE
             panelAnalysis?.visibility = if (which == "analysis") android.view.View.VISIBLE else android.view.View.GONE
             panelTrade?.visibility = if (which == "trade") android.view.View.VISIBLE else android.view.View.GONE
-            panelReports?.visibility = if (which == "reports") android.view.View.VISIBLE else android.view.View.GONE
+            panelCommunity?.visibility = if (which == "community") android.view.View.VISIBLE else android.view.View.GONE
             panelSettings?.visibility = if (which == "settings") android.view.View.VISIBLE else android.view.View.GONE
             val muted = Color.parseColor("#8BA3B8")
             val active = Color.parseColor("#00B4FF")
             navHome?.setTextColor(if (which == "home") active else muted)
             navAnalysis?.setTextColor(if (which == "analysis") active else muted)
             navTrade?.setTextColor(if (which == "trade") active else muted)
-            navCommunity?.setTextColor(if (which == "reports") active else muted)
+            navCommunity?.setTextColor(if (which == "community") active else muted)
             navSettings?.setTextColor(if (which == "settings") active else muted)
         }
         navHome?.setOnClickListener { showPanel("home") }

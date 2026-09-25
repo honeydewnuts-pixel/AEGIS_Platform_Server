@@ -2,14 +2,9 @@ package com.aegis.mobile.ui
 
 import android.graphics.Color
 import android.net.Uri
-import androidx.activity.result.contract.ActivityResultContracts
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.MultipartBody
-import okhttp3.RequestBody.Companion.toRequestBody
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
@@ -18,6 +13,7 @@ import android.widget.EditText
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -29,10 +25,20 @@ import com.aegis.mobile.data.dataStore
 import com.aegis.mobile.network.RetrofitClient
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 
 class CommunityActivity : AppCompatActivity() {
+
     private data class Room(val id: String, val title: String)
-    private data class Msg(val id: Int, val name: String, val body: String, val at: String, val hasImage: Boolean = false)
+    private data class Msg(
+        val id: Int,
+        val name: String,
+        val body: String,
+        val at: String,
+        val hasImage: Boolean = false
+    )
 
     private val rooms = mutableListOf<Room>()
     private val messages = mutableListOf<Msg>()
@@ -46,15 +52,17 @@ class CommunityActivity : AppCompatActivity() {
     private var lastMsgId: Int = 0
     private var pendingAttachmentUrl: String? = null
     private var pendingAttachmentMime: String? = null
-    private val imagePicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        if (uri != null) uploadImage(uri)
-    }
+
     private val handler = Handler(Looper.getMainLooper())
     private val pollRunnable = object : Runnable {
         override fun run() {
             heartbeatAndPoll()
             handler.postDelayed(this, 5_000L)
         }
+    }
+
+    private val imagePicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri != null) uploadImage(uri)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,19 +74,20 @@ class CommunityActivity : AppCompatActivity() {
         onlineList = findViewById(R.id.onlineList)
         myNameLabel = findViewById(R.id.myNameLabel)
         val list = findViewById<RecyclerView>(R.id.msgList)
-        adapter = MsgAdapter(messages)
+        adapter = MsgAdapter()
         list.layoutManager = LinearLayoutManager(this)
         list.adapter = adapter
+
         findViewById<Button>(R.id.sendBtn).setOnClickListener { send() }
-        findViewById<Button>(R.id.attachBtn).setOnClickListener {
-            imagePicker.launch("image/*")
-        }
+        findViewById<Button>(R.id.attachBtn).setOnClickListener { imagePicker.launch("image/*") }
         findViewById<TextView>(R.id.editNameBtn).setOnClickListener { promptDisplayName(force = true) }
         findViewById<TextView>(R.id.editNameBtn).setOnLongClickListener {
-            openDmDialog(); true
+            openDmDialog()
+            true
         }
         onlineBadge.setOnClickListener { openDmDialog() }
-        spinner.setOnItemSelectedListener(object : android.widget.AdapterView.OnItemSelectedListener {
+
+        spinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(p: android.widget.AdapterView<*>?, v: View?, pos: Int, id: Long) {
                 lastMsgId = 0
                 messages.clear()
@@ -86,7 +95,8 @@ class CommunityActivity : AppCompatActivity() {
                 loadMessages(full = true)
             }
             override fun onNothingSelected(p: android.widget.AdapterView<*>?) {}
-        })
+        }
+
         lifecycleScope.launch {
             accountId = dataStore.data.first()[PrefKeys.ACCOUNT_ID]?.trim().orEmpty()
             if (accountId.isEmpty()) {
@@ -109,6 +119,7 @@ class CommunityActivity : AppCompatActivity() {
     }
 
     private fun ensureProfile() {
+        if (accountId.isEmpty()) return
         lifecycleScope.launch {
             try {
                 val api = RetrofitClient.getApiService(this@CommunityActivity)
@@ -121,7 +132,8 @@ class CommunityActivity : AppCompatActivity() {
                         if (!set) promptDisplayName(force = false)
                     }
                 }
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+            }
         }
     }
 
@@ -216,13 +228,16 @@ class CommunityActivity : AppCompatActivity() {
                 val pres = api.communityPresence(mapOf("account_id" to accountId))
                 if (pres.isSuccessful) {
                     applyOnline(pres.body())
-                    val name = (pres.body()?.get("profile") as? Map<*, *>)?.get("display_name")
+                    @Suppress("UNCHECKED_CAST")
+                    val profile = pres.body()?.get("profile") as? Map<String, Any?>
+                    val name = profile?.get("display_name")
                     if (name != null) {
                         runOnUiThread { myNameLabel.text = "You: $name" }
                     }
                 }
                 loadMessages(full = false)
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+            }
         }
     }
 
@@ -247,11 +262,17 @@ class CommunityActivity : AppCompatActivity() {
                     if (id > 0 && messages.none { m -> m.id == id }) {
                         val att = (it["attachment_url"] ?: "").toString()
                         val body = (it["body"] ?: "").toString()
+                        val displayBody =
+                            if (att.isNotBlank() && !body.contains("[image")) {
+                                "$body\n[image attached]"
+                            } else {
+                                body
+                            }
                         messages.add(
                             Msg(
                                 id,
                                 (it["display_name"] ?: "?").toString(),
-                                if (att.isNotBlank() && !body.contains("http")) "$body\n[image attached]" else body,
+                                displayBody,
                                 (it["created_at"] ?: "").toString().take(19).replace('T', ' '),
                                 hasImage = att.isNotBlank()
                             )
@@ -260,7 +281,8 @@ class CommunityActivity : AppCompatActivity() {
                     }
                 }
                 runOnUiThread { adapter.notifyDataSetChanged() }
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+            }
         }
     }
 
@@ -352,28 +374,6 @@ class CommunityActivity : AppCompatActivity() {
         }
     }
 
-    private inner class MsgAdapter(private val items: List<Msg>) :
-        RecyclerView.Adapter<MsgAdapter.VH>() {
-        class VH(val tv: TextView) : RecyclerView.ViewHolder(tv)
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
-            val tv = TextView(parent.context)
-            tv.setTextColor(Color.parseColor("#E8F0FF"))
-            tv.textSize = 13f
-            tv.setPadding(8, 10, 8, 10)
-            return VH(tv)
-        }
-        override fun getItemCount() = items.size
-        override fun onBindViewHolder(holder: VH, position: Int) {
-            val m = items[position]
-            val att = if (m.body.contains("[image]") || m.body.contains("attachment")) " 📎" else ""
-            holder.tv.text = "${m.name}  ·  ${m.at}${if (m.hasImage) " 📎" else ""}\n${m.body}"
-            holder.tv.setOnLongClickListener {
-                reportMessage(m.id, m.name)
-                true
-            }
-        }
-    }
-
     private fun reportMessage(messageId: Int, who: String) {
         val box = EditText(this)
         box.hint = "Why are you reporting this?"
@@ -389,14 +389,14 @@ class CommunityActivity : AppCompatActivity() {
                     try {
                         val api = RetrofitClient.getApiService(this@CommunityActivity)
                         val pos = spinner.selectedItemPosition
-                        val roomId = if (pos in rooms.indices) rooms[pos].id else null
+                        val roomId = if (pos in rooms.indices) rooms[pos].id else ""
                         val resp = api.communityReport(
                             mapOf(
                                 "account_id" to accountId,
                                 "target_type" to "room",
                                 "target_message_id" to messageId,
                                 "reason" to reason,
-                                "room_id" to (roomId ?: "")
+                                "room_id" to roomId
                             )
                         )
                         Toast.makeText(
@@ -404,7 +404,8 @@ class CommunityActivity : AppCompatActivity() {
                             if (resp.isSuccessful) "Report submitted" else "Report failed",
                             Toast.LENGTH_SHORT
                         ).show()
-                    } catch (_: Exception) {}
+                    } catch (_: Exception) {
+                    }
                 }
             }
             .setNegativeButton("Cancel", null)
@@ -450,14 +451,15 @@ class CommunityActivity : AppCompatActivity() {
         log.setTextColor(Color.WHITE)
         log.textSize = 13f
         log.setPadding(16, 16, 16, 16)
-        val input = EditText(this)
-        input.hint = "Message to $peerName"
-        input.setTextColor(Color.WHITE)
-        input.setPadding(16, 16, 16, 16)
+        val dmInput = EditText(this)
+        dmInput.hint = "Message to $peerName"
+        dmInput.setTextColor(Color.WHITE)
+        dmInput.setPadding(16, 16, 16, 16)
         val wrap = android.widget.LinearLayout(this)
         wrap.orientation = android.widget.LinearLayout.VERTICAL
         wrap.addView(log)
-        wrap.addView(input)
+        wrap.addView(dmInput)
+
         fun refreshDm() {
             lifecycleScope.launch {
                 try {
@@ -471,15 +473,16 @@ class CommunityActivity : AppCompatActivity() {
                         sb.append("${it["display_name"]}: ${it["body"]}\n")
                     }
                     runOnUiThread { log.text = sb.toString() }
-                } catch (_: Exception) {}
+                } catch (_: Exception) {
+                }
             }
         }
         refreshDm()
         AlertDialog.Builder(this)
             .setTitle("DM · $peerName")
             .setView(wrap)
-            .setPositiveButton("Send") { d, _ ->
-                val text = input.text?.toString()?.trim().orEmpty()
+            .setPositiveButton("Send") { _, _ ->
+                val text = dmInput.text?.toString()?.trim().orEmpty()
                 if (text.isEmpty()) return@setPositiveButton
                 lifecycleScope.launch {
                     try {
@@ -489,10 +492,35 @@ class CommunityActivity : AppCompatActivity() {
                             mapOf("account_id" to accountId, "body" to text)
                         )
                         refreshDm()
-                    } catch (_: Exception) {}
+                    } catch (_: Exception) {
+                    }
                 }
             }
             .setNegativeButton("Close", null)
             .show()
+    }
+
+    private inner class MsgAdapter : RecyclerView.Adapter<MsgAdapter.VH>() {
+        inner class VH(val tv: TextView) : RecyclerView.ViewHolder(tv)
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+            val tv = TextView(parent.context)
+            tv.setTextColor(Color.parseColor("#E8F0FF"))
+            tv.textSize = 13f
+            tv.setPadding(8, 10, 8, 10)
+            return VH(tv)
+        }
+
+        override fun getItemCount(): Int = messages.size
+
+        override fun onBindViewHolder(holder: VH, position: Int) {
+            val m = messages[position]
+            val icon = if (m.hasImage) " 📎" else ""
+            holder.tv.text = "${m.name}  ·  ${m.at}$icon\n${m.body}"
+            holder.tv.setOnLongClickListener {
+                reportMessage(m.id, m.name)
+                true
+            }
+        }
     }
 }
