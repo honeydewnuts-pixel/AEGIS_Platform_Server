@@ -67,7 +67,7 @@ class MainActivity : AppCompatActivity() {
     private var lastExecIds: MutableSet<String> = mutableSetOf()
     private var navAnalysis: TextView? = null
     private var navTrade: TextView? = null
-    private var navReports: TextView? = null
+    private var navCommunity: TextView? = null
     private var navSettings: TextView? = null
     private var aiConfidenceLabel: TextView? = null
     private var activeStrategyText: TextView? = null
@@ -154,7 +154,7 @@ class MainActivity : AppCompatActivity() {
         }
         navAnalysis = findViewById(R.id.navAnalysis)
         navTrade = findViewById(R.id.navTrade)
-        navReports = findViewById(R.id.navReports)
+        navCommunity = findViewById(R.id.navCommunity)
         navSettings = findViewById(R.id.navSettings)
         aiConfidenceLabel = findViewById(R.id.aiConfidenceLabel)
         activeStrategyText = findViewById(R.id.activeStrategyText)
@@ -175,13 +175,13 @@ class MainActivity : AppCompatActivity() {
             navHome?.setTextColor(if (which == "home") active else muted)
             navAnalysis?.setTextColor(if (which == "analysis") active else muted)
             navTrade?.setTextColor(if (which == "trade") active else muted)
-            navReports?.setTextColor(if (which == "reports") active else muted)
+            navCommunity?.setTextColor(if (which == "reports") active else muted)
             navSettings?.setTextColor(if (which == "settings") active else muted)
         }
         navHome?.setOnClickListener { showPanel("home") }
         navAnalysis?.setOnClickListener { startActivity(Intent(this, AiChatActivity::class.java)) }
         navTrade?.setOnClickListener { showPanel("trade") }
-        navReports?.setOnClickListener { startActivity(Intent(this, CommunityActivity::class.java)) }
+        navCommunity?.setOnClickListener { startActivity(Intent(this, CommunityActivity::class.java)) }
         navSettings?.setOnClickListener { showPanel("settings") }
         findViewById<TextView?>(R.id.viewAllPairs)?.setOnClickListener {
             startActivity(Intent(this, RegistryActivity::class.java))
