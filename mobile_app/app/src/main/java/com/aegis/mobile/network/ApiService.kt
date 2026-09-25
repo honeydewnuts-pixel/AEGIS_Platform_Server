@@ -176,5 +176,35 @@ interface ApiService {
 
     @GET("/api/community/online")
     suspend fun communityOnline(): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @POST("/api/community/dm/open")
+    suspend fun communityDmOpen(@Body body: Map<String, @JvmSuppressWildcards Any>): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @GET("/api/community/dm/threads")
+    suspend fun communityDmThreads(@Query("account_id") accountId: String): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @GET("/api/community/dm/{threadId}/messages")
+    suspend fun communityDmMessages(
+        @Path("threadId") threadId: String,
+        @Query("account_id") accountId: String,
+        @Query("limit") limit: Int = 50,
+        @Query("after_id") afterId: Int? = null
+    ): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @POST("/api/community/dm/{threadId}/messages")
+    suspend fun communityDmPost(
+        @Path("threadId") threadId: String,
+        @Body body: Map<String, @JvmSuppressWildcards Any>
+    ): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @POST("/api/community/report")
+    suspend fun communityReport(@Body body: Map<String, @JvmSuppressWildcards Any>): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @Multipart
+    @POST("/api/community/media")
+    suspend fun communityUploadMedia(
+        @Part("account_id") accountId: RequestBody,
+        @Part file: MultipartBody.Part
+    ): Response<Map<String, @JvmSuppressWildcards Any>>
 }
 

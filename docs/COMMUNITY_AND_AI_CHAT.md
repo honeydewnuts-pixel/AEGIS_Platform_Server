@@ -1,36 +1,21 @@
-# Community + AEGIS AI Chat
+# Community + AEGIS AI (full)
 
-Isolated from MT5 Feed / Executor / rule engine.
+Isolated from MT5 trading path.
 
-## Community (operational)
+## Features
+- Rooms (general, setup, markets)
+- Custom display names + online presence (90s)
+- WebSocket push `/api/community/ws/{account_id}`
+- Direct messages by display name
+- Image attachments (JPEG/PNG/WebP/GIF ≤1.5MB)
+- User reports + admin moderation (`/api/admin/chat/...`)
 
-### Identity
-- Users choose a **display name** (3–24 chars, letter start, `[A-Za-z0-9_]`)
-- Unique case-insensitive; reserved names blocked (admin, aegis, support, …)
-- Auto default `Trader_XXXXXX` until set
+## Mobile 2.5.2
+- Community: Name, online list, rooms, long-press report
+- Tap online badge or long-press Name → open DM by peer name
+- AEGIS AI support chat unchanged
 
-### Presence
-- `POST /api/community/presence` while Community screen is open (mobile every 5s)
-- Online = `last_seen` within **90 seconds**
-- `GET /api/community/online` and room list include online roster
-
-### Rooms & messages
-- Default rooms: general, setup, markets
-- `GET/POST .../messages` with `after_id` for incremental poll
-- Rate limit ~30 messages/minute/account
-- Blocks API key / password patterns
-
-### API summary
-| Method | Path |
-|--------|------|
-| GET | `/api/community/rooms` |
-| GET | `/api/community/rooms/{id}/messages?after_id=` |
-| POST | `/api/community/rooms/{id}/messages` |
-| GET | `/api/community/profile?account_id=` |
-| PUT | `/api/community/profile` |
-| POST | `/api/community/presence` |
-| GET | `/api/community/online` |
-
-## AEGIS AI
-- `GET /api/ai/history` · `POST /api/ai/chat`
-- Product support only; never places trades
+## Admin
+- `GET /api/admin/chat/reports?status=open`
+- `POST /api/admin/chat/reports/{id}/resolve` `{status: reviewed|dismissed|actioned, note}`
+- `POST /api/admin/chat/messages/{id}/delete`

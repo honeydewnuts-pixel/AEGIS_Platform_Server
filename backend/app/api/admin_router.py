@@ -515,3 +515,55 @@ async def set_engine_tier(
             ip=request.client.host if request.client else None,
         )
     return result
+
+
+class ResolveReportBody(BaseModel):
+    status: str  # reviewed | dismissed | actioned
+    note: str = ""
+
+
+@router.get("/chat/reports")
+async def admin_chat_reports(
+    request: Request,
+    status: str = "open",
+    limit: int = 50,
+    auth: AuthContext = Depends(verify_api_key),
+):
+    require_admin(auth)
+    svc = getattr(request.app.state, "community_chat", None)
+    if svc is None:
+        raise HTTPException(503, "Community unavailable")
+    return {"reports": await svc.list_reports(status=status, limit=limit)}
+
+
+@router.post("/chat/reports/{report_id}/resolve")
+async def admin_resolve_report(
+    report_id: int,
+    body: ResolveReportBody,
+    request: Request,
+    auth: AuthContext = Depends(verify_api_key),
+):
+    require_admin(auth)
+    svc = getattr(request.app.state, "community_chat", None)
+    if svc is None:
+        raise HTTPException(503, "Community unavailable")
+    try:
+        return await svc.resolve_report(report_id, status=body.status, note=body.note)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@router.post("/chat/messages/{message_id}/delete")
+async def admin_delete_room_message(
+    message_id: int,
+    request: Request,
+    auth: AuthContext = Depends(verify_api_key),
+):
+    require_admin(auth)
+    svc = getattr(request.app.state, "community_chat", None)
+    if svc is None:
+        raise HTTPException(503, "Community unavailable")
+    ok = await svc.soft_delete_room_message(message_id)
+    if not ok:
+        raise HTTPException(404, "message_not_found")
+    return {"deleted": True, "id": message_id}

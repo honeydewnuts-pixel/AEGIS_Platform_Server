@@ -362,6 +362,8 @@ class ChatMessage(Base):
     account_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     display_name: Mapped[str] = mapped_column(String(64), nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False)
+    attachment_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    attachment_mime: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
@@ -386,3 +388,43 @@ class CommunityProfile(Base):
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class DmThread(Base):
+    __tablename__ = "dm_threads"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    account_a: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    account_b: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class DmMessage(Base):
+    __tablename__ = "dm_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    thread_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    sender_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    display_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    attachment_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    attachment_mime: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+
+class ChatReport(Base):
+    __tablename__ = "chat_reports"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    reporter_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    target_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    target_message_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    room_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    thread_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    reason: Mapped[str] = mapped_column(String(512), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="open")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    resolver_note: Mapped[str | None] = mapped_column(String(512), nullable=True)

@@ -114,6 +114,8 @@ async def on_startup(app: FastAPI) -> None:
     from app.services.aegis_ai_service import AegisAiService
     app.state.community_chat = CommunityChatService()
     app.state.aegis_ai = AegisAiService()
+    from app.services.community_ws_hub import CommunityWsHub
+    app.state.community_ws = CommunityWsHub()
     try:
         await app.state.community_chat.ensure_default_rooms()
         logger.info("Community chat rooms ready")

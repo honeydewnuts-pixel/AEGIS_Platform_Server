@@ -61,6 +61,10 @@ class CommunityActivity : AppCompatActivity() {
         list.adapter = adapter
         findViewById<Button>(R.id.sendBtn).setOnClickListener { send() }
         findViewById<TextView>(R.id.editNameBtn).setOnClickListener { promptDisplayName(force = true) }
+        findViewById<TextView>(R.id.editNameBtn).setOnLongClickListener {
+            openDmDialog(); true
+        }
+        onlineBadge.setOnClickListener { openDmDialog() }
         spinner.setOnItemSelectedListener(object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(p: android.widget.AdapterView<*>?, v: View?, pos: Int, id: Long) {
                 lastMsgId = 0
@@ -272,7 +276,7 @@ class CommunityActivity : AppCompatActivity() {
         }
     }
 
-    private class MsgAdapter(private val items: List<Msg>) :
+    private inner class MsgAdapter(private val items: List<Msg>) :
         RecyclerView.Adapter<MsgAdapter.VH>() {
         class VH(val tv: TextView) : RecyclerView.ViewHolder(tv)
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -285,7 +289,134 @@ class CommunityActivity : AppCompatActivity() {
         override fun getItemCount() = items.size
         override fun onBindViewHolder(holder: VH, position: Int) {
             val m = items[position]
-            holder.tv.text = "${m.name}  ·  ${m.at}\n${m.body}"
+            val att = if (m.body.startsWith("[image]")) " 📎" else ""
+            holder.tv.text = "${m.name}  ·  ${m.at}$att\n${m.body}"
+            holder.tv.setOnLongClickListener {
+                reportMessage(m.id, m.name)
+                true
+            }
         }
+    }
+
+    private fun reportMessage(messageId: Int, who: String) {
+        val box = EditText(this)
+        box.hint = "Why are you reporting this?"
+        box.setTextColor(Color.WHITE)
+        box.setPadding(24, 24, 24, 24)
+        AlertDialog.Builder(this)
+            .setTitle("Report message from $who")
+            .setView(box)
+            .setPositiveButton("Report") { _, _ ->
+                val reason = box.text?.toString()?.trim().orEmpty()
+                if (reason.length < 3) return@setPositiveButton
+                lifecycleScope.launch {
+                    try {
+                        val api = RetrofitClient.getApiService(this@CommunityActivity)
+                        val pos = spinner.selectedItemPosition
+                        val roomId = if (pos in rooms.indices) rooms[pos].id else null
+                        val resp = api.communityReport(
+                            mapOf(
+                                "account_id" to accountId,
+                                "target_type" to "room",
+                                "target_message_id" to messageId,
+                                "reason" to reason,
+                                "room_id" to (roomId ?: "")
+                            )
+                        )
+                        Toast.makeText(
+                            this@CommunityActivity,
+                            if (resp.isSuccessful) "Report submitted" else "Report failed",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    } catch (_: Exception) {}
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun openDmDialog() {
+        val box = EditText(this)
+        box.hint = "Peer display name"
+        box.setTextColor(Color.WHITE)
+        box.setPadding(24, 24, 24, 24)
+        AlertDialog.Builder(this)
+            .setTitle("Direct message")
+            .setMessage("Enter the exact display name of the trader (from Online list).")
+            .setView(box)
+            .setPositiveButton("Open") { _, _ ->
+                val peer = box.text?.toString()?.trim().orEmpty()
+                if (peer.isEmpty()) return@setPositiveButton
+                lifecycleScope.launch {
+                    try {
+                        val api = RetrofitClient.getApiService(this@CommunityActivity)
+                        val resp = api.communityDmOpen(
+                            mapOf("account_id" to accountId, "peer_display_name" to peer)
+                        )
+                        if (!resp.isSuccessful) {
+                            Toast.makeText(this@CommunityActivity, "DM open failed", Toast.LENGTH_SHORT).show()
+                            return@launch
+                        }
+                        val threadId = (resp.body()?.get("thread_id") ?: "").toString()
+                        val peerName = (resp.body()?.get("peer_display_name") ?: peer).toString()
+                        runOnUiThread { openDmThread(threadId, peerName) }
+                    } catch (e: Exception) {
+                        Toast.makeText(this@CommunityActivity, e.message ?: "error", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun openDmThread(threadId: String, peerName: String) {
+        val log = TextView(this)
+        log.setTextColor(Color.WHITE)
+        log.textSize = 13f
+        log.setPadding(16, 16, 16, 16)
+        val input = EditText(this)
+        input.hint = "Message to $peerName"
+        input.setTextColor(Color.WHITE)
+        input.setPadding(16, 16, 16, 16)
+        val wrap = android.widget.LinearLayout(this)
+        wrap.orientation = android.widget.LinearLayout.VERTICAL
+        wrap.addView(log)
+        wrap.addView(input)
+        fun refreshDm() {
+            lifecycleScope.launch {
+                try {
+                    val api = RetrofitClient.getApiService(this@CommunityActivity)
+                    val resp = api.communityDmMessages(threadId, accountId, 50, null)
+                    if (!resp.isSuccessful) return@launch
+                    @Suppress("UNCHECKED_CAST")
+                    val rows = (resp.body()?.get("messages") as? List<Map<String, Any?>>) ?: emptyList()
+                    val sb = StringBuilder()
+                    rows.forEach {
+                        sb.append("${it["display_name"]}: ${it["body"]}\n")
+                    }
+                    runOnUiThread { log.text = sb.toString() }
+                } catch (_: Exception) {}
+            }
+        }
+        refreshDm()
+        AlertDialog.Builder(this)
+            .setTitle("DM · $peerName")
+            .setView(wrap)
+            .setPositiveButton("Send") { d, _ ->
+                val text = input.text?.toString()?.trim().orEmpty()
+                if (text.isEmpty()) return@setPositiveButton
+                lifecycleScope.launch {
+                    try {
+                        val api = RetrofitClient.getApiService(this@CommunityActivity)
+                        api.communityDmPost(
+                            threadId,
+                            mapOf("account_id" to accountId, "body" to text)
+                        )
+                        refreshDm()
+                    } catch (_: Exception) {}
+                }
+            }
+            .setNegativeButton("Close", null)
+            .show()
     }
 }
