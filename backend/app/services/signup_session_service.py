@@ -104,6 +104,18 @@ class SignupSessionService:
                 continue
         raise ValueError(last_err)
 
+
+    async def reset_checkout_claim(self, session_id: str) -> dict[str, Any] | None:
+        """Roll CHECKOUT_CREATED → CREATED so the customer can retry after provider failure."""
+        data = await self.get(session_id)
+        if not data:
+            return None
+        if data.get("state") == "CHECKOUT_CREATED":
+            data["state"] = "CREATED"
+            data["payment_reference"] = None
+            await self._save(session_id, data)
+        return data
+
     async def set_payment_reference(self, session_id: str, payment_reference: str) -> dict[str, Any] | None:
         data = await self.get(session_id)
         if not data:

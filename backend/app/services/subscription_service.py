@@ -503,6 +503,23 @@ class SubscriptionService:
         final = min(base * mult, cap)
         return round(final, 2)
 
+
+    async def find_active_demo_by_email(self, email: str) -> str | None:
+        """Return account_id if an active/demo subscription already uses this contact_email."""
+        email_n = (email or "").strip().lower()
+        if not email_n:
+            return None
+        async with async_session_factory() as session:
+            result = await session.execute(
+                select(Subscription).where(
+                    Subscription.contact_email == email_n,
+                    Subscription.plan == "demo",
+                    Subscription.status.in_(("active", "trialing", "past_due")),
+                ).limit(1)
+            )
+            row = result.scalar_one_or_none()
+            return getattr(row, "account_id", None) if row else None
+
     async def get_risk_preset(self, account_id: str) -> str:
         async with async_session_factory() as session:
             row = await session.get(Subscription, account_id)

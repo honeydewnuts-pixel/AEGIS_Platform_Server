@@ -46,6 +46,7 @@ class Subscription(Base):
     portal_token: Mapped[str | None] = mapped_column(String, nullable=True, unique=True)
     # Commercial tier: demo | starter | pro | business | enterprise
     plan: Mapped[str] = mapped_column(String, nullable=False, default="starter")
+    contact_email: Mapped[str | None] = mapped_column(String, nullable=True)
     # User risk preset: conservative | standard | aggressive (server calculates lot)
     risk_preset: Mapped[str] = mapped_column(String(20), nullable=False, default="standard")
     # Portfolio risk (equity × tolerance → multi-symbol capacity)

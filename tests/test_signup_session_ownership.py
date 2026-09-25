@@ -103,3 +103,14 @@ def test_normalize_checkout_plan():
         normalize_checkout_plan("foobar")
     with pytest.raises(ValueError):
         normalize_checkout_plan("enterprise")
+
+
+@pytest.mark.asyncio
+async def test_reset_checkout_claim_allows_retry():
+    svc = SignupSessionService(FakeRedis())
+    payload = await svc.create(email="a@b.co", plan="starter", purpose="checkout")
+    sid = payload["session_id"]
+    await svc.try_begin_checkout(sid)
+    await svc.reset_checkout_claim(sid)
+    # can claim again
+    await svc.try_begin_checkout(sid)

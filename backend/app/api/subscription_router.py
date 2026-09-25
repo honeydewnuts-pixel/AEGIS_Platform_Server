@@ -102,9 +102,20 @@ async def create_checkout(
     reveal_token = await credential_reveal.create_reveal_token(account_id)
 
     adapter = adapter_cls()
-    session = await adapter.create_checkout_session(
-        account_id, str(checkout_request.email), plan, reveal_token
-    )
+    try:
+        session = await adapter.create_checkout_session(
+            account_id, str(checkout_request.email), plan, reveal_token
+        )
+    except Exception as e:
+        # Provider failed after claim — allow customer to retry same session
+        try:
+            await signup_svc.reset_checkout_claim(checkout_request.signup_session_id)
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=502,
+            detail=f"Payment provider checkout failed: {type(e).__name__}: {e}",
+        ) from e
     await signup_svc.set_payment_reference(
         checkout_request.signup_session_id,
         getattr(session, "reference", None) or "",
@@ -303,13 +314,32 @@ async def demo_signup(body: DemoSignupRequest, request: Request):
     """
     signup_svc = getattr(request.app.state, "signup_sessions", None)
     email = str(body.email).strip().lower()
-    if signup_svc is not None:
-        sess = await signup_svc.create(email=email, plan="demo", purpose="demo")
-        account_id = sess["account_id"]
-    else:
-        account_id = f"DEMO-{uuid.uuid4().hex[:10].upper()}"
+    if signup_svc is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Signup session service unavailable; try again later",
+        )
+    sess = await signup_svc.create(email=email, plan="demo", purpose="demo")
+    account_id = sess["account_id"]
 
     sub = request.app.state.subscription_service
+    # One active demo entitlement per email (commercial abuse control)
+    try:
+        existing = await sub.find_active_demo_by_email(email)
+        if existing:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"An active demo already exists for this email ({existing}). "
+                    "Use that account or wait until it expires."
+                ),
+            )
+    except HTTPException:
+        raise
+    except AttributeError:
+        pass
+    except Exception:
+        pass
     try:
         issued = await sub.activate_demo(
             account_id, contact_email=email, allow_refresh_existing=False

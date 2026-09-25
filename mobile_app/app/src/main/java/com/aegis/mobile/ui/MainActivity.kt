@@ -57,6 +57,13 @@ class MainActivity : AppCompatActivity() {
     private var panelSettings: android.view.View? = null
     private var navHome: TextView? = null
     private var notifBtn: TextView? = null
+    private val notifBadgeHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val notifBadgeRunnable = object : Runnable {
+        override fun run() {
+            refreshNotifBadge()
+            notifBadgeHandler.postDelayed(this, 20_000L)
+        }
+    }
     private var lastExecIds: MutableSet<String> = mutableSetOf()
     private var navAnalysis: TextView? = null
     private var navTrade: TextView? = null
@@ -680,8 +687,15 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
         }
     }
 
+    override fun onPause() {
+        notifBadgeHandler.removeCallbacks(notifBadgeRunnable)
+        super.onPause()
+    }
+
     override fun onResume() {
         refreshNotifBadge()
+        notifBadgeHandler.removeCallbacks(notifBadgeRunnable)
+        notifBadgeHandler.postDelayed(notifBadgeRunnable, 20_000L)
         if (captureRunning) pollExecutionNotifications()
         super.onResume()
         updateBatteryButtonLabel()
@@ -983,10 +997,14 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
                 if (!resp.isSuccessful) return@launch
                 val n = (resp.body()?.get("unread_count") as? Number)?.toInt() ?: 0
                 runOnUiThread {
+                    // Always show count at a glance when unread > 0 (e.g. 🔔 3)
                     notifBtn?.text = if (n > 0) "🔔 $n" else "🔔"
+                    notifBtn?.textSize = if (n > 0) 18f else 16f
+                    notifBtn?.setTypeface(null, if (n > 0) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
                     notifBtn?.setTextColor(
                         if (n > 0) Color.parseColor("#FFD600") else Color.parseColor("#00D4FF")
                     )
+                    notifBtn?.alpha = 1.0f
                 }
             } catch (_: Exception) {
             }
