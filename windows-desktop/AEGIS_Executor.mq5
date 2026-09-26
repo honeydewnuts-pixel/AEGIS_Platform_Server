@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| AEGIS_Executor.mq5  v2.16  ARCHITECTURE FREEZE for VPS demo
+//| AEGIS_Executor.mq5  v2.19  Position manager (BE/trail/72-bar M5)
 //| Partial COMPLETE_REMAINDER = exactly ONE residual OrderSend (not recursive).  PRODUCTION HARDENED                   |
 //| - ResolveBrokerSymbol (suffixes + MW scan)                       |
 //| - MarkHandled only after success / permanent fail                |
@@ -11,7 +11,7 @@
 #property copyright "LeverageFx / Honeydewnuts"
 #property version   "2.19"
 #property strict
-#property description "AEGIS multi-pair executor v2.16 production"
+#property description "AEGIS multi-pair executor v2.19 PM BE/trail/TIME"
 
 enum ENUM_AEGIS_MODE
   {
