@@ -2,6 +2,9 @@
 Commercial subscription tiers for AEGIS (global, USD).
 
 max_trades_per_day: 0 means unlimited.
+live_trading: commercial entitlement for paid tiers (starter/pro/business).
+This is NOT the same as production live-money execution authorization.
+ExecutionGuard / DEMO_ONLY / production_authorized remain separate safety layers.
 live_trading: false restricts to analysis / demo-style use.
 """
 

@@ -187,7 +187,7 @@ class DownloadToken(Base):
 
     token: Mapped[str] = mapped_column(String, primary_key=True)
     account_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
-    plan: Mapped[str] = mapped_column(String, nullable=False, default="live")  # live | demo
+    plan: Mapped[str] = mapped_column(String, nullable=False, default="starter")  # demo | starter | pro | business | enterprise
     max_uses: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     uses: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

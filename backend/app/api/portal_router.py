@@ -19,6 +19,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query, Request
 
+from app.services.plan_catalog import resolve_plan
+
 router = APIRouter(prefix="/api/portal", tags=["Client Portal"])
 
 
@@ -81,9 +83,7 @@ async def portal_download_url(
     record = await _authenticate(request, account_id, token)
     if not record["is_active"]:
         raise HTTPException(status_code=402, detail="Subscription is not active.")
-    plan = record.get("plan") or "starter"
-    if plan in ("live",):
-        plan = "starter"
+    plan = resolve_plan(record.get("plan") or "starter")["code"]
     bindings = request.app.state.device_bindings
     dl_token = await bindings.issue_download_token(
         account_id=account_id, plan=plan, max_uses=1, ttl_hours=24
