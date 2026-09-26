@@ -148,9 +148,9 @@ class UniversalAnalysisService:
         """
         OHLC evaluation for ROUTABLE_RESEARCH instruments.
 
-        Demo / paper path: when bars are present, emit actionable BUY/SELL so
-        Executor can place demo trades. Production live still gated separately
-        by production_authorized / subscription plan.
+        Baseline (cash-test methodology): V31 SHORT entry logic used by V53.6
+        transfer rulebooks and GBPUSD V31 source lineage.
+        Does NOT use demo_ohlc_structure slope BUY/SELL substitute.
         """
         if not isinstance(market_snapshot, dict):
             return None
@@ -162,130 +162,99 @@ class UniversalAnalysisService:
             close_f = None
 
         bars = market_snapshot.get("bars") or market_snapshot.get("ohlc") or market_snapshot.get("m1")
+        ids = [str(x) for x in (rulebook_ids or [])]
         detail_bits = [
             f"OHLC path for {instrument} {timeframe}.",
-            f"Rulebooks: {', '.join(rulebook_ids) or 'n/a'}.",
+            f"Rulebooks: {', '.join(ids) or 'n/a'}.",
         ]
 
-        # 1) Prefer V2-OPT sequential rulebooks (file on disk or by instrument)
+        if not isinstance(bars, list) or len(bars) < 5:
+            if close_f is not None:
+                detail_bits.append(f"Last close={close_f}. Need bars for V31 evaluation.")
+            return {
+                "signal": "HOLD",
+                "confidence": 0.0,
+                "rule_name": "v40_research_awaiting_ohlc",
+                "details": " ".join(detail_bits),
+                "market_ohlc_close": close_f,
+                "production_authorized": False,
+                "methodology": "v31_short_baseline",
+            }
+
+        # --- Baseline: V53.6 / V31 SHORT (historical cash-test methodology) ---
+        v31_ids = [
+            rid for rid in ids
+            if "V53.6" in rid or "V53_6" in rid or rid.startswith("AEGIS-RB-V31-")
+        ]
+        # Prefer explicit V53.6 id, else V31 source, else synthesize from instrument
+        if not v31_ids:
+            # Router eligible list may use V39 ids; still apply V31 short if
+            # registry has V53.6 artifact for this instrument
+            from pathlib import Path as _P
+            rb_dir = _P(__file__).resolve().parents[3] / "registry" / "v53_6" / instrument.upper()
+            if (rb_dir / "rulebook.json").exists():
+                import json as _json
+                meta = _json.loads((rb_dir / "rulebook.json").read_text())
+                v31_ids = [str(meta.get("rulebook_id") or f"AEGIS-RB-V53.6-V31-{instrument.upper()}-5M")]
+            elif instrument.upper() == "GBPUSD":
+                v31_ids = ["AEGIS-RB-V31-GBPUSD-5M"]
+
+        if v31_ids:
+            from app.rulebooks.live_v31_short import evaluate_live_v31_short
+            rid = v31_ids[0]
+            out = evaluate_live_v31_short(bars, rulebook_id=rid, instrument=instrument)
+            out["market_ohlc_close"] = close_f
+            out["rulebook_ids"] = list(ids) or [rid]
+            out["production_authorized"] = False
+            # SHORT only — never promote to BUY
+            if str(out.get("signal")).upper() == "BUY":
+                out["signal"] = "HOLD"
+                out["details"] = (out.get("details") or "") + " BUY suppressed: baseline is SHORT-only."
+            return out
+
+        # --- Explicit experimental only: V2-OPT sequential (not baseline) ---
         try:
             from pathlib import Path as _P
             import json as _json
             from app.rulebooks.evaluators.v2opt_sequential import evaluate_v2opt_from_bars
+            from app.config import settings
 
-            repo = _P(__file__).resolve().parents[3]
-            candidates: list[tuple[str, _P]] = []
-            for rid in rulebook_ids or []:
-                if not str(rid).startswith("AEGIS-RB-V2OPT-"):
-                    continue
-                parts = str(rid).split("-")
-                inst_guess = parts[3] if len(parts) >= 4 else instrument
-                for folder in (inst_guess, instrument):
-                    rb_path = repo / "registry" / "v2_opt" / folder / "rulebook.json"
-                    if rb_path.exists():
-                        candidates.append((str(rid), rb_path))
-            # Fallback: instrument folder even if id list has no V2OPT
-            fb = repo / "registry" / "v2_opt" / instrument.upper() / "rulebook.json"
-            if fb.exists() and not candidates:
-                candidates.append((f"AEGIS-RB-V2OPT-{instrument.upper()}-M5", fb))
-
-            if candidates and isinstance(bars, list) and len(bars) >= 30:
-                for rid, rb_path in candidates:
-                    rb = _json.loads(rb_path.read_text())
-                    out = evaluate_v2opt_from_bars(bars, rb)
-                    # Promote research signal to demo-executable confidence floor
-                    sig = str(out.get("signal") or "HOLD").upper()
-                    conf = float(out.get("confidence") or 0.0)
-                    # Do not floor confidence — EXEC_MIN_CONFIDENCE gates publish
-                    out["market_ohlc_close"] = close_f
-                    out["rulebook_ids"] = list(rulebook_ids)
-                    out["demo_actionable"] = sig in ("BUY", "SELL")
-                    out["production_authorized"] = False
-                    if sig in ("BUY", "SELL"):
-                        out["details"] = (
-                            f"{out.get('details') or ''} Demo-executable {sig} "
-                            f"(conf={conf:.2f}). Production authorization remains false."
-                        ).strip()
+            if not getattr(settings, "ALLOW_V2OPT_LIVE_SIGNALS", False):
+                detail_bits.append("V2-OPT live signals disabled (not cash-test baseline).")
+            else:
+                repo = _P(__file__).resolve().parents[3]
+                candidates: list[tuple[str, _P]] = []
+                for rid in ids:
+                    if not str(rid).startswith("AEGIS-RB-V2OPT-"):
+                        continue
+                    parts = str(rid).split("-")
+                    inst_guess = parts[3] if len(parts) >= 4 else instrument
+                    for folder in (inst_guess, instrument):
+                        rb_path = repo / "registry" / "v2_opt" / folder / "rulebook.json"
+                        if rb_path.exists():
+                            candidates.append((str(rid), rb_path))
+                if candidates and len(bars) >= 30:
+                    for rid, rb_path in candidates:
+                        rb = _json.loads(rb_path.read_text())
+                        out = evaluate_v2opt_from_bars(bars, rb)
+                        out["market_ohlc_close"] = close_f
+                        out["rulebook_ids"] = list(ids)
+                        out["methodology"] = "v2opt_experimental"
+                        out["production_authorized"] = False
                         return out
         except Exception as e:
             detail_bits.append(f"V2-OPT evaluator error: {e}")
 
-        # 2) Structure + momentum on closed bars (always available from Feed stream)
-        if not isinstance(bars, list) or len(bars) < 5:
-            if close_f is not None:
-                detail_bits.append(f"Last close={close_f}. Need >=5 bars for structure.")
-            return {
-                "signal": "HOLD",
-                "confidence": 0.0,
-                "rule_name": "v40_research_ohlc_hold",
-                "details": " ".join(detail_bits),
-                "market_ohlc_close": close_f,
-                "production_authorized": False,
-            }
-
-        try:
-            closes = [float(b.get("close", b.get("c", 0))) for b in bars[-60:]]
-            highs = [float(b.get("high", b.get("h", c))) for b, c in zip(bars[-60:], closes)]
-            lows = [float(b.get("low", b.get("l", c))) for b, c in zip(bars[-60:], closes)]
-        except (TypeError, ValueError, AttributeError):
-            return {
-                "signal": "HOLD",
-                "confidence": 0.0,
-                "rule_name": "v40_research_ohlc_hold",
-                "details": " ".join(detail_bits + ["OHLC bars not parseable."]),
-                "market_ohlc_close": close_f,
-                "production_authorized": False,
-            }
-
-        if len(closes) < 5:
-            return {
-                "signal": "HOLD",
-                "confidence": 0.0,
-                "rule_name": "v40_research_ohlc_hold",
-                "details": " ".join(detail_bits + ["Insufficient closes."]),
-                "market_ohlc_close": close_f,
-                "production_authorized": False,
-            }
-
-        # Simple robust demo signal: multi-bar slope + last candle direction
-        window = closes[-8:] if len(closes) >= 8 else closes
-        slope = window[-1] - window[0]
-        last_up = closes[-1] > closes[-2]
-        last_down = closes[-1] < closes[-2]
-        # ATR14 proxy for confidence scaling
-        atr = 0.0
-        if len(highs) >= 15:
-            ranges = [highs[i] - lows[i] for i in range(-14, 0)]
-            atr = sum(ranges) / max(1, len(ranges))
-        slope_strength = abs(slope) / atr if atr > 1e-12 else 0.0
-
-        signal = "HOLD"
-        confidence = 0.0
-        if slope > 0 and last_up:
-            signal = "BUY"
-            confidence = min(0.85, 0.55 + min(0.25, slope_strength * 0.1))
-            detail_bits.append(
-                f"Demo structure BUY: positive slope ({slope:.6g}), last bar up, strength={slope_strength:.2f}."
-            )
-        elif slope < 0 and last_down:
-            signal = "SELL"
-            confidence = min(0.85, 0.55 + min(0.25, slope_strength * 0.1))
-            detail_bits.append(
-                f"Demo structure SELL: negative slope ({slope:.6g}), last bar down, strength={slope_strength:.2f}."
-            )
-        else:
-            detail_bits.append("No clear short-window structure — HOLD.")
-
-        detail_bits.append(
-            "Demo-actionable when BUY/SELL. Production authorization remains false for live capital."
-        )
         return {
-            "signal": signal,
-            "confidence": confidence,
-            "rule_name": "demo_ohlc_structure" if signal in ("BUY", "SELL") else "v40_research_ohlc_hold",
-            "details": " ".join(detail_bits),
+            "signal": "HOLD",
+            "confidence": 0.0,
+            "rule_name": "v40_research_ohlc_hold",
+            "details": " ".join(detail_bits + [
+                "No baseline V31/V53.6 rulebook resolved; demo_ohlc_structure is disabled."
+            ]),
             "market_ohlc_close": close_f,
-            "demo_actionable": signal in ("BUY", "SELL"),
             "production_authorized": False,
-            "rulebook_ids": list(rulebook_ids),
+            "methodology": "v31_short_baseline",
+            "rulebook_ids": list(ids),
         }
+

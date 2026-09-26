@@ -4,11 +4,12 @@ Autonomous MultiSymbol signals from MT5 OHLC stream (not mobile dropdown).
 On each CLOSED bar ingest:
   OHLC Feed → evaluate rulebook → confidence gate → Executor publish
 
-Confidence policy (default EXEC_MIN_CONFIDENCE=0.75):
-  - Open / flip only when signal confidence >= threshold
-  - Same direction while already in that direction → reject (hold)
-  - Opposite direction below threshold → reject (keep position; no fixed TP)
-  - Opposite direction at/above threshold → publish flip (Executor closes + reverses)
+Baseline methodology (cash-test restoration):
+  - V31 SHORT / V53.6 transfer rulebooks → SELL only
+  - No confidence-flip reversals on the baseline path
+  - No demo_ohlc_structure BUY/SELL substitute
+  - Initial stop from rulebook (1.5 * ATR14) when available
+  - Binary rule fire uses confidence=1.0; slope-demo confidence is not used
 
 Mobile app symbol selection is NOT required for this path.
 """
@@ -56,9 +57,29 @@ class AutonomousOhlcSignalService:
         symbol: str,
         side: str,
         confidence: float,
+        *,
+        methodology: str | None = None,
     ) -> tuple[bool, str]:
-        """Return (allow_publish, reason)."""
+        """Return (allow_publish, reason). Baseline = SHORT-only, no flip."""
         side_u = (side or "").upper()
+        meth = (methodology or "").lower()
+        # Cash-test baseline: SHORT only (SELL). Reject BUY.
+        if meth in ("v31_short_baseline", "v53_6", "") or "v31" in meth or "v53" in meth:
+            if side_u == "BUY":
+                return False, "baseline_short_only_buy_rejected"
+            if side_u != "SELL":
+                return False, "not_actionable"
+            # Binary rule fire (conf=1.0) or any positive conf for V31
+            if float(confidence or 0.0) <= 0:
+                return False, "no_rule_fire"
+            current = self.get_side(account_id, symbol)
+            if current == "SELL":
+                return False, "same_direction_open:SELL"
+            if current == "BUY":
+                # Do not auto-flip; baseline has no opposite-entry reversal
+                return False, "baseline_no_flip_while_long"
+            return True, "open_short_v31"
+        # Experimental paths only
         if side_u not in ("BUY", "SELL"):
             return False, "not_actionable"
         thr = self.min_confidence()
@@ -70,8 +91,7 @@ class AutonomousOhlcSignalService:
             return False, f"same_direction_open:{current}"
         if current is None:
             return True, "open_new"
-        # opposite → flip
-        return True, f"flip_{current}_to_{side_u}"
+        return False, "experimental_flip_disabled_on_baseline_server"
 
     async def process_closed_bar(
         self,
@@ -156,7 +176,8 @@ class AutonomousOhlcSignalService:
         out["rule_name"] = result.get("rule_name")
         out["router_state"] = result.get("router_state")
 
-        allow, reason = self.gate_signal(account_id, symbol, side, conf)
+        meth = str(result.get("methodology") or "")
+        allow, reason = self.gate_signal(account_id, symbol, side, conf, methodology=meth)
         out["gate"] = reason
         if not allow:
             out["reason"] = reason
@@ -219,17 +240,23 @@ class AutonomousOhlcSignalService:
         except Exception as e:
             out["risk_error"] = str(e)
 
-        # SL/TP optional — primary exit is opposite high-confidence signal
+        # Cash-test initial stop: 1.5 * ATR14 above short entry (AskOpen next bar ≈ close proxy)
         sl = result.get("stop_loss") or result.get("sl")
-        tp = result.get("take_profit") or result.get("tp")
-        # Prefer no fixed TP when using confidence-flip exits
-        tp = None
         try:
             px = float(snapshot.get("close") or 0)
         except Exception:
             px = 0.0
-        if px > 0 and not sl:
-            sl = px * (0.995 if side == "BUY" else 1.005)
+        atr = result.get("atr14")
+        mult = float(result.get("initial_stop_atr_mult") or 1.5)
+        if not sl and px > 0 and atr is not None:
+            try:
+                atr_f = float(atr)
+                if atr_f > 0 and side == "SELL":
+                    sl = px + mult * atr_f  # short: stop above
+                elif atr_f > 0 and side == "BUY":
+                    sl = px - mult * atr_f
+            except (TypeError, ValueError):
+                pass
 
         try:
             exec_svc.publish(
@@ -240,7 +267,7 @@ class AutonomousOhlcSignalService:
                 rule_name=str(result.get("rule_name") or ""),
                 volume=sized_vol,
                 stop_loss=float(sl) if sl else None,
-                take_profit=None,  # confidence-flip exit model
+                take_profit=None,  # cash-test uses BE/trail/time exits — not fixed TP on baseline
                 details=f"autonomous_ohlc gate={reason} conf={conf:.2f}"[:500],
             )
             self.set_side(account_id, sym, side)

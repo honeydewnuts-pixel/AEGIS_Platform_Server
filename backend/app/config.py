@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     AUTONOMOUS_EXECUTION_ENABLED: bool = True
     AUTONOMOUS_DEMO_ONLY: bool = True
     AUTONOMOUS_DEFAULT_VOLUME: float = 0.01
+    # Experimental only — not cash-test baseline
+    ALLOW_V2OPT_LIVE_SIGNALS: bool = False
+    ALLOW_DEMO_OHLC_STRUCTURE: bool = False  # disabled; was non-historical substitute
 
     # Risk presets — server multiplies base_lot; hard-capped by plan max_lot.
     # Users never set lot size directly; only choose a preset name.
