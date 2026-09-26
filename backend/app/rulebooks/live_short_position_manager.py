@@ -134,3 +134,15 @@ def simulate_live_short_path(
         if st.closed:
             break
     return st
+
+
+def completed_bars_since_entry(entry_bar_index: int, current_bar_index: int) -> int:
+    """Bars fully completed after entry bar (historical j from entry+1 .. current)."""
+    if current_bar_index <= entry_bar_index:
+        return 0
+    return current_bar_index - entry_bar_index
+
+
+def should_time_exit(entry_bar_index: int, current_bar_index: int, max_hold_bars: int = 72) -> bool:
+    """True when held bars reach max_hold (simulate_short end = entry_event + max_hold)."""
+    return completed_bars_since_entry(entry_bar_index, current_bar_index) >= max_hold_bars

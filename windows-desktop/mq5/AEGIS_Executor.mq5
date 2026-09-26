@@ -9,7 +9,7 @@
 //| - Fill modes from SYMBOL_TRADE_EXECUTION + SYMBOL_FILLING_MODE   |
 //+------------------------------------------------------------------+
 #property copyright "LeverageFx / Honeydewnuts"
-#property version   "2.17"
+#property version   "2.18"
 #property strict
 #property description "AEGIS multi-pair executor v2.16 production"
 
@@ -869,9 +869,11 @@ void PollLocalFallback()
 
 
 //+------------------------------------------------------------------+
-//| V2.17 Position manager — V31/V53.6 short exits (simulate_short)  |
-//| Authority: this EA only modifies AEGIS-magic stops/closes.       |
-//| State recovered from MT5 positions + PosStateFile after restart. |
+//| V2.18 Position manager — V31/V53.6 short exits (simulate_short)  |
+//| - Bar count = completed M5 bars (not wall-clock)                 |
+//| - BE/trail only after confirmed broker SL modification           |
+//| - Per-signal risk/trail/maxHold from state file                  |
+//| Authority: this EA only for AEGIS-magic stops/closes             |
 //+------------------------------------------------------------------+
 double WilderAtr14(const string symbol, ENUM_TIMEFRAMES tf)
   {
@@ -880,7 +882,6 @@ double WilderAtr14(const string symbol, ENUM_TIMEFRAMES tf)
    if(n < 15) return 0;
    ArraySetAsSeries(rates, true);
    double atr = 0;
-   // series: index 0 = current forming; use completed bars 1..
    double prevClose = rates[14].close;
    for(int k = 13; k >= 1; k--)
      {
@@ -895,23 +896,75 @@ double WilderAtr14(const string symbol, ENUM_TIMEFRAMES tf)
    return atr;
   }
 
+// Completed M5 bars after the bar that contains entryTime (series: 0=forming).
+// Matches simulate_short holding from entry bar forward without weekend clock drift.
+int CompletedM5BarsSinceEntry(const string symbol, const datetime entryTime)
+  {
+   if(entryTime <= 0) return 0;
+   int sh = iBarShift(symbol, PERIOD_M5, entryTime, false);
+   if(sh < 0)
+     {
+      // Entry time not in history yet
+      return 0;
+     }
+   // Entry bar shift = sh. Completed bars strictly after that bar: shifts sh-1 .. 1
+   if(sh <= 1) return 0;
+   return sh - 1;
+  }
+
 void PosStateSave(const string signalId, const string symbol, const double entry,
                   const double risk, const double atr, const datetime entryTime,
-                  const double stop, const bool beActive, const int maxHold)
+                  const double stop, const bool beActive, const int maxHold,
+                  const double trailMult, const double stopAtrMult)
   {
-   int h = FileOpen(PosStateFile, FILE_READ|FILE_WRITE|FILE_CSV|FILE_ANSI|FILE_COMMON);
-   if(h == INVALID_HANDLE)
-      h = FileOpen(PosStateFile, FILE_WRITE|FILE_CSV|FILE_ANSI|FILE_COMMON);
+   // Rewrite full file: keep other rows, replace this signalId
+   string lines[];
+   int n = 0;
+   int h = FileOpen(PosStateFile, FILE_READ|FILE_CSV|FILE_ANSI|FILE_COMMON);
+   if(h != INVALID_HANDLE)
+     {
+      while(!FileIsEnding(h))
+        {
+         string sid = FileReadString(h);
+         string sym = FileReadString(h);
+         string e = FileReadString(h);
+         string r = FileReadString(h);
+         string a = FileReadString(h);
+         string et = FileReadString(h);
+         string st = FileReadString(h);
+         string be = FileReadString(h);
+         string mh = FileReadString(h);
+         string tr = FileReadString(h);
+         string sm = FileReadString(h);
+         if(StringLen(sid) < 1) continue;
+         if(sid == signalId) continue; // replace
+         ArrayResize(lines, n + 1);
+         lines[n] = sid + "\t" + sym + "\t" + e + "\t" + r + "\t" + a + "\t" + et + "\t" + st + "\t" + be + "\t" + mh + "\t" + tr + "\t" + sm;
+         n++;
+        }
+      FileClose(h);
+     }
+   h = FileOpen(PosStateFile, FILE_WRITE|FILE_CSV|FILE_ANSI|FILE_COMMON);
    if(h == INVALID_HANDLE) return;
-   FileSeek(h, 0, SEEK_END);
+   for(int i = 0; i < n; i++)
+     {
+      string parts[];
+      int c = StringSplit(lines[i], StringGetCharacter("\t", 0), parts);
+      if(c >= 9)
+         FileWrite(h, parts[0], parts[1], parts[2], parts[3], parts[4], parts[5], parts[6], parts[7], parts[8],
+                   (c > 9 ? parts[9] : DoubleToString(DefaultTrailAtrMult, 4)),
+                   (c > 10 ? parts[10] : DoubleToString(DefaultStopAtrMult, 4)));
+     }
    FileWrite(h, signalId, symbol, DoubleToString(entry, 8), DoubleToString(risk, 8),
              DoubleToString(atr, 8), IntegerToString((long)entryTime),
-             DoubleToString(stop, 8), (beActive ? "1" : "0"), IntegerToString(maxHold));
+             DoubleToString(stop, 8), (beActive ? "1" : "0"), IntegerToString(maxHold),
+             DoubleToString(trailMult, 4), DoubleToString(stopAtrMult, 4));
    FileClose(h);
   }
 
 bool PosStateLoad(const string signalId, double &entry, double &risk, double &atr,
-                  datetime &entryTime, double &stop, bool &beActive, int &maxHold)
+                  datetime &entryTime, double &stop, bool &beActive, int &maxHold,
+                  double &trailMult, double &stopAtrMult)
   {
    int h = FileOpen(PosStateFile, FILE_READ|FILE_CSV|FILE_ANSI|FILE_COMMON);
    if(h == INVALID_HANDLE) return false;
@@ -927,6 +980,8 @@ bool PosStateLoad(const string signalId, double &entry, double &risk, double &at
       string st = FileReadString(h);
       string be = FileReadString(h);
       string mh = FileReadString(h);
+      string tr = FileReadString(h);
+      string sm = FileReadString(h);
       if(sid == signalId)
         {
          entry = StringToDouble(e);
@@ -936,6 +991,8 @@ bool PosStateLoad(const string signalId, double &entry, double &risk, double &at
          stop = StringToDouble(st);
          beActive = (be == "1");
          maxHold = (int)StringToInteger(mh);
+         trailMult = (StringLen(tr) > 0 ? StringToDouble(tr) : DefaultTrailAtrMult);
+         stopAtrMult = (StringLen(sm) > 0 ? StringToDouble(sm) : DefaultStopAtrMult);
          found = true;
         }
      }
@@ -945,7 +1002,6 @@ bool PosStateLoad(const string signalId, double &entry, double &risk, double &at
 
 string ExtractSignalIdFromComment(const string cmt)
   {
-   // "AEGIS <uuid>" or "AEGIS <uuid> rem"
    int p = StringFind(cmt, "AEGIS ");
    if(p < 0) return "";
    string rest = StringSubstr(cmt, p + 6);
@@ -954,25 +1010,36 @@ string ExtractSignalIdFromComment(const string cmt)
    return rest;
   }
 
-bool ModifyPositionStop(const ulong ticket, const string symbol, const double newSl)
+// Returns true only if trade server accepted AND position SL matches (within 2 points)
+bool ModifyPositionStopConfirmed(const ulong ticket, const string symbol, const double newSl, double &outSl)
   {
+   outSl = 0;
    if(!PositionSelectByTicket(ticket)) return false;
    double tp = PositionGetDouble(POSITION_TP);
    double curSl = PositionGetDouble(POSITION_SL);
-   // Short: only tighten (lower) stop — never increase risk
    long ptype = PositionGetInteger(POSITION_TYPE);
+   double point = SymbolInfoDouble(symbol, SYMBOL_POINT);
+   if(point <= 0) point = 0.00001;
+
+   // Never loosen short protective stop (increase SL price for short = more risk)
    if(ptype == POSITION_TYPE_SELL)
      {
-      if(curSl > 0 && newSl > curSl + SymbolInfoDouble(symbol, SYMBOL_POINT))
-         return true; // would widen risk — skip
+      if(curSl > 0 && newSl > curSl + point)
+        {
+         outSl = curSl;
+         return true; // no-op success: refuse widen
+        }
      }
    if(ptype == POSITION_TYPE_BUY)
      {
-      if(curSl > 0 && newSl < curSl - SymbolInfoDouble(symbol, SYMBOL_POINT))
+      if(curSl > 0 && newSl < curSl - point)
+        {
+         outSl = curSl;
          return true;
+        }
      }
+
    int stopsLevel = (int)SymbolInfoInteger(symbol, SYMBOL_TRADE_STOPS_LEVEL);
-   double point = SymbolInfoDouble(symbol, SYMBOL_POINT);
    double bid = SymbolInfoDouble(symbol, SYMBOL_BID);
    double ask = SymbolInfoDouble(symbol, SYMBOL_ASK);
    double sl = newSl;
@@ -986,6 +1053,7 @@ bool ModifyPositionStop(const ulong ticket, const string symbol, const double ne
       double maxSl = ask - stopsLevel * point;
       if(sl > maxSl) sl = maxSl;
      }
+
    MqlTradeRequest req; MqlTradeResult res;
    ZeroMemory(req); ZeroMemory(res);
    req.action = TRADE_ACTION_SLTP;
@@ -995,12 +1063,23 @@ bool ModifyPositionStop(const ulong ticket, const string symbol, const double ne
    req.tp = tp;
    if(!OrderSend(req, res))
      {
-      Print("AEGIS PM ModifyStop fail ticket=", ticket, " ret=", res.retcode);
+      Print("AEGIS PM ModifyStop OrderSend fail ticket=", ticket, " err=", GetLastError());
       return false;
      }
    if(res.retcode != TRADE_RETCODE_DONE && res.retcode != TRADE_RETCODE_DONE_PARTIAL)
      {
-      Print("AEGIS PM ModifyStop ret=", res.retcode);
+      Print("AEGIS PM ModifyStop rejected ret=", res.retcode, " ticket=", ticket);
+      return false;
+     }
+   // Confirm broker state
+   Sleep(30);
+   if(!PositionSelectByTicket(ticket)) return false;
+   double actual = PositionGetDouble(POSITION_SL);
+   outSl = actual;
+   if(actual <= 0) return false;
+   if(MathAbs(actual - req.sl) > 10 * point)
+     {
+      Print("AEGIS PM ModifyStop mismatch want=", req.sl, " got=", actual);
       return false;
      }
    return true;
@@ -1031,7 +1110,7 @@ void ClosePositionMarket(const ulong ticket, const string symbol, const string r
    else fill = ORDER_FILLING_RETURN;
    req.type_filling = fill;
    if(!OrderSend(req, res))
-      Print("AEGIS PM close fail ", reason, " ret=", GetLastError());
+      Print("AEGIS PM close fail ", reason, " err=", GetLastError());
    else
       Print("AEGIS PM close ", reason, " ticket=", ticket, " ret=", res.retcode);
   }
@@ -1042,13 +1121,17 @@ void RegisterManagedShort(const string signalId, const string brokerSymbol,
   {
    if(fillPrice <= 0 || atr14 <= 0) return;
    double risk = stopAtrMult * atr14;
-   double stop = fillPrice + risk; // short
-   // Apply initial SL on position
+   double stop = fillPrice + risk;
    ulong ticket = FindPositionTicket(brokerSymbol);
+   double confSl = 0;
+   bool ok = false;
    if(ticket != 0)
-      ModifyPositionStop(ticket, brokerSymbol, stop);
-   PosStateSave(signalId, brokerSymbol, fillPrice, risk, atr14, TimeCurrent(), stop, false, maxHold);
-   Print("AEGIS PM register SHORT ", brokerSymbol, " entry=", fillPrice, " risk=", risk, " stop=", stop);
+      ok = ModifyPositionStopConfirmed(ticket, brokerSymbol, stop, confSl);
+   if(ok && confSl > 0) stop = confSl;
+   // Persist initial risk even if modify failed — do not invent BE later without confirm
+   PosStateSave(signalId, brokerSymbol, fillPrice, risk, atr14, TimeCurrent(), stop, false, maxHold, trailMult, stopAtrMult);
+   Print("AEGIS PM register SHORT ", brokerSymbol, " entry=", fillPrice, " risk=", risk,
+         " stop=", stop, " mod_ok=", ok, " maxHold=", maxHold);
   }
 
 void ManageAegisShortPositions()
@@ -1061,8 +1144,7 @@ void ManageAegisShortPositions()
       if(!PositionSelectByTicket(ticket)) continue;
       if(PositionGetInteger(POSITION_MAGIC) != MagicNumber) continue;
       long ptype = PositionGetInteger(POSITION_TYPE);
-      // Baseline: manage shorts only (V31/V53.6)
-      if(ptype != POSITION_TYPE_SELL) continue;
+      if(ptype != POSITION_TYPE_SELL) continue; // baseline short-only
 
       string symbol = PositionGetString(POSITION_SYMBOL);
       string cmt = PositionGetString(POSITION_COMMENT);
@@ -1075,58 +1157,104 @@ void ManageAegisShortPositions()
       datetime entryTime = openTime;
       bool beActive = false;
       int maxHold = DefaultMaxHoldBars;
-      if(signalId != "" && PosStateLoad(signalId, fileEntry, risk, atr, entryTime, stop, beActive, maxHold))
+      double trailMult = DefaultTrailAtrMult;
+      double stopAtrMult = DefaultStopAtrMult;
+      bool haveState = false;
+
+      if(signalId != "")
+         haveState = PosStateLoad(signalId, fileEntry, risk, atr, entryTime, stop, beActive, maxHold, trailMult, stopAtrMult);
+
+      if(haveState)
         {
          if(fileEntry > 0) entry = fileEntry;
+         // Initial risk is frozen from registration — never recompute from widened/changed SL
+         if(risk <= 0)
+           {
+            Print("AEGIS PM incomplete state risk=0 signal=", signalId, " — safe hold, no invent");
+            continue;
+           }
+         // Reconcile beActive with actual broker SL (do not trust file alone)
+         if(beActive && curSl > 0 && entry > 0)
+           {
+            // BE implies stop at/near entry or better (lower for short)
+            if(curSl > entry + 5 * SymbolInfoDouble(symbol, SYMBOL_POINT))
+               beActive = false; // broker never accepted BE
+           }
         }
       else
         {
-         // Recover: risk from current SL or atr
+         // Recovery without file: cannot invent original R from current SL if already trailed
          atr = WilderAtr14(symbol, PERIOD_M5);
          if(atr <= 0) atr = g_lastAtr14;
+         entryTime = openTime;
+         entry = PositionGetDouble(POSITION_PRICE_OPEN);
          if(curSl > entry)
+           {
+            // Only use current SL as initial risk if it looks like virgin initial stop
+            // (approx 1.5 ATR). If far from 1.5 ATR, report and use distance as risk with caution.
             risk = curSl - entry;
+            stop = curSl;
+            Print("AEGIS PM recover from position SL only signal=", signalId, " risk=", risk);
+           }
          else if(atr > 0)
            {
             risk = DefaultStopAtrMult * atr;
             stop = entry + risk;
-            ModifyPositionStop(ticket, symbol, stop);
+            double confSl = 0;
+            if(ModifyPositionStopConfirmed(ticket, symbol, stop, confSl))
+               stop = confSl;
+            else
+              {
+               Print("AEGIS PM recover: could not set initial stop — skip manage this tick");
+               continue;
+              }
            }
          else
+           {
+            Print("AEGIS PM recover: no ATR and no SL — unsafe, skip");
             continue;
+           }
+         beActive = false;
          if(signalId != "")
-            PosStateSave(signalId, symbol, entry, risk, atr, entryTime, stop, false, maxHold);
+            PosStateSave(signalId, symbol, entry, risk, atr, entryTime, stop, false, maxHold, trailMult, stopAtrMult);
         }
+
       if(risk <= 0) continue;
 
       double bid = SymbolInfoDouble(symbol, SYMBOL_BID);
-      double bidHigh = iHigh(symbol, PERIOD_M5, 0);
-      // Prefer completed bar high for stop logic when available
+      // 1) Stop check — completed bar BidHigh (shift 1), per simulate_short
       double hi = iHigh(symbol, PERIOD_M5, 1);
-      if(hi <= 0) hi = bidHigh;
-
-      // 1) Soft check — broker SL should fire; if stop crossed and still open, force close
+      if(hi <= 0) hi = iHigh(symbol, PERIOD_M5, 0);
       if(stop > 0 && hi >= stop)
         {
-         // If still open slightly past stop, close
-         if(bid >= stop)
+         // Broker should have closed; if still open past stop, force close
+         if(bid >= stop - SymbolInfoDouble(symbol, SYMBOL_POINT))
            {
             ClosePositionMarket(ticket, symbol, "STOP");
             continue;
            }
         }
 
-      // 2) R and break-even at +1R (short: profit when price falls)
-      double rr = (entry - bid) / risk;
+      // 2) R from BidClose of last completed bar (prefer) / bid
+      double bidClose = iClose(symbol, PERIOD_M5, 1);
+      if(bidClose <= 0) bidClose = bid;
+      double rr = (entry - bidClose) / risk;
+
+      // 3) Break-even at +1R — only if modification confirmed
       if(rr >= 1.0 && !beActive)
         {
-         beActive = true;
-         stop = entry;
-         ModifyPositionStop(ticket, symbol, stop);
-         Print("AEGIS PM BE ", symbol, " ticket=", ticket);
+         double confSl = 0;
+         if(ModifyPositionStopConfirmed(ticket, symbol, entry, confSl))
+           {
+            beActive = true;
+            stop = confSl;
+            Print("AEGIS PM BE confirmed ", symbol, " ticket=", ticket, " sl=", confSl);
+           }
+         else
+            Print("AEGIS PM BE not confirmed ", symbol, " ticket=", ticket);
         }
 
-      // 3) Trail after BE: candidate = BidClose + 0.75*ATR; tighten only
+      // 4) Trail after confirmed BE only
       if(beActive)
         {
          double atrNow = WilderAtr14(symbol, PERIOD_M5);
@@ -1135,34 +1263,35 @@ void ManageAegisShortPositions()
            {
             double close1 = iClose(symbol, PERIOD_M5, 1);
             if(close1 <= 0) close1 = bid;
-            double candidate = close1 + DefaultTrailAtrMult * atrNow;
-            if(g_lastTrailAtrMult > 0) candidate = close1 + g_lastTrailAtrMult * atrNow;
-            if(candidate < stop)
+            double candidate = close1 + trailMult * atrNow;
+            if(candidate < stop - SymbolInfoDouble(symbol, SYMBOL_POINT))
               {
-               stop = candidate;
-               ModifyPositionStop(ticket, symbol, stop);
+               double confSl = 0;
+               if(ModifyPositionStopConfirmed(ticket, symbol, candidate, confSl))
+                 {
+                  stop = confSl;
+                 }
               }
            }
         }
 
-      // 4) Max hold 72 M5 bars
+      // 5) Max hold: completed M5 bars since entry, not wall-clock
       int holdBars = maxHold > 0 ? maxHold : DefaultMaxHoldBars;
-      int elapsed = (int)((TimeCurrent() - entryTime) / PeriodSeconds(PERIOD_M5));
-      if(elapsed >= holdBars)
+      int barsHeld = CompletedM5BarsSinceEntry(symbol, entryTime);
+      if(barsHeld >= holdBars)
         {
          ClosePositionMarket(ticket, symbol, "TIME");
          continue;
         }
 
       if(signalId != "")
-         PosStateSave(signalId, symbol, entry, risk, atr, entryTime, stop, beActive, holdBars);
+         PosStateSave(signalId, symbol, entry, risk, atr, entryTime, stop, beActive, holdBars, trailMult, stopAtrMult);
      }
   }
 
-
 int OnInit()
   {
-   Print("AEGIS_Executor v2.17 POSITION_MANAGER mode=",EnumToString(ExecMode)," account=",AccountId);
+   Print("AEGIS_Executor v2.18 POSITION_MANAGER mode=",EnumToString(ExecMode)," account=",AccountId);
    EventSetTimer(MathMax(2,PollSeconds));
    return INIT_SUCCEEDED;
   }
