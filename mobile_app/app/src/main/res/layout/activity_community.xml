@@ -66,6 +66,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="#132238"
+        android:popupBackground="@drawable/spinner_popup_bg"
+        android:spinnerMode="dropdown"
         android:padding="8dp" />
 
     <androidx.recyclerview.widget.RecyclerView

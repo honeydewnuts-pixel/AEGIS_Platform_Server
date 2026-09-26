@@ -47,6 +47,14 @@ DEFAULT_ROOMS = (
     ("general", "General", "Community chat for AEGIS traders"),
     ("setup", "Setup & VPS", "Feed, Executor, MT5, and install help"),
     ("markets", "Markets", "General market discussion (not financial advice)"),
+    ("beginners", "Beginners", "New to AEGIS or MT5 — ask basic questions"),
+    ("risk", "Risk & Money Mgmt", "Position size, equity risk %, drawdown habits"),
+    ("multi-pair", "Multi-Pair Mode", "MultiSymbol Feed / MultiPair Executor talk"),
+    ("executor", "Executor & Orders", "Fills, ACKs, SL, confidence flips, rejections"),
+    ("strategy", "Strategy Ideas", "Rulebook concepts and chart structure (educational)"),
+    ("signals", "Signals & HOLD", "Why HOLD, confidence, OHLC sync, router status"),
+    ("platform", "Platform Support", "App login, API keys, notifications, billing"),
+    ("announcements", "Announcements", "Official product notes from the team"),
 )
 
 

@@ -195,11 +195,14 @@ class CommunityActivity : AppCompatActivity() {
                 }
                 applyOnline(resp.body())
                 runOnUiThread {
-                    spinner.adapter = ArrayAdapter(
+                    val adapter = ArrayAdapter(
                         this@CommunityActivity,
-                        android.R.layout.simple_spinner_dropdown_item,
+                        R.layout.spinner_item_dark,
                         rooms.map { it.title }
                     )
+                    adapter.setDropDownViewResource(R.layout.spinner_dropdown_item_dark)
+                    spinner.adapter = adapter
+                    spinner.setPopupBackgroundResource(R.drawable.spinner_popup_bg)
                     loadMessages(full = true)
                 }
             } catch (e: Exception) {
