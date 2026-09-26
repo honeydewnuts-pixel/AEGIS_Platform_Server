@@ -3,7 +3,6 @@ from app.rulebooks.live_short_position_manager import (
     BarOHLC,
     ShortPositionState,
     initial_stop_from_entry,
-    simulate_live_short_path,
     step_short_bar,
 )
 
@@ -18,11 +17,11 @@ def test_be_at_one_r():
         signal_id="s1", symbol="X", entry_price=1.1000, initial_risk=0.0015,
         atr_at_signal=0.0010, entry_bar_index=0,
     )
-    # price drops 1R → close = entry - risk
+    # close = entry - risk; same bar applies trail after BE (simulate_short)
     bar = BarOHLC(high=1.1002, low=1.0980, close=1.0985, atr=0.0010)
     st2 = step_short_bar(st, bar, 0)
     assert st2.be_active is True
-    assert abs(st2.current_stop - 1.1000) < 1e-9
+    assert abs(st2.current_stop - 1.09925) < 1e-9
     assert not st2.closed
 
 
@@ -43,7 +42,6 @@ def test_trail_only_tightens():
     )
     bar = BarOHLC(high=1.0995, low=1.0970, close=1.0975, atr=0.0010)
     st2 = step_short_bar(st, bar, 1)
-    # candidate = 1.0975 + 0.75*0.001 = 1.09825 < 1.1000
     assert st2.current_stop < 1.1000
     assert st2.current_stop <= 1.09825 + 1e-9
 
@@ -53,10 +51,8 @@ def test_trail_never_widens():
         signal_id="s1", symbol="X", entry_price=1.1000, initial_risk=0.0015,
         atr_at_signal=0.0010, entry_bar_index=0, be_active=True, current_stop=1.0980,
     )
-    # adverse close moves candidate up
     bar = BarOHLC(high=1.0990, low=1.0975, close=1.0988, atr=0.0010)
     st2 = step_short_bar(st, bar, 2)
-    # candidate = 1.0988+0.00075=1.09955 > 1.0980 → stop unchanged
     assert abs(st2.current_stop - 1.0980) < 1e-9
 
 
