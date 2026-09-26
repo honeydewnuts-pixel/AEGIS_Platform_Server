@@ -357,7 +357,7 @@ class ScreenCaptureService : Service() {
             if (pauseMsg != null) {
                 Log.i("AEGIS", pauseMsg)
                 updateNotification(pauseMsg)
-                HealthStatus.lastError.postValue(pauseMsg)
+                HealthStatus.lastNetworkError.postValue(pauseMsg)
                 return
             }
         } catch (_: Exception) {
