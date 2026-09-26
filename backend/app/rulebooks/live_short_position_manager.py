@@ -6,7 +6,7 @@ Historical order of operations per bar j after entry:
   1. If BidHigh >= stop → STOP exit at stop price
   2. R = (entry - BidClose) / risk; if R >= 1.0 and not BE → stop = entry (BE)
   3. If BE: candidate = BidClose + 0.75 * ATR[j]; if candidate < stop → stop = candidate
-  4. If j == entry_event + max_hold → TIME exit at BidClose
+  4. TIME at close of 72nd holding bar (simulate_short: j from i+1 to i+72 inclusive)
 
 Live differences (documented, not hidden):
   - Historical entry = next-bar AskOpen; live uses actual fill price for risk/R.
@@ -99,8 +99,12 @@ def step_short_bar(state: ShortPositionState, bar: BarOHLC, bar_index: int) -> S
         if candidate < s.current_stop:
             s.current_stop = candidate
 
-    # 4) Time exit
-    if bar_index >= s.entry_bar_index + s.max_hold_bars:
+    # 4) Time exit — holding bars include entry bar (relative 0).
+    # simulate_short: j in [i+1, i+72] → TIME on j == i+72 = 72nd holding bar.
+    # With entry_bar_index as first holding bar: TIME when
+    #   (bar_index - entry_bar_index + 1) >= max_hold_bars
+    held = bar_index - s.entry_bar_index + 1
+    if held >= s.max_hold_bars:
         s.closed = True
         s.close_reason = "TIME"
         s.exit_price = bar.close
@@ -136,13 +140,16 @@ def simulate_live_short_path(
     return st
 
 
-def completed_bars_since_entry(entry_bar_index: int, current_bar_index: int) -> int:
-    """Bars fully completed after entry bar (historical j from entry+1 .. current)."""
-    if current_bar_index <= entry_bar_index:
+def holding_bars_inclusive(entry_bar_index: int, current_bar_index: int) -> int:
+    """
+    Number of holding bars from entry through current, inclusive.
+    simulate_short: entry at i+1, last TIME bar at i+72 → 72 holding bars.
+    """
+    if current_bar_index < entry_bar_index:
         return 0
-    return current_bar_index - entry_bar_index
+    return current_bar_index - entry_bar_index + 1
 
 
 def should_time_exit(entry_bar_index: int, current_bar_index: int, max_hold_bars: int = 72) -> bool:
-    """True when held bars reach max_hold (simulate_short end = entry_event + max_hold)."""
-    return completed_bars_since_entry(entry_bar_index, current_bar_index) >= max_hold_bars
+    """True on the max_hold-th holding bar (inclusive), matching simulate_short end=i+72."""
+    return holding_bars_inclusive(entry_bar_index, current_bar_index) >= max_hold_bars

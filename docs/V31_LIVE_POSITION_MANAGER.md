@@ -1,33 +1,27 @@
-# V31 / V53.6 Live Position Manager (Executor v2.18)
+# V31 / V53.6 Live Position Manager (Executor v2.19)
 
-## Authority
-**MT5 AEGIS_Executor v2.18** is the sole authority for live stop modification and time-exit closes of AEGIS-magic positions.
+## 72-bar window (aligned with `simulate_short`)
 
-## Historical reference
-`simulate_short` in `backend/app/rulebooks/evaluators/common.py`:
-1. Stop if BidHigh >= stop  
-2. R from BidClose; BE at +1R → stop = entry  
-3. If BE: trail candidate = BidClose + 0.75 * ATR; tighten only  
-4. TIME when held bars reach 72 (entry bar convention)
+Historical (`common.py`):
+- Signal on bar `i`
+- Entry at AskOpen of bar `i+1`
+- Loop `j` from `i+1` to `i+72` **inclusive**
+- TIME exit at close of bar `i+72` if no earlier STOP
 
-## v2.18 corrections
-| Issue | Fix |
-|-------|-----|
-| 72-bar wall-clock | `CompletedM5BarsSinceEntry` via `iBarShift` (skips weekend clock) |
-| BE marked without broker confirm | `ModifyPositionStopConfirmed` checks retcode + position SL |
-| Global trail/maxHold only | Per-signal fields in state file |
-| Invented risk after trail | Initial risk frozen from registration; incomplete state → skip |
+→ **72 holding bars**, entry bar counts as bar 1.
 
-## Live adaptations (not identical to cash-test)
-| Historical | Live |
-|------------|------|
-| Entry next-bar AskOpen | Actual fill price |
-| Cost 0.085R | Broker costs |
-| Perfect Bid series | M5 rates + SYMBOL_BID |
+| Layer | TIME condition |
+|-------|----------------|
+| Python | `(bar_index - entry_bar_index + 1) >= max_hold_bars` |
+| MQL5 | `HoldingM5BarsInclusive(symbol, entryTime) >= maxHold` via `iBarShift` |
 
-## Demo checklist
-1. Compile `windows-desktop/mq5/AEGIS_Executor.mq5` (**v2.18**) in MetaEditor.  
-2. `EnablePositionManager=true`, `BaselineShortOnly=true`.  
-3. Journal: `register SHORT`, `BE confirmed`, trail only when confirmed, `close TIME` after **72 completed M5 bars**.  
-4. Restart with open short + delete state file → recovery path logs; no invented BE.  
-5. Production authorization remains disabled.
+Stop is checked **before** TIME on the same bar (historical order).
+
+## Other rules (unchanged from v2.18)
+- BE / trail only after **confirmed** broker SL
+- Frozen initial risk; no invent on incomplete state
+- Short-only baseline
+- Production authorization disabled
+
+## Live vs historical
+Entry = fill (not AskOpen); broker costs (not 0.085R); M5 rates as Bid proxy.

@@ -9,7 +9,7 @@
 //| - Fill modes from SYMBOL_TRADE_EXECUTION + SYMBOL_FILLING_MODE   |
 //+------------------------------------------------------------------+
 #property copyright "LeverageFx / Honeydewnuts"
-#property version   "2.18"
+#property version   "2.19"
 #property strict
 #property description "AEGIS multi-pair executor v2.16 production"
 
@@ -869,7 +869,7 @@ void PollLocalFallback()
 
 
 //+------------------------------------------------------------------+
-//| V2.18 Position manager — V31/V53.6 short exits (simulate_short)  |
+//| V2.19 Position manager — V31/V53.6 short exits (simulate_short)  |
 //| - Bar count = completed M5 bars (not wall-clock)                 |
 //| - BE/trail only after confirmed broker SL modification           |
 //| - Per-signal risk/trail/maxHold from state file                  |
@@ -896,20 +896,19 @@ double WilderAtr14(const string symbol, ENUM_TIMEFRAMES tf)
    return atr;
   }
 
-// Completed M5 bars after the bar that contains entryTime (series: 0=forming).
-// Matches simulate_short holding from entry bar forward without weekend clock drift.
-int CompletedM5BarsSinceEntry(const string symbol, const datetime entryTime)
+// Holding bars including the entry bar (completed M5 bars only).
+// simulate_short: entry at i+1, TIME at close of i+72 → 72 holding bars inclusive.
+// iBarShift series: 0 = forming. When entry bar is completed at shift sh:
+//   sh == 0 → still forming entry bar → 0 completed holding bars this tick
+//   sh == 1 → entry bar just completed → 1 holding bar
+//   sh == 72 → 72 holding bars completed → TIME eligible
+int HoldingM5BarsInclusive(const string symbol, const datetime entryTime)
   {
    if(entryTime <= 0) return 0;
    int sh = iBarShift(symbol, PERIOD_M5, entryTime, false);
-   if(sh < 0)
-     {
-      // Entry time not in history yet
-      return 0;
-     }
-   // Entry bar shift = sh. Completed bars strictly after that bar: shifts sh-1 .. 1
-   if(sh <= 1) return 0;
-   return sh - 1;
+   if(sh < 0) return 0;
+   if(sh == 0) return 0; // entry bar still forming — evaluate at bar close
+   return sh;            // completed bars from entry through last closed
   }
 
 void PosStateSave(const string signalId, const string symbol, const double entry,
@@ -1277,7 +1276,8 @@ void ManageAegisShortPositions()
 
       // 5) Max hold: completed M5 bars since entry, not wall-clock
       int holdBars = maxHold > 0 ? maxHold : DefaultMaxHoldBars;
-      int barsHeld = CompletedM5BarsSinceEntry(symbol, entryTime);
+      // Inclusive holding bars (entry bar counts as 1) — not wall-clock, not off-by-one
+      int barsHeld = HoldingM5BarsInclusive(symbol, entryTime);
       if(barsHeld >= holdBars)
         {
          ClosePositionMarket(ticket, symbol, "TIME");
@@ -1291,7 +1291,7 @@ void ManageAegisShortPositions()
 
 int OnInit()
   {
-   Print("AEGIS_Executor v2.18 POSITION_MANAGER mode=",EnumToString(ExecMode)," account=",AccountId);
+   Print("AEGIS_Executor v2.19 POSITION_MANAGER mode=",EnumToString(ExecMode)," account=",AccountId);
    EventSetTimer(MathMax(2,PollSeconds));
    return INIT_SUCCEEDED;
   }
