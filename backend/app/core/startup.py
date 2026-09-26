@@ -33,6 +33,7 @@ from app.services.audit_service import AuditService
 from app.services.upload_diagnostic_service import UploadDiagnosticService
 from app.services.alert_service import AlertService
 from app.services.notification_service import NotificationService
+from app.services.billing_reminder_service import BillingReminderService
 from app.services.portfolio_risk_service import PortfolioRiskService
 from app.services.signup_session_service import SignupSessionService
 from app.services.device_binding_service import DeviceBindingService
@@ -46,6 +47,25 @@ from app.db.models import ApiKey
 from sqlalchemy import select
 
 logger = logging.getLogger("AEGIS")
+
+
+
+async def _billing_reminder_loop(app: FastAPI) -> None:
+    """
+    Hourly (configurable) scan: subscription ending soon / ended / past_due / suspended
+    → mobile notification inbox + subscriber alert channels.
+    """
+    while True:
+        try:
+            if getattr(settings, "BILLING_REMINDER_ENABLED", True):
+                svc = getattr(app.state, "billing_reminders", None)
+                notif = getattr(app.state, "notifications", None) or getattr(app.state, "notification_service", None)
+                sub = getattr(app.state, "subscription_service", None)
+                if svc and notif and sub:
+                    await svc.run_once(sub, notif)
+        except Exception:
+            logger.exception("Billing reminder iteration failed.")
+        await asyncio.sleep(int(getattr(settings, "BILLING_REMINDER_INTERVAL_SECONDS", 3600) or 3600))
 
 
 async def _subscription_sweep_loop(app: FastAPI) -> None:
@@ -126,6 +146,8 @@ async def on_startup(app: FastAPI) -> None:
 
 
     app.state.subscription_sweep_task = asyncio.create_task(_subscription_sweep_loop(app))
+    app.state.billing_reminders = BillingReminderService(app.state.job_queue.get_redis_client())
+    app.state.billing_reminder_task = asyncio.create_task(_billing_reminder_loop(app))
     app.state.metrics_task = asyncio.create_task(refresh_metrics_loop(app))
 
     async def _retention_loop():

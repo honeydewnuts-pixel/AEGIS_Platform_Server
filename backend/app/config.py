@@ -105,6 +105,10 @@ class Settings(BaseSettings):
     # Subscription enforcement
     SUBSCRIPTION_GRACE_PERIOD_DAYS: int = 5
     SUBSCRIPTION_SWEEP_INTERVAL_SECONDS: int = 300
+    # Billing reminder engine (does not touch MT5/trading path)
+    BILLING_REMINDER_ENABLED: bool = True
+    BILLING_REMINDER_INTERVAL_SECONDS: int = 3600  # hourly scan; each milestone once per period
+    BILLING_REMINDER_DAYS_BEFORE: str = "7,3,1"  # days before current_period_end
     APK_FILE_PATH: str = "release/aegis-mobile.apk"
     DOWNLOAD_TOKEN_TTL_SECONDS: int = 3600
 

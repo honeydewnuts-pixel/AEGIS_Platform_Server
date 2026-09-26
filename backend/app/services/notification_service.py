@@ -92,7 +92,9 @@ class NotificationService:
                 should = enabled
             elif type.endswith("_ERROR") or type in (
                 "MT5_DISCONNECTED", "MT5_CONNECTED", "OHLC_FEED_ERROR",
-                "SERVER_OFFLINE", "WORKER_OFFLINE", "SUBSCRIPTION_EXPIRING", "RULEBOOK_CHANGED",
+                "SERVER_OFFLINE", "WORKER_OFFLINE", "SUBSCRIPTION_EXPIRING",
+                "SUBSCRIPTION_EXPIRED", "SUBSCRIPTION_PAST_DUE", "SUBSCRIPTION_SUSPENDED",
+                "BILLING_REMINDER", "RULEBOOK_CHANGED",
             ):
                 enabled = True if not prefs else bool(prefs.get("system_alerts", True))
                 should = enabled
@@ -103,13 +105,45 @@ class NotificationService:
         status = "inbox_only"
         if should and self._alerts is not None:
             try:
-                delivery = await self._alerts.send(
-                    title,
-                    message,
-                    severity=severity,
-                    channels=channels,
-                )
-                status = "delivered" if any(v == "sent" for v in delivery.values()) else "attempted"
+                # Prefer subscriber channel targets from notification preferences
+                email_to = None
+                telegram_chat_id = None
+                sms_to = None
+                whatsapp_to = None
+                ch_list = channels
+                if prefs:
+                    email_to = (prefs.get("email_address") or None) if prefs.get("email_enabled", True) else None
+                    telegram_chat_id = (prefs.get("telegram_chat_id") or None) if prefs.get("telegram_enabled") else None
+                    sms_to = (prefs.get("sms_number") or None) if prefs.get("sms_enabled") else None
+                    whatsapp_to = (prefs.get("whatsapp_number") or None) if prefs.get("whatsapp_enabled") else None
+                    if ch_list is None and (type.startswith("SUBSCRIPTION_") or type == "BILLING_REMINDER"):
+                        ch_list = []
+                        if email_to:
+                            ch_list.append("email")
+                        if telegram_chat_id:
+                            ch_list.append("telegram")
+                        if sms_to:
+                            ch_list.append("sms")
+                        if whatsapp_to:
+                            ch_list.append("whatsapp")
+                        if not ch_list:
+                            # Inbox only when no subscriber channels configured
+                            ch_list = []
+                if ch_list is not None and len(ch_list) == 0:
+                    delivery = {}
+                    status = "inbox_only"
+                else:
+                    delivery = await self._alerts.send(
+                        title,
+                        message,
+                        severity=severity,
+                        channels=ch_list if ch_list is not None else channels,
+                        email_to=email_to,
+                        telegram_chat_id=telegram_chat_id,
+                        sms_to=sms_to,
+                        whatsapp_to=whatsapp_to,
+                    )
+                    status = "delivered" if any(v == "sent" for v in delivery.values()) else "attempted"
             except Exception as exc:  # noqa: BLE001
                 logger.exception("external alert failed")
                 delivery = {"error": str(exc)}

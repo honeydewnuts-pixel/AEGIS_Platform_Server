@@ -24,36 +24,42 @@ class AlertService:
         *,
         severity: str = "info",
         channels: list[str] | None = None,
+        email_to: str | None = None,
+        telegram_chat_id: str | None = None,
+        sms_to: str | None = None,
+        whatsapp_to: str | None = None,
     ) -> dict[str, Any]:
         """
-        channels: subset of email|telegram|slack|sms — default all configured.
+        channels: subset of email|telegram|slack|sms|whatsapp — default all configured.
+        Optional *_to overrides send to the subscriber instead of global ops defaults.
         """
         wanted = set(c.lower() for c in (channels or ["email", "telegram", "slack", "sms", "whatsapp"]))
         results: dict[str, Any] = {}
         text = f"[{severity.upper()}] {subject}\n\n{body}"
 
         if "email" in wanted:
-            results["email"] = await self._email(subject, text)
+            results["email"] = await self._email(subject, text, to=email_to)
         if "telegram" in wanted:
-            results["telegram"] = await self._telegram(text)
+            results["telegram"] = await self._telegram(text, chat_id=telegram_chat_id)
         if "slack" in wanted:
             results["slack"] = await self._slack(text)
         if "sms" in wanted:
-            results["sms"] = await self._sms(f"{subject}: {body[:120]}")
+            results["sms"] = await self._sms(f"{subject}: {body[:120]}", to=sms_to)
         if "whatsapp" in wanted:
-            results["whatsapp"] = await self._whatsapp(f"{subject}: {body[:800]}")
+            results["whatsapp"] = await self._whatsapp(f"{subject}: {body[:800]}", to=whatsapp_to)
         return results
 
-    async def _email(self, subject: str, body: str) -> str:
+    async def _email(self, subject: str, body: str, to: str | None = None) -> str:
         host = settings.SMTP_HOST
-        if not host or not settings.ALERT_EMAIL_TO:
+        dest = (to or settings.ALERT_EMAIL_TO or "").strip()
+        if not host or not dest:
             return "skipped"
         try:
             import aiosmtplib
 
             msg = EmailMessage()
-            msg["From"] = settings.SMTP_FROM or settings.ALERT_EMAIL_TO
-            msg["To"] = settings.ALERT_EMAIL_TO
+            msg["From"] = settings.SMTP_FROM or dest
+            msg["To"] = dest
             msg["Subject"] = f"[AEGIS] {subject}"
             msg.set_content(body)
             await aiosmtplib.send(
@@ -69,9 +75,9 @@ class AlertService:
             logger.exception("email alert failed")
             return f"error:{exc}"
 
-    async def _telegram(self, text: str) -> str:
+    async def _telegram(self, text: str, chat_id: str | None = None) -> str:
         token = settings.TELEGRAM_BOT_TOKEN
-        chat = settings.TELEGRAM_CHAT_ID
+        chat = (chat_id or settings.TELEGRAM_CHAT_ID or "").strip()
         if not token or not chat:
             return "skipped"
         try:
@@ -95,11 +101,11 @@ class AlertService:
             logger.exception("slack alert failed")
             return f"error:{exc}"
 
-    async def _sms(self, text: str) -> str:
+    async def _sms(self, text: str, to: str | None = None) -> str:
         sid = settings.TWILIO_ACCOUNT_SID
         token = settings.TWILIO_AUTH_TOKEN
         from_n = settings.TWILIO_FROM_NUMBER
-        to_n = settings.ALERT_SMS_TO
+        to_n = (to or settings.ALERT_SMS_TO or "").strip()
         if not all([sid, token, from_n, to_n]):
             return "skipped"
         try:
@@ -115,12 +121,12 @@ class AlertService:
             logger.exception("sms alert failed")
             return f"error:{exc}"
 
-    async def _whatsapp(self, text: str) -> str:
+    async def _whatsapp(self, text: str, to: str | None = None) -> str:
         """Twilio WhatsApp channel (From/To must be whatsapp:+E164)."""
         sid = settings.TWILIO_ACCOUNT_SID
         token = settings.TWILIO_AUTH_TOKEN
         from_n = settings.TWILIO_WHATSAPP_FROM or ""
-        to_n = settings.ALERT_WHATSAPP_TO or ""
+        to_n = (to or settings.ALERT_WHATSAPP_TO or "").strip()
         if not all([sid, token, from_n, to_n]):
             return "skipped"
         if not from_n.startswith("whatsapp:"):
