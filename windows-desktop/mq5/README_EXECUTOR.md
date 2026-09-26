@@ -36,3 +36,6 @@ PartialFillPolicy = PARTIAL_ACCEPT
 No further architecture changes planned until the live chain is validated:
 
 MT5 Feed → AEGIS server → pending-batch → Executor → broker → ACK.
+
+## v2.17
+Position manager for short baseline (BE/trail/time). See docs/V31_LIVE_POSITION_MANAGER.md

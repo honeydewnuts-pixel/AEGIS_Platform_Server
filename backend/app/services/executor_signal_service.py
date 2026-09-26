@@ -52,6 +52,11 @@ class ExecutorSignalService:
         stop_loss: float | None = None,
         take_profit: float | None = None,
         details: str = "",
+        atr14: float | None = None,
+        initial_stop_atr_mult: float | None = 1.5,
+        max_hold_bars: int | None = 72,
+        trail_atr_mult: float | None = 0.75,
+        methodology: str | None = None,
     ) -> str | None:
         side_u = (side or "").strip().upper()
         if side_u not in ("BUY", "SELL"):
@@ -73,6 +78,12 @@ class ExecutorSignalService:
             "details": (details or "")[:500],
             "created_at_ms": int(time.time() * 1000),
             "acked": False,
+            # Position-manager fields (V31/V53.6 short baseline)
+            "atr14": atr14,
+            "initial_stop_atr_mult": initial_stop_atr_mult,
+            "max_hold_bars": max_hold_bars if max_hold_bars is not None else 72,
+            "trail_atr_mult": trail_atr_mult if trail_atr_mult is not None else 0.75,
+            "methodology": methodology or "",
         }
         with self._lock:
             self._pending[self._key(account_id, sym)] = payload

@@ -259,6 +259,11 @@ class AutonomousOhlcSignalService:
                 pass
 
         try:
+            atr_pub = result.get("atr14")
+            try:
+                atr_pub_f = float(atr_pub) if atr_pub is not None else None
+            except (TypeError, ValueError):
+                atr_pub_f = None
             exec_svc.publish(
                 account_id=account_id,
                 symbol=sym,
@@ -267,8 +272,13 @@ class AutonomousOhlcSignalService:
                 rule_name=str(result.get("rule_name") or ""),
                 volume=sized_vol,
                 stop_loss=float(sl) if sl else None,
-                take_profit=None,  # cash-test uses BE/trail/time exits — not fixed TP on baseline
+                take_profit=None,  # cash-test: BE/trail/time managed by Executor v2.17+
                 details=f"autonomous_ohlc gate={reason} conf={conf:.2f}"[:500],
+                atr14=atr_pub_f,
+                initial_stop_atr_mult=float(result.get("initial_stop_atr_mult") or 1.5),
+                max_hold_bars=int(result.get("max_hold_bars") or 72),
+                trail_atr_mult=float(result.get("trail_atr_mult") or 0.75),
+                methodology=str(result.get("methodology") or "v31_short_baseline"),
             )
             self.set_side(account_id, sym, side)
             out["published"] = True

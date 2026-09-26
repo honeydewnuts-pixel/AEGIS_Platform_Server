@@ -36,3 +36,7 @@ PartialFillPolicy = PARTIAL_ACCEPT
 No further architecture changes planned until the live chain is validated:
 
 MT5 Feed → AEGIS server → pending-batch → Executor → broker → ACK.
+
+## v2.17 Position manager
+
+Implements V31/V53.6 short exits: initial stop from fill+1.5*ATR, BE at +1R, trail 0.75*ATR, max 72 M5 bars. See docs/V31_LIVE_POSITION_MANAGER.md
