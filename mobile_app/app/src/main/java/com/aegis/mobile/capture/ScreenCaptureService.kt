@@ -31,6 +31,7 @@ import com.aegis.mobile.R
 import com.aegis.mobile.data.HealthStatus
 import androidx.datastore.preferences.core.edit
 import com.aegis.mobile.data.PrefKeys
+import com.aegis.mobile.data.MarketHours
 import com.aegis.mobile.data.SignalRepository
 import com.aegis.mobile.data.dataStore
 import com.aegis.mobile.models.AnalysisResponse
@@ -347,6 +348,21 @@ class ScreenCaptureService : Service() {
     }
 
     private fun captureAndSend() {
+        // FX/metal weekend pause (crypto/vol 24/7 continue)
+        try {
+            val sym = runBlocking {
+                applicationContext.dataStore.data.first()[PrefKeys.MT5_SYMBOL]?.trim().orEmpty()
+            }
+            val pauseMsg = MarketHours.pauseUploadMessage(sym)
+            if (pauseMsg != null) {
+                Log.i("AEGIS", pauseMsg)
+                updateNotification(pauseMsg)
+                HealthStatus.lastError.postValue(pauseMsg)
+                return
+            }
+        } catch (_: Exception) {
+        }
+
         val mt5Fg = com.aegis.mobile.automation.Mt5AccessibilityService.isMt5Foreground
         HealthStatus.mt5Foreground.postValue(mt5Fg)
         val frames = HealthStatus.localFrameCount.value ?: 0L

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import time
 
+from app.services.market_hours_service import session_status
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
 from app.core.upload_config import MAX_UPLOAD_SIZE
@@ -555,4 +556,17 @@ async def analyze_screenshot(
         result["market_data_synchronized"] = False
     result["timestamp"] = int(time.time() * 1000)
     result["latency_ms"] = round(latency_ms, 1)
+    # Instrument-aware session (FX weekend break vs 24/7 crypto/vol)
+    try:
+        result["market_session"] = session_status(symbol or "")
+        if result["market_session"].get("pause_uploads"):
+            result["signal"] = result.get("signal") or "HOLD"
+            result["details"] = (
+                (result.get("details") or "")
+                + " | Market closed for this instrument (weekend break). "
+                "Crypto/volatility symbols are not paused."
+            ).strip(" |")
+            result.setdefault("rule_name", result.get("rule_name") or "market_closed")
+    except Exception:
+        pass
     return result

@@ -62,6 +62,7 @@ from app.api.transfer_router import router as transfer_router
 from app.api.ohlc_router import router as ohlc_router
 from app.api.community_router import router as community_router
 from app.api.ai_chat_router import router as ai_chat_router
+from app.api.market_router import router as market_router
 
 logger = configure_logging(__name__)
 
@@ -120,6 +121,7 @@ app.add_middleware(
 # INCLUDE ALL ROUTERS
 # ==========================================================
 
+app.include_router(market_router)
 app.include_router(telemetry_router)
 app.include_router(template_router)
 app.include_router(registry_router)

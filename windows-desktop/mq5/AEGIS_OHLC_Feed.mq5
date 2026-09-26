@@ -152,12 +152,56 @@ void BuildSymbolList()
    Print("AEGIS OHLC v2.03 symbols=", ArraySize(g_symbols), " mode=", EnumToString(InpMode));
   }
 
+
+//--- Market hours: FX/metals weekend break; crypto/vol 24/7 ---------------
+bool IsAlwaysOpenSymbol(const string symbol)
+  {
+   string b = NormalizeBase(symbol);
+   string prefixes[16];
+   prefixes[0]="BTC"; prefixes[1]="ETH"; prefixes[2]="XBT"; prefixes[3]="LTC";
+   prefixes[4]="XRP"; prefixes[5]="SOL"; prefixes[6]="DOGE"; prefixes[7]="ADA";
+   prefixes[8]="BNB"; prefixes[9]="VOL"; prefixes[10]="VIX"; prefixes[11]="STEP";
+   prefixes[12]="BOOM"; prefixes[13]="CRASH"; prefixes[14]="JUMP"; prefixes[15]="RANGE";
+   for(int i=0;i<16;i++)
+      if(StringFind(b, prefixes[i]) == 0)
+         return true;
+   if(StringFind(b, "VOLATILITY") >= 0 || StringFind(b, "CRYPTO") >= 0)
+      return true;
+   return false;
+  }
+
+bool IsFxStyleSessionOpen()
+  {
+   // Approx UTC: Sat closed; Sun before 22 closed; Fri from 21 closed
+   datetime now = TimeGMT();
+   MqlDateTime dt;
+   TimeToStruct(now, dt);
+   int wd = dt.day_of_week; // 0=Sun … 6=Sat
+   int hour = dt.hour;
+   if(wd == 6) return false;           // Saturday
+   if(wd == 0) return (hour >= 22);    // Sunday
+   if(wd == 5) return (hour < 21);     // Friday
+   return true;                        // Mon–Thu
+  }
+
+bool ShouldStreamSymbol(const string symbol)
+  {
+   if(IsAlwaysOpenSymbol(symbol))
+      return true;
+   return IsFxStyleSessionOpen();
+  }
+
 bool PostOhlcForSymbol(const string symbol)
   {
    if(StringLen(InpApiKey) < 8)
      {
       Print("AEGIS OHLC: set InpApiKey");
       return false;
+     }
+   if(!ShouldStreamSymbol(symbol))
+     {
+      // Weekend break for FX/metals — auto-resumes when session opens (timer keeps running)
+      return true;
      }
    if(!SymbolSelect(symbol, true))
      {

@@ -19,6 +19,7 @@ import logging
 from typing import Any
 
 from app.config import settings
+from app.services.market_hours_service import allow_autonomous_for_symbol
 
 logger = logging.getLogger("AEGIS.autonomous_ohlc")
 
@@ -27,6 +28,8 @@ class AutonomousOhlcSignalService:
     def __init__(self) -> None:
         # account_id|SYMBOL -> last committed side BUY|SELL
         self._side: dict[str, str] = {}
+        # account_id|SYMBOL -> last evaluated closed bar unix time (dedupe)
+        self._last_bar_time: dict[str, int] = {}
 
     def _key(self, account_id: str, symbol: str) -> str:
         return f"{account_id}|{(symbol or '').upper().split('.')[0]}"
@@ -90,6 +93,14 @@ class AutonomousOhlcSignalService:
             out["reason"] = "missing_account_or_symbol"
             return out
 
+        ok_sess, sess = allow_autonomous_for_symbol(symbol)
+        out["market_session"] = sess
+        if not ok_sess:
+            out["reason"] = "market_closed_weekend_break"
+            out["signal"] = "HOLD"
+            out["gate"] = "market_hours"
+            return out
+
         from app.services.universal_analysis_service import UniversalAnalysisService
 
         # Build snapshot for evaluators
@@ -114,6 +125,22 @@ class AutonomousOhlcSignalService:
                 snapshot["low"] = last.get("low")
             except Exception:
                 pass
+
+        # Dedupe: do not re-fire autonomous logic on the same closed bar (weekend re-posts)
+        bar_t = 0
+        try:
+            bar_t = int(snapshot.get("time") or 0)
+        except Exception:
+            bar_t = 0
+        if bar_t:
+            bk = self._key(account_id, symbol)
+            prev = self._last_bar_time.get(bk)
+            if prev is not None and prev == bar_t:
+                out["reason"] = "duplicate_closed_bar"
+                out["signal"] = "HOLD"
+                out["gate"] = "bar_dedupe"
+                return out
+            self._last_bar_time[bk] = bar_t
 
         uni = UniversalAnalysisService()
         result = uni.analyze(
