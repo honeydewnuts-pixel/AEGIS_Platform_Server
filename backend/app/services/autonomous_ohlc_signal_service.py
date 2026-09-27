@@ -272,7 +272,7 @@ class AutonomousOhlcSignalService:
                 rule_name=str(result.get("rule_name") or ""),
                 volume=sized_vol,
                 stop_loss=float(sl) if sl else None,
-                take_profit=None,  # cash-test: BE/trail/time managed by Executor v2.17+
+                take_profit=None,  # cash-test: BE/trail/time managed by Executor v2.19+
                 details=f"autonomous_ohlc gate={reason} conf={conf:.2f}"[:500],
                 atr14=atr_pub_f,
                 initial_stop_atr_mult=float(result.get("initial_stop_atr_mult") or 1.5),

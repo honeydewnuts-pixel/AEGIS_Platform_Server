@@ -22,7 +22,7 @@ pip install py2app
 python setup.py py2app
 ```
 
-`AEGIS_Executor.mq5` is identical to the Windows EA (MT5 for Mac).
+`AEGIS_Executor.mq5` **v2.19** is identical to the Windows EA (MT5 for Mac).
 
 ## Registry (V53.6)
 Server serves research-eligible pairs from `/api/registry/pairs` after deploy.

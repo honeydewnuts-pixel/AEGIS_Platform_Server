@@ -128,7 +128,7 @@ remaining step before launch, not optional.
 |--------|----------|
 | `backend/` / `server` role | AEGIS Brain (FastAPI on Render) |
 | `mobile_app/` / `android-app/` | Android AEGIS client |
-| `windows-desktop/` | `AEGIS_Capture` (Python→EXE) + `AEGIS_Executor.mq5` |
+| `windows-desktop/` | `AEGIS_Capture` (Python→EXE) + `AEGIS_Executor.mq5` **v2.19** |
 | `macos-desktop/` | Mac capture client (Python) |
 | `ios-ipad/` | iOS/iPad starter (ReplayKit + TradeBridge) |
 | `shared/` | Cross-platform JSON protocol |
@@ -156,7 +156,7 @@ The former template slot is now the **rulebook registry** + **tradeable pairs re
 CSV sources: `registry/v40/AEGIS_V40_RULEBOOK_REGISTRY.csv`, `AEGIS_V40_INSTRUMENT_REGISTRY.csv`.
 
 ## V48 OHLC Feed
-Compile `windows-desktop/mq5/AEGIS_OHLC_Feed.mq5` and allow WebRequest to your API. Website downloads: LeverageFx `/downloads/AEGIS_OHLC_Feed.mq5`.
+Compile `windows-desktop/mq5/AEGIS_OHLC_Feed.mq5` **v2.03** and `AEGIS_Executor.mq5` **v2.19**; allow WebRequest to your API. Website: LeverageFx `/downloads/`.
 
 ## V2-OPT native discovery
 See `docs/V2OPT_NATIVE_DISCOVERY.md` and `registry/v2_opt/`.

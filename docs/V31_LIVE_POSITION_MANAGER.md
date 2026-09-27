@@ -1,5 +1,7 @@
 # V31 / V53.6 Live Position Manager (Executor v2.19)
 
+**Current release: Executor v2.19.** Compile `windows-desktop/mq5/AEGIS_Executor.mq5` only.
+
 ## 72-bar window (aligned with `simulate_short`)
 
 Historical (`common.py`):
@@ -17,7 +19,7 @@ Historical (`common.py`):
 
 Stop is checked **before** TIME on the same bar (historical order).
 
-## Other rules (unchanged from v2.18)
+## Other rules (carried from v2.18 into v2.19)
 - BE / trail only after **confirmed** broker SL
 - Frozen initial risk; no invent on incomplete state
 - Short-only baseline

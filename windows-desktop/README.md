@@ -47,6 +47,6 @@ Source frozen: GBPUSD V31/V35. Rejected/fail-closed: EURUSD, USDJPY, EURJPY.
 echo '
 ## Multi-pair (MT5)
 
-AEGIS_Executor v2.10 supports ChartOnly (one EA per chart) or MultiPair (one EA, many symbols).
-Same AccountId/ApiKey. One AEGIS position per symbol. See mq5/README_EXECUTOR.md.
+AEGIS_Executor **v2.19** (current) supports ChartOnly (one EA per chart) or MultiPair (one EA, many symbols).
+Same AccountId/ApiKey. One AEGIS position per symbol. Position manager: BE/trail/72 M5 bars. See mq5/README_EXECUTOR.md.
 ' >> windows-desktop/README.md

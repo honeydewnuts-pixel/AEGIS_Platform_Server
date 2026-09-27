@@ -1,26 +1,29 @@
-# AEGIS_Executor.mq5 v2.15 — architecture freeze for controlled VPS demo
+# AEGIS_Executor.mq5 v2.19 (current)
 
-## Partial-fill policy (explicit)
+Authoritative source: `windows-desktop/mq5/AEGIS_Executor.mq5`  
+Synced copies: `windows-desktop/AEGIS_Executor.mq5`, `release/desktop/AEGIS_Executor.mq5`  
+`#property version` and `OnInit` log: **2.19**
+
+## What v2.19 includes
+
+- MultiPair / ChartOnly execution modes
+- Server-polled signals (`/api/executor/pending-batch`) + ACK
+- Broker-symbol resolution (shared contract with OHLC Feed — see `SYMBOL_RESOLUTION_CONTRACT.md`)
+- 64-bit tickets, position ticket discovery, restart-safe `AEGIS <signal_id>`
+- Partial-fill policy (ACCEPT or one residual with inherited SL/TP)
+- **Position manager (short baseline):** initial stop from fill + 1.5×ATR, break-even at +1R (broker-confirmed), trail 0.75×ATR (tighten only), **72 completed M5 holding bars** TIME exit
+- Short-only baseline when `BaselineShortOnly=true`
+
+See `docs/V31_LIVE_POSITION_MANAGER.md` for historical vs live exit alignment.
+
+## Partial-fill policy
 
 | Setting | Behaviour |
 |---------|-----------|
-| **PARTIAL_ACCEPT** (recommended for first demo) | First `DONE` / `DONE_PARTIAL` completes the signal. ACK reports **actual filled volume**. |
-| **PARTIAL_COMPLETE_REMAINDER** | After partial, **exactly one** residual `OrderSend` with **same SL/TP**. If the residual is also partial, **stop** (no recursive remainders). ACK reports total filled. |
+| **PARTIAL_ACCEPT** (recommended for first demo) | First `DONE` / `DONE_PARTIAL` completes the signal. ACK reports actual filled volume. |
+| **PARTIAL_COMPLETE_REMAINDER** | After partial, exactly one residual `OrderSend` with same SL/TP. ACK reports total filled. |
 
-## Production checklist (all addressed)
-
-- Multi-pair / chart-only modes
-- Broker-symbol resolve (shared contract with Feed — see `SYMBOL_RESOLUTION_CONTRACT.md`)
-- 64-bit tickets in ACK
-- Position ticket discovery (never order ticket as position)
-- Restart-safe `AEGIS <signal_id>` on positions/deals/orders
-- ACK HTTP 2xx + independent retry queue; server idempotent by `signal_id`
-- Spread vs broker retry budgets
-- Adaptive filling modes
-- Volume step decimals
-- Partial fill policy + SL/TP on remainder
-
-## First demo inputs
+## Demo inputs
 
 ```
 ExecMode = MultiPair
@@ -28,15 +31,21 @@ SymbolsList = GBPUSD,EURUSD,USDJPY
 UseServerSignals = true
 UseLocalFileFallback = false
 OnePositionPerSymbol = true
+EnablePositionManager = true
+BaselineShortOnly = true
+DefaultMaxHoldBars = 72
 Lots = 0.01
 PollSeconds = 5
 PartialFillPolicy = PARTIAL_ACCEPT
 ```
 
-No further architecture changes planned until the live chain is validated:
+## Historical release notes (earlier builds)
 
-MT5 Feed → AEGIS server → pending-batch → Executor → broker → ACK.
+| Version | Note |
+|---------|------|
+| v2.10–v2.14 | Multi-pair foundation, symbol resolve, ACK hardening |
+| v2.15–v2.16 | Architecture freeze for early VPS demo (no PM bar-count fix) |
+| v2.17–v2.18 | Position manager introduced; wall-clock hold then bar-count |
+| **v2.19** | **Current** — 72-bar inclusive window aligned with `simulate_short` |
 
-## v2.17 Position manager
-
-Implements V31/V53.6 short exits: initial stop from fill+1.5*ATR, BE at +1R, trail 0.75*ATR, max 72 M5 bars. See docs/V31_LIVE_POSITION_MANAGER.md
+Do not use older mq5 files from archives when deploying; compile **v2.19** only.
