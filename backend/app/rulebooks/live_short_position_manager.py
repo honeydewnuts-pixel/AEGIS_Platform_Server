@@ -10,7 +10,7 @@ Historical order of operations per bar j after entry:
 
 Live differences (documented, not hidden):
   - Historical entry = next-bar AskOpen; live uses actual fill price for risk/R.
-  - Historical cost 0.085R is research-only; live incurs broker costs separately.
+  - Historical cost 0.085R is research-only (simulate_short legacy); live/demo never apply 0.085R.
   - Live stop is enforced via broker SL modification + EA time-exit close.
 """
 

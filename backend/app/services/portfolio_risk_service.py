@@ -238,12 +238,11 @@ class PortfolioRiskService:
 
         equity = state.get("account_equity_usd")
         if equity is None or float(equity) <= 0:
-            # No equity reported yet — fall back to plan lot, single-pair safe path
-            max_lot = get_max_lot(plan_code)
+            # Enforce risk: require equity from Feed before sizing.
             return {
-                "allow": True,
-                "volume": float(max_lot if max_lot <= 0.01 else 0.01),
-                "reason": "equity_not_set_fallback_min_lot",
+                "allow": False,
+                "volume": 0.0,
+                "reason": "equity_required_for_risk_sizing",
                 "risk_budget_usd": 0,
             }
 
@@ -267,24 +266,14 @@ class PortfolioRiskService:
                     "active_pairs": len(active),
                 }
             if not already_open and remaining < min_notional:
-                # Micro / small equity: still allow one min_lot if equity is positive
-                # and remaining covers a fraction of min_notional (cent-account safe).
-                equity_f = float(equity or 0)
-                if equity_f >= 5.0 and remaining >= max(1.0, min_notional * 0.05):
-                    return {
-                        "allow": True,
-                        "volume": float(min_lot),
-                        "reason": "micro_min_lot_fallback",
-                        "remaining_risk_usd": remaining,
-                        "min_notional_usd": min_notional,
-                        "min_lot": min_lot,
-                    }
+                # Enforce risk: never force min_lot above remaining budget.
                 return {
                     "allow": False,
                     "volume": 0.0,
-                    "reason": "insufficient_remaining_risk",
+                    "reason": "min_lot_exceeds_risk_budget",
                     "remaining_risk_usd": remaining,
                     "min_notional_usd": min_notional,
+                    "min_lot": min_lot,
                 }
         else:
             # chart_only: only the selected symbol; still respect remaining budget
@@ -311,13 +300,18 @@ class PortfolioRiskService:
         else:
             raw_lots = min_lot
 
-        # Floor: at least enough to open min_lot if budget covers min_notional margin
-        if raw_lots < min_lot and slot_budget >= max(0.5, min_notional * 0.05):
-            raw_lots = min_lot
+        if raw_lots < min_lot:
+            return {
+                "allow": False,
+                "volume": 0.0,
+                "reason": "min_lot_exceeds_risk_budget",
+                "remaining_risk_usd": remaining,
+                "min_notional_usd": min_notional,
+                "min_lot": min_lot,
+                "raw_lots": round(float(raw_lots), 4),
+            }
 
-        volume = max(min_lot, min(plan_max, round(raw_lots, 2)))
-        if volume < min_lot:
-            volume = min_lot
+        volume = min(plan_max, max(min_lot, round(raw_lots, 2)))
         if volume > plan_max:
             volume = plan_max
 
