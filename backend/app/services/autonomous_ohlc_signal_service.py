@@ -249,6 +249,12 @@ class AutonomousOhlcSignalService:
                 except Exception:
                     pass
             if pr is not None:
+                atr_for_risk = None
+                try:
+                    if atr is not None:
+                        atr_for_risk = float(atr)
+                except (TypeError, ValueError):
+                    atr_for_risk = None
                 risk_meta = await pr.size_order(
                     account_id,
                     sym,
@@ -256,6 +262,7 @@ class AutonomousOhlcSignalService:
                     entry_price=px if px > 0 else None,
                     stop_loss=float(sl) if sl else None,
                     side=side,
+                    atr14=atr_for_risk,
                 )
                 out["portfolio_risk"] = risk_meta
                 if not risk_meta.get("allow"):

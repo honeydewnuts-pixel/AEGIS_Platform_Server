@@ -225,13 +225,13 @@ class PortfolioRiskService:
         account_currency: str = "USD",
         fx_rates: dict[str, float] | None = None,
         instrument_spec: Any = None,
+        atr14: float | None = None,
     ) -> dict[str, Any]:
         """
-        Size by stop-loss risk (not margin allocation).
+        1) AEGIS assesses per-trade risk % from client tolerance + portfolio state.
+        2) Size by stop-loss: volume = (equity * assessed_risk%) / loss_per_lot.
 
-        When entry_price + stop_loss + side are provided, uses
-        Position Size = Risk Budget / Loss-per-lot at stop.
-        Otherwise rejects with stop_loss_required (no silent margin substitute).
+        Client configures risk *tolerance* only — not a fixed per-trade %.
         """
         state = await self.get_state(account_id)
         if state is None:
@@ -283,10 +283,6 @@ class PortfolioRiskService:
                     "remaining_risk_usd": remaining,
                 }
 
-        # Equal-weight remaining risk across free MultiSymbol slots
-        free_slots = max(1, max_pairs - len(active) + (1 if already_open else 0))
-        trade_budget = remaining / free_slots if mode == "multi_symbol" else remaining
-
         side_u = (side or "").upper()
         if side_u not in ("BUY", "SELL"):
             return {
@@ -294,7 +290,7 @@ class PortfolioRiskService:
                 "volume": 0.0,
                 "reason": "side_required_for_stop_risk_sizing",
                 "risk_budget_usd": budget,
-                "trade_risk_budget_usd": trade_budget,
+                "client_risk_tolerance_pct": pct,
             }
         if entry_price is None or float(entry_price) <= 0:
             return {
@@ -302,6 +298,7 @@ class PortfolioRiskService:
                 "volume": 0.0,
                 "reason": "entry_price_required_for_stop_risk_sizing",
                 "risk_budget_usd": budget,
+                "client_risk_tolerance_pct": pct,
             }
         if stop_loss is None:
             return {
@@ -309,7 +306,46 @@ class PortfolioRiskService:
                 "volume": 0.0,
                 "reason": "stop_loss_required",
                 "risk_budget_usd": budget,
+                "client_risk_tolerance_pct": pct,
             }
+
+        # Stop distance for assessment (price units)
+        ep = float(entry_price)
+        slp = float(stop_loss)
+        if side_u == "SELL":
+            stop_dist = slp - ep
+        else:
+            stop_dist = ep - slp
+
+        peak = state.get("peak_equity_usd")
+        assessment = assess_per_trade_risk(
+            client_tolerance_pct=pct,
+            equity=float(equity),
+            open_risk_usd=open_risk,
+            peak_equity=float(peak) if peak is not None else float(equity),
+            max_concurrent_slots=max_pairs if mode == "multi_symbol" else 1,
+            open_positions=len(active),
+            stop_distance=stop_dist if stop_dist > 0 else None,
+            atr14=float(atr14) if atr14 is not None else None,
+            trading_halted=bool(state.get("trading_halted")),
+        )
+        if not assessment.allow:
+            return {
+                "allow": False,
+                "volume": 0.0,
+                "reason": assessment.reason,
+                "client_risk_tolerance_pct": pct,
+                "aegis_per_trade_risk_pct": 0.0,
+                "risk_assessment": assessment.to_dict(),
+                "risk_budget_usd": budget,
+                "sizing_method": "aegis_assessed_stop_risk",
+            }
+
+        per_trade_pct = float(assessment.per_trade_risk_pct)
+        # Monetary budget for THIS trade from assessed % (not full client tolerance)
+        trade_budget = float(equity) * per_trade_pct / 100.0
+        # Still cannot exceed remaining portfolio tolerance capacity
+        trade_budget = min(trade_budget, remaining)
 
         spec = instrument_spec or default_spec_for_symbol(sym)
         if spec is None:
@@ -318,28 +354,29 @@ class PortfolioRiskService:
                 "volume": 0.0,
                 "reason": "instrument_spec_unavailable",
                 "symbol": sym,
+                "client_risk_tolerance_pct": pct,
+                "aegis_per_trade_risk_pct": per_trade_pct,
             }
 
-        # Prefer broker-reported min lot/step from min_notional table when present
         if min_lot and min_lot > 0:
             from dataclasses import replace
             step = getattr(spec, "volume_step", min_lot) or min_lot
             spec = replace(spec, volume_min=float(min_lot), volume_step=float(step))
 
         rates = dict(fx_rates or {})
-        rates.update(fx_rates_for_pair_price(sym, float(entry_price)))
+        rates.update(fx_rates_for_pair_price(sym, ep))
 
         plan_max = float(get_max_lot(plan_code))
         result = size_by_stop_risk(
             equity=float(equity),
-            risk_pct=pct,
-            entry_price=float(entry_price),
-            stop_loss=float(stop_loss),
+            risk_pct=per_trade_pct,
+            entry_price=ep,
+            stop_loss=slp,
             side=side_u,  # type: ignore[arg-type]
             spec=spec,
             account_currency=account_currency,
             fx_rates=rates,
-            open_risk_usd=0.0,  # trade_budget already net of open risk
+            open_risk_usd=0.0,
             risk_budget_override=trade_budget,
             available_margin=available_margin,
             margin_per_lot=margin_per_lot,
@@ -349,11 +386,14 @@ class PortfolioRiskService:
         out["max_pairs"] = max_pairs
         out["risk_budget_usd"] = budget
         out["trade_risk_budget_usd"] = trade_budget
+        out["client_risk_tolerance_pct"] = pct
+        out["aegis_per_trade_risk_pct"] = per_trade_pct
+        out["risk_assessment"] = assessment.to_dict()
         out["trading_mode"] = mode
         out["plan_max_lot"] = plan_max
         out["min_notional_usd"] = min_notional
         out["risk_allocation_usd"] = float(out.get("estimated_monetary_risk") or 0.0)
-        out["sizing_method"] = "stop_loss_risk"
+        out["sizing_method"] = "aegis_assessed_stop_risk"
         return out
 
     async def record_open_risk(self, account_id: str, delta_usd: float) -> None:
