@@ -185,17 +185,30 @@ class PortfolioRiskService:
                 row.updated_at = now
             await session.commit()
 
-    async def max_pairs_for_account(self, account_id: str) -> int:
+    async def max_pairs_for_account(self, account_id: str, symbol: str | None = None) -> int:
+        """
+        How many concurrent pairs the risk budget can unlock.
+
+        risk_budget = equity * tolerance_pct / 100
+        capacity ≈ floor(budget / broker_min_notional) capped at 24
+
+        When `symbol` is provided, that instrument's min_notional (broker-reported
+        or default) is used so unlock count tracks real tradable dollar size.
+        """
         state = await self.get_state(account_id)
         if not state or not state.get("account_equity_usd"):
             return 1
         budget = float(state["risk_budget_usd"] or 0)
         if budget <= 0:
             return 0
-        # Use median default min notional for capacity estimate
-        avg_min = DEFAULT_MIN_NOTIONAL_USD
-        n = int(budget // avg_min)
-        return max(0, min(MAX_MULTISYMBOL_PAIRS, n if n > 0 else 0))
+        if symbol:
+            unit, _ = await self.get_min_notional(symbol)
+        else:
+            # Conservative capacity: use larger of default and typical FX floor
+            unit = float(DEFAULT_MIN_NOTIONAL_USD)
+        unit = max(1.0, float(unit))
+        n = int(budget // unit)
+        return max(0, min(MAX_MULTISYMBOL_PAIRS, n))
 
     async def size_order(
         self,
@@ -243,7 +256,7 @@ class PortfolioRiskService:
         sym = symbol.upper().split(".")[0]
         already_open = sym in active
 
-        max_pairs = await self.max_pairs_for_account(account_id)
+        max_pairs = await self.max_pairs_for_account(account_id, symbol=sym)
         if mode == "multi_symbol":
             if not already_open and len(active) >= max_pairs:
                 return {

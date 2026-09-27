@@ -391,12 +391,18 @@ async def analyze_screenshot(
             )
     except Exception:
         pass
-    # Publish BUY/SELL for MT5 AEGIS_Executor.mq5 (HTTP poll)
+    # Publish BUY/SELL for MT5 Executor — DISABLED by default for screenshot path.
+    # Mobile pair selection + /aegis/analyze must not authorize trades.
+    # Executable signals come only from AutonomousOhlcSignalService on CLOSED OHLC bars.
     try:
+        from app.config import settings as _settings
         exec_svc = getattr(request.app.state, "executor_signals", None)
         side = str(result.get("signal") or "").upper()
         sym = (symbol or "").strip() if symbol else ""
-        if exec_svc is not None and side in ("BUY", "SELL") and sym:
+        if not getattr(_settings, "SCREENSHOT_PUBLISHES_TO_EXECUTOR", False):
+            result["executor_published"] = False
+            result["executor_publish_reason"] = "screenshot_path_does_not_publish"
+        elif exec_svc is not None and side in ("BUY", "SELL") and sym:
             vol = None
             try:
                 lot = result.get("execution", {}) if isinstance(result.get("execution"), dict) else {}
@@ -525,11 +531,13 @@ async def analyze_screenshot(
         result["market_data_synchronized"] = True
         result["capture_pair"] = pair_artifact
 
-        # SERVER-SIDE AUTONOMOUS V3 DEMO EXECUTION.
-        # This is the missing link in the previous checkpoint: a signal was
-        # returned to the mobile app, but nothing called /api/trading/market-order.
-        # Execute through the existing account-specific Windows MT5 worker.
-        if str(result.get("signal") or "HOLD").upper() in ("BUY", "SELL"):
+        # Screenshot path must NOT trigger worker market-orders (prevents mobile-select trades).
+        # Live demo execution: OHLC Feed CLOSED bar → AutonomousOhlcSignalService → Executor.
+        from app.config import settings as _settings2
+        if (
+            getattr(_settings2, "SCREENSHOT_TRIGGERS_WORKER_EXECUTION", False)
+            and str(result.get("signal") or "HOLD").upper() in ("BUY", "SELL")
+        ):
             try:
                 from app.services.autonomous_execution_service import AutonomousDemoExecutionService
                 auto = AutonomousDemoExecutionService(
@@ -554,6 +562,19 @@ async def analyze_screenshot(
                 result["execution"] = {"status": "integration_error", "executed": False, "message": str(exc)}
     else:
         result["market_data_synchronized"] = False
+    # Explicit: screenshot analysis never places orders unless flags enabled
+    if not result.get("execution") and not result.get("executor_published"):
+        result.setdefault(
+            "execution",
+            {
+                "status": "analysis_only",
+                "executed": False,
+                "message": (
+                    "Screenshot/mobile analysis does not place trades. "
+                    "Orders come from OHLC Feed closed bars + Executor pending signals only."
+                ),
+            },
+        )
     result["timestamp"] = int(time.time() * 1000)
     result["latency_ms"] = round(latency_ms, 1)
     # Instrument-aware session (FX weekend break vs 24/7 crypto/vol)

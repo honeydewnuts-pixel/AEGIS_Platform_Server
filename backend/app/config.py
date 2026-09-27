@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     # Experimental only — not cash-test baseline
     ALLOW_V2OPT_LIVE_SIGNALS: bool = False
     ALLOW_DEMO_OHLC_STRUCTURE: bool = False  # disabled; was non-historical substitute
+    # Mobile/screenshot /aegis/analyze must NOT place trades (V53.6 OHLC path only)
+    SCREENSHOT_PUBLISHES_TO_EXECUTOR: bool = False
+    SCREENSHOT_TRIGGERS_WORKER_EXECUTION: bool = False
 
     # Risk presets — server multiplies base_lot; hard-capped by plan max_lot.
     # Users never set lot size directly; only choose a preset name.
