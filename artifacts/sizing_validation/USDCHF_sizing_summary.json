@@ -1,0 +1,8 @@
+{
+  "instrument": "USDCHF",
+  "note": "Sizing matrix only. Full V53.6 operational cash-test ledgers require five-year USDCHF Bid/Ask CSV (not in repo).",
+  "n_scenarios": 35,
+  "accepted": 25,
+  "rejected": 10,
+  "csv": "artifacts/sizing_validation/USDCHF_sizing_matrix.csv"
+}

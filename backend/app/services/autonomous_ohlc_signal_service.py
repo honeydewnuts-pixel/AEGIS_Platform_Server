@@ -218,32 +218,10 @@ class AutonomousOhlcSignalService:
             except Exception as e:
                 out["registry_error"] = str(e)
 
-        sized_vol = 0.01
-        try:
-            pr = getattr(app.state, "portfolio_risk", None)
-            plan_code = "demo"
-            sub_svc = getattr(app.state, "subscription_service", None)
-            if sub_svc is not None:
-                try:
-                    st = await sub_svc.get_status(account_id)
-                    if isinstance(st, dict):
-                        plan_code = (st.get("plan") or "demo").lower()
-                except Exception:
-                    pass
-            if pr is not None:
-                risk_meta = await pr.size_order(account_id, sym, plan_code)
-                out["portfolio_risk"] = risk_meta
-                if not risk_meta.get("allow"):
-                    out["reason"] = risk_meta.get("reason") or "risk_blocked"
-                    return out
-                sized_vol = float(risk_meta.get("volume") or 0.01)
-        except Exception as e:
-            out["risk_error"] = str(e)
-
-        # Cash-test initial stop: 1.5 * ATR14 above short entry (AskOpen next bar ≈ close proxy)
+        # Cash-test initial stop first — required for stop-loss risk sizing
         sl = result.get("stop_loss") or result.get("sl")
         try:
-            px = float(snapshot.get("close") or 0)
+            px = float(snapshot.get("close") or snapshot.get("ask") or snapshot.get("bid") or 0)
         except Exception:
             px = 0.0
         atr = result.get("atr14")
@@ -257,6 +235,40 @@ class AutonomousOhlcSignalService:
                     sl = px - mult * atr_f
             except (TypeError, ValueError):
                 pass
+
+        sized_vol = 0.0
+        try:
+            pr = getattr(app.state, "portfolio_risk", None)
+            plan_code = "demo"
+            sub_svc = getattr(app.state, "subscription_service", None)
+            if sub_svc is not None:
+                try:
+                    st = await sub_svc.get_status(account_id)
+                    if isinstance(st, dict):
+                        plan_code = (st.get("plan") or "demo").lower()
+                except Exception:
+                    pass
+            if pr is not None:
+                risk_meta = await pr.size_order(
+                    account_id,
+                    sym,
+                    plan_code,
+                    entry_price=px if px > 0 else None,
+                    stop_loss=float(sl) if sl else None,
+                    side=side,
+                )
+                out["portfolio_risk"] = risk_meta
+                if not risk_meta.get("allow"):
+                    out["reason"] = risk_meta.get("reason") or "risk_blocked"
+                    return out
+                sized_vol = float(risk_meta.get("volume") or 0.0)
+                if sized_vol <= 0:
+                    out["reason"] = "zero_volume_after_sizing"
+                    return out
+        except Exception as e:
+            out["risk_error"] = str(e)
+            out["reason"] = f"risk_error:{e}"
+            return out
 
         try:
             atr_pub = result.get("atr14")

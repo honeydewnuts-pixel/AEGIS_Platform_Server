@@ -8,9 +8,9 @@ Client sets:
 
 Server:
   - risk_budget = equity * tolerance_pct / 100
-  - per-symbol min notional / min lot from table or defaults
-  - max concurrent pairs = min(24, floor(budget / min_notional)) when multi_symbol
-  - lot size scaled within plan max_lot and remaining budget
+  - position size = stop-loss risk budget / loss-per-lot (position_sizing_engine)
+  - margin check is separate from stop-loss risk sizing
+  - max concurrent pairs from budget capacity when multi_symbol
   - halt when drawdown from peak exceeds risk budget (tolerance of equity)
 """
 
@@ -217,12 +217,21 @@ class PortfolioRiskService:
         plan_code: str,
         *,
         active_open_symbols: list[str] | None = None,
+        entry_price: float | None = None,
+        stop_loss: float | None = None,
+        side: str | None = None,
+        available_margin: float | None = None,
+        margin_per_lot: float | None = None,
+        account_currency: str = "USD",
+        fx_rates: dict[str, float] | None = None,
+        instrument_spec: Any = None,
     ) -> dict[str, Any]:
         """
-        Decide whether a new/ongoing signal for `symbol` may trade and at what lot.
+        Size by stop-loss risk (not margin allocation).
 
-        Returns:
-          allow, volume, reason, risk_allocation_usd, max_pairs, ...
+        When entry_price + stop_loss + side are provided, uses
+        Position Size = Risk Budget / Loss-per-lot at stop.
+        Otherwise rejects with stop_loss_required (no silent margin substitute).
         """
         state = await self.get_state(account_id)
         if state is None:
@@ -238,7 +247,6 @@ class PortfolioRiskService:
 
         equity = state.get("account_equity_usd")
         if equity is None or float(equity) <= 0:
-            # Enforce risk: require equity from Feed before sizing.
             return {
                 "allow": False,
                 "volume": 0.0,
@@ -254,6 +262,7 @@ class PortfolioRiskService:
         active = [s.upper().split(".")[0] for s in (active_open_symbols or [])]
         sym = symbol.upper().split(".")[0]
         already_open = sym in active
+        pct = float(state.get("risk_tolerance_pct") or 25.0)
 
         max_pairs = await self.max_pairs_for_account(account_id, symbol=sym)
         if mode == "multi_symbol":
@@ -265,19 +274,8 @@ class PortfolioRiskService:
                     "max_pairs": max_pairs,
                     "active_pairs": len(active),
                 }
-            if not already_open and remaining < min_notional:
-                # Enforce risk: never force min_lot above remaining budget.
-                return {
-                    "allow": False,
-                    "volume": 0.0,
-                    "reason": "min_lot_exceeds_risk_budget",
-                    "remaining_risk_usd": remaining,
-                    "min_notional_usd": min_notional,
-                    "min_lot": min_lot,
-                }
         else:
-            # chart_only: only the selected symbol; still respect remaining budget
-            if remaining < min_notional and not already_open:
+            if remaining <= 0 and not already_open:
                 return {
                     "allow": False,
                     "volume": 0.0,
@@ -285,54 +283,78 @@ class PortfolioRiskService:
                     "remaining_risk_usd": remaining,
                 }
 
-        plan_max = float(get_max_lot(plan_code))
-        # Equal-weight remaining risk budget across free MultiSymbol slots
+        # Equal-weight remaining risk across free MultiSymbol slots
         free_slots = max(1, max_pairs - len(active) + (1 if already_open else 0))
-        slot_budget = remaining / free_slots if free_slots else remaining
+        trade_budget = remaining / free_slots if mode == "multi_symbol" else remaining
 
-        # Primary: treat slot_budget as *margin* available for this pair under assumed leverage.
-        # notional ≈ margin * leverage; lots ≈ notional / 100k (FX-style).
-        # Example: equity $10k, 25% → $2500 budget, 11 pairs → ~$227/slot
-        #          * 100 lev → ~$22.7k notional → ~0.23 lots (not 0.01).
-        margin_per_standard_lot = STANDARD_LOT_NOTIONAL_USD / max(1.0, ASSUMED_ACCOUNT_LEVERAGE)
-        if margin_per_standard_lot > 0:
-            raw_lots = slot_budget / margin_per_standard_lot
-        else:
-            raw_lots = min_lot
-
-        if raw_lots < min_lot:
+        side_u = (side or "").upper()
+        if side_u not in ("BUY", "SELL"):
             return {
                 "allow": False,
                 "volume": 0.0,
-                "reason": "min_lot_exceeds_risk_budget",
-                "remaining_risk_usd": remaining,
-                "min_notional_usd": min_notional,
-                "min_lot": min_lot,
-                "raw_lots": round(float(raw_lots), 4),
+                "reason": "side_required_for_stop_risk_sizing",
+                "risk_budget_usd": budget,
+                "trade_risk_budget_usd": trade_budget,
+            }
+        if entry_price is None or float(entry_price) <= 0:
+            return {
+                "allow": False,
+                "volume": 0.0,
+                "reason": "entry_price_required_for_stop_risk_sizing",
+                "risk_budget_usd": budget,
+            }
+        if stop_loss is None:
+            return {
+                "allow": False,
+                "volume": 0.0,
+                "reason": "stop_loss_required",
+                "risk_budget_usd": budget,
             }
 
-        volume = min(plan_max, max(min_lot, round(raw_lots, 2)))
-        if volume > plan_max:
-            volume = plan_max
+        spec = instrument_spec or default_spec_for_symbol(sym)
+        if spec is None:
+            return {
+                "allow": False,
+                "volume": 0.0,
+                "reason": "instrument_spec_unavailable",
+                "symbol": sym,
+            }
 
-        # Estimated margin reserved for this open (for open_risk tracking)
-        allocation = round(volume * margin_per_standard_lot, 2)
+        # Prefer broker-reported min lot/step from min_notional table when present
+        if min_lot and min_lot > 0:
+            from dataclasses import replace
+            step = getattr(spec, "volume_step", min_lot) or min_lot
+            spec = replace(spec, volume_min=float(min_lot), volume_step=float(step))
 
-        return {
-            "allow": True,
-            "volume": float(volume),
-            "reason": "ok",
-            "risk_allocation_usd": allocation,
-            "slot_budget_usd": round(slot_budget, 2),
-            "assumed_leverage": ASSUMED_ACCOUNT_LEVERAGE,
-            "min_notional_usd": min_notional,
-            "min_lot": min_lot,
-            "max_pairs": max_pairs,
-            "risk_budget_usd": budget,
-            "remaining_risk_usd": remaining,
-            "trading_mode": mode,
-            "plan_max_lot": plan_max,
-        }
+        rates = dict(fx_rates or {})
+        rates.update(fx_rates_for_pair_price(sym, float(entry_price)))
+
+        plan_max = float(get_max_lot(plan_code))
+        result = size_by_stop_risk(
+            equity=float(equity),
+            risk_pct=pct,
+            entry_price=float(entry_price),
+            stop_loss=float(stop_loss),
+            side=side_u,  # type: ignore[arg-type]
+            spec=spec,
+            account_currency=account_currency,
+            fx_rates=rates,
+            open_risk_usd=0.0,  # trade_budget already net of open risk
+            risk_budget_override=trade_budget,
+            available_margin=available_margin,
+            margin_per_lot=margin_per_lot,
+            plan_max_volume=plan_max,
+        )
+        out = result.to_dict()
+        out["max_pairs"] = max_pairs
+        out["risk_budget_usd"] = budget
+        out["trade_risk_budget_usd"] = trade_budget
+        out["trading_mode"] = mode
+        out["plan_max_lot"] = plan_max
+        out["min_notional_usd"] = min_notional
+        out["risk_allocation_usd"] = float(out.get("estimated_monetary_risk") or 0.0)
+        out["sizing_method"] = "stop_loss_risk"
+        return out
 
     async def record_open_risk(self, account_id: str, delta_usd: float) -> None:
         async with async_session_factory() as session:
