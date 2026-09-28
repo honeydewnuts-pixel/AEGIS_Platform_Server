@@ -133,9 +133,18 @@ def size_by_stop_risk(
     available_margin: float | None = None,
     margin_per_lot: float | None = None,
     plan_max_volume: float | None = None,
+    require_margin_check: bool = False,
 ) -> SizingResult:
     """
     Core engine: risk budget / loss-per-lot at stop, round down, then margin check.
+
+    Margin behaviour:
+    - require_margin_check=False (research / optional pathways): margin is validated
+      only when BOTH available_margin and margin_per_lot are supplied; otherwise
+      margin is skipped and recorded as not_checked in the audit.
+    - require_margin_check=True (execution pathway): BOTH inputs are mandatory.
+      Missing either → reject with reason margin_data_missing (fail-closed).
+      Both present but required_margin > available → insufficient_margin.
     """
     audit: dict[str, Any] = {
         "instrument": spec.symbol,
@@ -152,6 +161,9 @@ def size_by_stop_risk(
         "volume_step": spec.volume_step,
         "contract_size": spec.contract_size,
         "tick_size": spec.tick_size,
+        "require_margin_check": bool(require_margin_check),
+        "margin_per_lot_supplied": margin_per_lot,
+        "available_margin_supplied": available_margin,
     }
 
     if equity is None or float(equity) <= 0:
@@ -212,19 +224,42 @@ def size_by_stop_risk(
         # should not happen after round-down; still fail closed
         return SizingResult(False, 0.0, "risk_exceeds_budget_after_round", audit)
 
-    # Margin validation (separate step)
-    if margin_per_lot is not None and available_margin is not None:
-        req = float(margin_per_lot) * vol
+    # Margin validation (separate from risk-budget / min-lot checks)
+    m_lot = float(margin_per_lot) if margin_per_lot is not None else None
+    a_mgn = float(available_margin) if available_margin is not None else None
+    audit["margin_per_lot"] = m_lot
+    audit["available_margin"] = a_mgn
+    audit["required_margin"] = (m_lot * vol) if m_lot is not None else None
+
+    if require_margin_check:
+        if m_lot is None or a_mgn is None:
+            missing = []
+            if m_lot is None:
+                missing.append("margin_per_lot")
+            if a_mgn is None:
+                missing.append("available_margin")
+            audit["margin_missing_fields"] = missing
+            audit["margin_check_status"] = "rejected_missing_data"
+            return SizingResult(False, 0.0, "margin_data_missing", audit)
+        req = m_lot * vol
         audit["required_margin"] = req
-        audit["available_margin"] = float(available_margin)
-        if req > float(available_margin) + 1e-6:
+        if req > a_mgn + 1e-6:
+            audit["margin_check_status"] = "rejected_insufficient"
             return SizingResult(False, 0.0, "insufficient_margin", audit)
-    elif margin_per_lot is not None:
-        audit["required_margin"] = float(margin_per_lot) * vol
-        audit["available_margin"] = None
+        audit["margin_check_status"] = "passed"
     else:
-        audit["required_margin"] = None
-        audit["available_margin"] = available_margin
+        # Optional pathway: validate only when both inputs are present
+        if m_lot is not None and a_mgn is not None:
+            req = m_lot * vol
+            audit["required_margin"] = req
+            if req > a_mgn + 1e-6:
+                audit["margin_check_status"] = "rejected_insufficient"
+                return SizingResult(False, 0.0, "insufficient_margin", audit)
+            audit["margin_check_status"] = "passed"
+        else:
+            audit["margin_check_status"] = "skipped_not_required"
+            if m_lot is not None or a_mgn is not None:
+                audit["margin_partial_inputs"] = True
 
     audit["final_volume"] = vol
     return SizingResult(True, float(vol), "ok", audit)

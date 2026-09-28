@@ -410,6 +410,7 @@ class PortfolioRiskService:
         fx_rates: dict[str, float] | None = None,
         instrument_spec: Any = None,
         atr14: float | None = None,
+        require_margin_check: bool = True,
     ) -> dict[str, Any]:
         """
         1) AEGIS assesses per-trade risk % from client tolerance + portfolio state.
@@ -596,6 +597,7 @@ class PortfolioRiskService:
             available_margin=available_margin,
             margin_per_lot=m_lot,
             plan_max_volume=plan_max,
+            require_margin_check=bool(require_margin_check),
         )
         out = result.to_dict()
         vol = float(out.get("volume") or 0.0)
@@ -627,6 +629,9 @@ class PortfolioRiskService:
             "estimated_monetary_risk": out.get("estimated_monetary_risk"),
             "required_margin": out.get("required_margin"),
             "available_margin": available_margin,
+            "margin_per_lot": m_lot,
+            "require_margin_check": bool(require_margin_check),
+            "margin_check_status": out.get("margin_check_status"),
             "accepted": bool(out.get("allow")),
             "reason": out.get("reason"),
             "spec_source": spec_source,

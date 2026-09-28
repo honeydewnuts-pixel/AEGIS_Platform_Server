@@ -192,3 +192,106 @@ def test_volume_step_rounding():
     )
     assert r.allow
     assert r.volume == pytest.approx(0.01)
+
+
+def _eurusd_ok_kwargs(**extra):
+    spec = default_spec_for_symbol("EURUSD")
+    assert spec is not None
+    base = dict(
+        equity=50_000,
+        risk_pct=1.0,
+        entry_price=1.10,
+        stop_loss=1.09,
+        side="BUY",
+        spec=spec,
+        fx_rates=fx_rates_for_pair_price("EURUSD", 1.10),
+    )
+    base.update(extra)
+    return base
+
+
+def test_margin_both_supplied_sufficient():
+    r = size_by_stop_risk(
+        **_eurusd_ok_kwargs(
+            margin_per_lot=100.0,
+            available_margin=50_000.0,
+            require_margin_check=True,
+        )
+    )
+    assert r.allow
+    assert r.reason == "ok"
+    assert r.audit["margin_check_status"] == "passed"
+    assert r.audit["required_margin"] is not None
+    assert r.audit["available_margin"] == 50_000.0
+    assert r.audit["margin_per_lot"] == 100.0
+
+
+def test_margin_both_supplied_insufficient():
+    r = size_by_stop_risk(
+        **_eurusd_ok_kwargs(
+            margin_per_lot=1000.0,
+            available_margin=10.0,
+            require_margin_check=True,
+        )
+    )
+    assert not r.allow
+    assert r.reason == "insufficient_margin"
+    assert r.audit["margin_check_status"] == "rejected_insufficient"
+    assert r.audit["required_margin"] is not None
+    assert r.audit["available_margin"] == 10.0
+
+
+def test_margin_missing_available_when_required():
+    r = size_by_stop_risk(
+        **_eurusd_ok_kwargs(
+            margin_per_lot=100.0,
+            available_margin=None,
+            require_margin_check=True,
+        )
+    )
+    assert not r.allow
+    assert r.reason == "margin_data_missing"
+    assert "available_margin" in r.audit["margin_missing_fields"]
+    assert r.audit["margin_check_status"] == "rejected_missing_data"
+
+
+def test_margin_missing_per_lot_when_required():
+    r = size_by_stop_risk(
+        **_eurusd_ok_kwargs(
+            margin_per_lot=None,
+            available_margin=10_000.0,
+            require_margin_check=True,
+        )
+    )
+    assert not r.allow
+    assert r.reason == "margin_data_missing"
+    assert "margin_per_lot" in r.audit["margin_missing_fields"]
+
+
+def test_margin_both_missing_when_required():
+    r = size_by_stop_risk(**_eurusd_ok_kwargs(require_margin_check=True))
+    assert not r.allow
+    assert r.reason == "margin_data_missing"
+    assert set(r.audit["margin_missing_fields"]) == {"margin_per_lot", "available_margin"}
+
+
+def test_margin_validation_disabled_allows_without_inputs():
+    """Research / non-execution pathway may omit margin without rejecting."""
+    r = size_by_stop_risk(**_eurusd_ok_kwargs(require_margin_check=False))
+    assert r.allow
+    assert r.reason == "ok"
+    assert r.audit["margin_check_status"] == "skipped_not_required"
+    assert r.volume > 0
+
+
+def test_no_approval_after_required_margin_failure():
+    """Fail-closed: volume must be 0 and allow False on margin rejection."""
+    for kwargs in (
+        dict(margin_per_lot=1000.0, available_margin=1.0, require_margin_check=True),
+        dict(margin_per_lot=None, available_margin=1000.0, require_margin_check=True),
+        dict(margin_per_lot=100.0, available_margin=None, require_margin_check=True),
+    ):
+        r = size_by_stop_risk(**_eurusd_ok_kwargs(**kwargs))
+        assert r.allow is False
+        assert r.volume == 0.0
+        assert r.reason in ("insufficient_margin", "margin_data_missing")
