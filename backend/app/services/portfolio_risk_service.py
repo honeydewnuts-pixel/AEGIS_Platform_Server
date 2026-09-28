@@ -22,10 +22,11 @@ from typing import Any
 from sqlalchemy import select
 
 from app.db.base import async_session_factory
-from app.db.models import InstrumentMinNotional, Subscription
+from app.db.models import BrokerInstrumentSpec, InstrumentMinNotional, Subscription
 from app.services.plan_catalog import get_max_lot, resolve_plan
 
 ALLOWED_TOLERANCE_PCT = (0.5, 1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0)
+ALLOWED_ACCOUNT_TYPES = ("standard", "micro", "custom")
 MAX_MULTISYMBOL_PAIRS = 24
 DEFAULT_MIN_NOTIONAL_USD = 10.0
 DEFAULT_MIN_LOT = 0.01
@@ -64,6 +65,9 @@ class PortfolioRiskService:
                 "account_equity_usd": equity,
                 "peak_equity_usd": peak,
                 "risk_tolerance_pct": pct,
+                "account_type": getattr(row, "account_type", None) or "standard",
+                "account_currency": getattr(row, "account_currency", None) or "USD",
+                "broker_id": getattr(row, "broker_id", None),
                 "risk_budget_usd": round(budget, 2),
                 "open_risk_usd": round(open_risk, 2),
                 "remaining_risk_usd": round(remaining, 2),
@@ -210,7 +214,187 @@ class PortfolioRiskService:
         n = int(budget // unit)
         return max(0, min(MAX_MULTISYMBOL_PAIRS, n))
 
+
+    async def set_account_profile(
+        self,
+        account_id: str,
+        *,
+        account_type: str | None = None,
+        account_currency: str | None = None,
+        broker_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Configure broker account profile (not strategy risk tolerance)."""
+        async with async_session_factory() as session:
+            row = await session.get(Subscription, account_id)
+            if row is None:
+                raise ValueError("account not found")
+            if account_type is not None:
+                at = account_type.strip().lower()
+                if at not in ALLOWED_ACCOUNT_TYPES:
+                    raise ValueError(f"account_type must be one of {ALLOWED_ACCOUNT_TYPES}")
+                row.account_type = at
+            if account_currency is not None:
+                ccy = account_currency.strip().upper()
+                if not ccy or len(ccy) > 16:
+                    raise ValueError("invalid account_currency")
+                row.account_currency = ccy
+            if broker_id is not None:
+                row.broker_id = (broker_id.strip() or None)
+            await session.commit()
+        return await self.get_state(account_id)  # type: ignore
+
+    async def upsert_instrument_spec(
+        self,
+        symbol: str,
+        *,
+        account_type: str = "standard",
+        broker_id: str = "default",
+        contract_size: float,
+        volume_min: float,
+        volume_max: float,
+        volume_step: float,
+        tick_size: float,
+        tick_value: float | None = None,
+        margin_per_lot: float | None = None,
+        base_currency: str = "USD",
+        quote_currency: str = "USD",
+        profit_currency: str | None = None,
+        min_notional_usd: float | None = None,
+        source: str = "mt5",
+    ) -> dict[str, Any]:
+        """Store broker/EA instrument specifications for sizing."""
+        base = symbol.upper().split(".")[0]
+        at = (account_type or "standard").strip().lower()
+        if at not in ALLOWED_ACCOUNT_TYPES:
+            raise ValueError(f"account_type must be one of {ALLOWED_ACCOUNT_TYPES}")
+        bid = (broker_id or "default").strip() or "default"
+        if contract_size <= 0 or volume_min <= 0 or volume_step <= 0 or tick_size <= 0:
+            raise ValueError("invalid instrument specification values")
+        now = datetime.now(timezone.utc)
+        pc = (profit_currency or quote_currency or "USD").upper()
+        async with async_session_factory() as session:
+            q = await session.execute(
+                select(BrokerInstrumentSpec).where(
+                    BrokerInstrumentSpec.symbol == base,
+                    BrokerInstrumentSpec.account_type == at,
+                    BrokerInstrumentSpec.broker_id == bid,
+                )
+            )
+            row = q.scalar_one_or_none()
+            if row is None:
+                row = BrokerInstrumentSpec(
+                    symbol=base,
+                    account_type=at,
+                    broker_id=bid,
+                    contract_size=float(contract_size),
+                    volume_min=float(volume_min),
+                    volume_max=float(volume_max),
+                    volume_step=float(volume_step),
+                    tick_size=float(tick_size),
+                    tick_value=float(tick_value) if tick_value is not None else None,
+                    margin_per_lot=float(margin_per_lot) if margin_per_lot is not None else None,
+                    base_currency=base_currency.upper(),
+                    quote_currency=quote_currency.upper(),
+                    profit_currency=pc,
+                    min_notional_usd=float(min_notional_usd) if min_notional_usd is not None else None,
+                    source=source[:32],
+                    updated_at=now,
+                )
+                session.add(row)
+            else:
+                row.contract_size = float(contract_size)
+                row.volume_min = float(volume_min)
+                row.volume_max = float(volume_max)
+                row.volume_step = float(volume_step)
+                row.tick_size = float(tick_size)
+                row.tick_value = float(tick_value) if tick_value is not None else None
+                row.margin_per_lot = float(margin_per_lot) if margin_per_lot is not None else None
+                row.base_currency = base_currency.upper()
+                row.quote_currency = quote_currency.upper()
+                row.profit_currency = pc
+                row.min_notional_usd = float(min_notional_usd) if min_notional_usd is not None else None
+                row.source = source[:32]
+                row.updated_at = now
+            # Keep legacy min_notional table in sync for capacity helpers
+            mn = await session.get(InstrumentMinNotional, base)
+            lot = float(volume_min)
+            notion = float(min_notional_usd) if min_notional_usd is not None else float(
+                DEFAULT_SYMBOL_MIN_NOTIONAL.get(base, DEFAULT_MIN_NOTIONAL_USD)
+            )
+            if mn is None:
+                session.add(InstrumentMinNotional(symbol=base, min_notional_usd=notion, min_lot=lot, updated_at=now))
+            else:
+                mn.min_lot = lot
+                mn.min_notional_usd = notion
+                mn.updated_at = now
+            await session.commit()
+        return {
+            "symbol": base,
+            "account_type": at,
+            "broker_id": bid,
+            "contract_size": float(contract_size),
+            "volume_min": float(volume_min),
+            "volume_max": float(volume_max),
+            "volume_step": float(volume_step),
+            "tick_size": float(tick_size),
+            "source": source,
+        }
+
+    async def resolve_instrument_spec(
+        self,
+        symbol: str,
+        *,
+        account_type: str = "standard",
+        broker_id: str | None = None,
+        allow_template_fallback: bool = True,
+    ) -> tuple[Any, str]:
+        """
+        Resolve InstrumentSpec from broker table, then optional template.
+        Returns (spec|None, source_label).
+        """
+        base = symbol.upper().split(".")[0]
+        at = (account_type or "standard").strip().lower()
+        bid = (broker_id or "default").strip() or "default"
+        async with async_session_factory() as session:
+            q = await session.execute(
+                select(BrokerInstrumentSpec).where(
+                    BrokerInstrumentSpec.symbol == base,
+                    BrokerInstrumentSpec.account_type == at,
+                    BrokerInstrumentSpec.broker_id == bid,
+                )
+            )
+            row = q.scalar_one_or_none()
+            if row is None and bid != "default":
+                q2 = await session.execute(
+                    select(BrokerInstrumentSpec).where(
+                        BrokerInstrumentSpec.symbol == base,
+                        BrokerInstrumentSpec.account_type == at,
+                        BrokerInstrumentSpec.broker_id == "default",
+                    )
+                )
+                row = q2.scalar_one_or_none()
+            if row is not None:
+                spec = instrument_spec_from_broker(
+                    base,
+                    contract_size=float(row.contract_size),
+                    volume_min=float(row.volume_min),
+                    volume_max=float(row.volume_max),
+                    volume_step=float(row.volume_step),
+                    tick_size=float(row.tick_size),
+                    tick_value=float(row.tick_value) if row.tick_value is not None else None,
+                    base_currency=row.base_currency,
+                    quote_currency=row.quote_currency,
+                    profit_currency=row.profit_currency,
+                )
+                return spec, f"broker_spec:{row.source}"
+        if allow_template_fallback:
+            tmpl = default_spec_for_symbol(base)
+            if tmpl is not None:
+                return tmpl, "template_fallback"
+        return None, "missing"
+
     async def size_order(
+
         self,
         account_id: str,
         symbol: str,
@@ -347,26 +531,57 @@ class PortfolioRiskService:
         # Still cannot exceed remaining portfolio tolerance capacity
         trade_budget = min(trade_budget, remaining)
 
-        spec = instrument_spec or default_spec_for_symbol(sym)
+        acct_type = str(state.get("account_type") or "standard")
+        acct_ccy = (account_currency or state.get("account_currency") or "USD").upper()
+        broker = state.get("broker_id")
+
+        spec_source = "caller"
+        if instrument_spec is not None:
+            spec = instrument_spec
+        else:
+            spec, spec_source = await self.resolve_instrument_spec(
+                sym, account_type=acct_type, broker_id=broker, allow_template_fallback=True
+            )
         if spec is None:
             return {
                 "allow": False,
                 "volume": 0.0,
                 "reason": "instrument_spec_unavailable",
                 "symbol": sym,
+                "account_type": acct_type,
                 "client_risk_tolerance_pct": pct,
                 "aegis_per_trade_risk_pct": per_trade_pct,
+                "sizing_audit": {
+                    "account_id": account_id,
+                    "account_type": acct_type,
+                    "rejection": "instrument_spec_unavailable",
+                },
             }
-
-        if min_lot and min_lot > 0:
-            from dataclasses import replace
-            step = getattr(spec, "volume_step", min_lot) or min_lot
-            spec = replace(spec, volume_min=float(min_lot), volume_step=float(step))
 
         rates = dict(fx_rates or {})
         rates.update(fx_rates_for_pair_price(sym, ep))
 
         plan_max = float(get_max_lot(plan_code))
+        m_lot = margin_per_lot
+        if m_lot is None and hasattr(spec, "tick_value_account"):
+            # margin may be supplied by broker table via resolve
+            pass
+        # Pull margin_per_lot from broker row when available
+        if m_lot is None:
+            try:
+                async with async_session_factory() as session:
+                    q = await session.execute(
+                        select(BrokerInstrumentSpec).where(
+                            BrokerInstrumentSpec.symbol == sym,
+                            BrokerInstrumentSpec.account_type == acct_type,
+                        ).limit(1)
+                    )
+                    brow = q.scalar_one_or_none()
+                    if brow is not None and brow.margin_per_lot is not None:
+                        m_lot = float(brow.margin_per_lot)
+            except Exception:
+                pass
+
         result = size_by_stop_risk(
             equity=float(equity),
             risk_pct=per_trade_pct,
@@ -374,15 +589,49 @@ class PortfolioRiskService:
             stop_loss=slp,
             side=side_u,  # type: ignore[arg-type]
             spec=spec,
-            account_currency=account_currency,
+            account_currency=acct_ccy,
             fx_rates=rates,
             open_risk_usd=0.0,
             risk_budget_override=trade_budget,
             available_margin=available_margin,
-            margin_per_lot=margin_per_lot,
+            margin_per_lot=m_lot,
             plan_max_volume=plan_max,
         )
         out = result.to_dict()
+        vol = float(out.get("volume") or 0.0)
+        if out.get("allow") and vol <= 0:
+            out["allow"] = False
+            out["reason"] = "invalid_volume_after_sizing"
+            out["volume"] = 0.0
+
+        sizing_audit = {
+            "account_id": account_id,
+            "account_type": acct_type,
+            "account_currency": acct_ccy,
+            "broker_id": broker,
+            "equity": float(equity),
+            "instrument": sym,
+            "contract_size": getattr(spec, "contract_size", None),
+            "volume_min": getattr(spec, "volume_min", None),
+            "volume_max": getattr(spec, "volume_max", None),
+            "volume_step": getattr(spec, "volume_step", None),
+            "tick_size": getattr(spec, "tick_size", None),
+            "entry_price": ep,
+            "stop_price": slp,
+            "stop_distance": stop_dist,
+            "atr14": atr14,
+            "assessed_risk_pct": per_trade_pct,
+            "risk_budget": trade_budget,
+            "raw_lots": out.get("raw_lots"),
+            "final_volume": out.get("volume"),
+            "estimated_monetary_risk": out.get("estimated_monetary_risk"),
+            "required_margin": out.get("required_margin"),
+            "available_margin": available_margin,
+            "accepted": bool(out.get("allow")),
+            "reason": out.get("reason"),
+            "spec_source": spec_source,
+        }
+        out["sizing_audit"] = sizing_audit
         out["max_pairs"] = max_pairs
         out["risk_budget_usd"] = budget
         out["trade_risk_budget_usd"] = trade_budget
@@ -394,6 +643,8 @@ class PortfolioRiskService:
         out["min_notional_usd"] = min_notional
         out["risk_allocation_usd"] = float(out.get("estimated_monetary_risk") or 0.0)
         out["sizing_method"] = "aegis_assessed_stop_risk"
+        out["account_type"] = acct_type
+        out["account_currency"] = acct_ccy
         return out
 
     async def record_open_risk(self, account_id: str, delta_usd: float) -> None:

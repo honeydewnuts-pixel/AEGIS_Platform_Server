@@ -319,3 +319,37 @@ def fx_rates_for_pair_price(symbol: str, mid_price: float) -> dict[str, float]:
         rates[f"{base}_USD"] = px
         rates[f"USD_{base}"] = 1.0 / px
     return rates
+
+
+def instrument_spec_from_broker(
+    symbol: str,
+    *,
+    contract_size: float,
+    volume_min: float,
+    volume_max: float,
+    volume_step: float,
+    tick_size: float,
+    tick_value: float | None = None,
+    base_currency: str = "USD",
+    quote_currency: str = "USD",
+    profit_currency: str | None = None,
+    asset_class: str = "forex",
+) -> InstrumentSpec:
+    """Build InstrumentSpec from broker/EA reported fields. No silent defaults for sizes."""
+    if contract_size <= 0 or volume_min <= 0 or volume_step <= 0 or tick_size <= 0:
+        raise ValueError("invalid_broker_instrument_spec")
+    pc = (profit_currency or quote_currency or "USD").upper()
+    return InstrumentSpec(
+        symbol=symbol.upper().split(".")[0],
+        asset_class=asset_class,
+        contract_size=float(contract_size),
+        volume_min=float(volume_min),
+        volume_max=float(volume_max),
+        volume_step=float(volume_step),
+        tick_size=float(tick_size),
+        tick_value_account=float(tick_value) if tick_value is not None else None,
+        profit_currency=pc,
+        margin_currency=base_currency.upper(),
+        quote_currency=quote_currency.upper(),
+        base_currency=base_currency.upper(),
+    )

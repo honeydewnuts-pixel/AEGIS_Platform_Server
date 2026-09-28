@@ -57,6 +57,10 @@ class Subscription(Base):
     trading_halted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     halted_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
     open_risk_usd: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    # Broker account profile (standard | micro | custom) — not strategy risk tolerance
+    account_type: Mapped[str] = mapped_column(String(32), nullable=False, default="standard")
+    account_currency: Mapped[str] = mapped_column(String(16), nullable=False, default="USD")
+    broker_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     max_devices: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     max_trades_per_day: Mapped[int] = mapped_column(Integer, nullable=False, default=10)  # 0 = unlimited
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -333,6 +337,33 @@ class NotificationPreference(Base):
     system_alerts: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
+
+
+
+class BrokerInstrumentSpec(Base):
+    """Broker-reported or admin-configured instrument contract specifications.
+
+    Composite key: symbol + account_type + broker_id.
+    Used by position sizing; never invent values when required fields are missing.
+    """
+    __tablename__ = "broker_instrument_specs"
+
+    symbol: Mapped[str] = mapped_column(String(32), primary_key=True)
+    account_type: Mapped[str] = mapped_column(String(32), primary_key=True, default="standard")
+    broker_id: Mapped[str] = mapped_column(String(64), primary_key=True, default="default")
+    contract_size: Mapped[float] = mapped_column(Float, nullable=False)
+    volume_min: Mapped[float] = mapped_column(Float, nullable=False)
+    volume_max: Mapped[float] = mapped_column(Float, nullable=False)
+    volume_step: Mapped[float] = mapped_column(Float, nullable=False)
+    tick_size: Mapped[float] = mapped_column(Float, nullable=False)
+    tick_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    margin_per_lot: Mapped[float | None] = mapped_column(Float, nullable=True)
+    base_currency: Mapped[str] = mapped_column(String(16), nullable=False, default="USD")
+    quote_currency: Mapped[str] = mapped_column(String(16), nullable=False, default="USD")
+    profit_currency: Mapped[str] = mapped_column(String(16), nullable=False, default="USD")
+    min_notional_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
+    source: Mapped[str] = mapped_column(String(32), nullable=False, default="manual")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 class InstrumentMinNotional(Base):
     """Broker minimum trade size (USD notional and min lot) per symbol."""
