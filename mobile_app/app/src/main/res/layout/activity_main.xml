@@ -119,6 +119,13 @@
             android:fillViewport="true"
             android:paddingStart="12dp"
             android:paddingEnd="12dp">
+            <!-- ScrollView may only have ONE direct child -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingBottom="12dp">
+
             <Button
                 android:id="@+id/btnRefreshHome"
                 android:layout_width="match_parent"
@@ -128,13 +135,6 @@
                 android:textAllCaps="false"
                 android:backgroundTint="#00D4FF"
                 android:textColor="#0A1628" />
-
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:paddingBottom="12dp">
 
                 <!-- Market Overview header -->
                 <LinearLayout

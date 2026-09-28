@@ -192,8 +192,8 @@ class MainActivity : AppCompatActivity() {
         startBtn = findViewById(R.id.startBtn)
         stopBtn = findViewById(R.id.stopBtn)
         // Keep custom green/red drawables (Material theme would otherwise tint them)
-        startBtn.backgroundTintList = null
-        stopBtn.backgroundTintList = null
+        startBtn?.backgroundTintList = null
+        stopBtn?.backgroundTintList = null
         settingsBtn = findViewById(R.id.settingsBtn)
         riskPresetGroup = findViewById(R.id.riskPresetGroup)
         riskConservative = findViewById(R.id.riskConservative)
