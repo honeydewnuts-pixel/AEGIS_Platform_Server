@@ -1,13 +1,13 @@
 //+------------------------------------------------------------------+
-//| AEGIS_OHLC_Feed.mq5  v2.04                                       |
+//| AEGIS_OHLC_Feed.mq5  v2.05                                       |
 //| Same ResolveBrokerSymbol strategy as Executor (suffixes + scan). |
 //| ChartOnly | MultiSymbol (explicit list required for multi-pair). |
 //| CLOSED vs CURRENT; no invented OHLC.                             |
 //+------------------------------------------------------------------+
 #property copyright "Honeydewnuts Nigerian Limited / LeverageFx"
-#property version   "2.04"
+#property version   "2.05"
 #property strict
-#property description "AEGIS multi-symbol OHLC feed v2.04 — equity + min lot report"
+#property description "AEGIS multi-symbol OHLC feed v2.05 — equity + free margin + instrument specs"
 
 enum ENUM_AEGIS_FEED_MODE
   {
@@ -151,7 +151,7 @@ void BuildSymbolList()
      }
    ArrayResize(g_last_bar_time, ArraySize(g_symbols));
    ArrayInitialize(g_last_bar_time, 0);
-   Print("AEGIS OHLC v2.04 symbols=", ArraySize(g_symbols), " mode=", EnumToString(InpMode));
+   Print("AEGIS OHLC v2.05 symbols=", ArraySize(g_symbols), " mode=", EnumToString(InpMode));
   }
 
 
@@ -294,13 +294,17 @@ bool HttpPostJson(const string path, const string body)
 
 void PostAccountEquity()
   {
+   // Equity and FREE MARGIN are distinct. Never send equity as available_margin.
    double equity = AccountInfoDouble(ACCOUNT_EQUITY);
    if(equity <= 0) equity = AccountInfoDouble(ACCOUNT_BALANCE);
+   double free_margin = AccountInfoDouble(ACCOUNT_MARGIN_FREE);
+   if(free_margin < 0) free_margin = 0;
    string body = StringFormat(
-      "{\"account_id\":\"%s\",\"equity_usd\":%.2f,\"source\":\"mt5_ea\"}",
-      JsonEscape(InpAccountId), equity);
+      "{\"account_id\":\"%s\",\"equity_usd\":%.2f,\"available_margin_usd\":%.2f,\"source\":\"mt5_ea\"}",
+      JsonEscape(InpAccountId), equity, free_margin);
    if(HttpPostJson("/api/portfolio/equity", body))
-      Print("AEGIS: equity reported ", DoubleToString(equity, 2));
+      Print("AEGIS: equity=", DoubleToString(equity, 2),
+            " free_margin=", DoubleToString(free_margin, 2));
   }
 
 void PostAccountProfile()
@@ -338,13 +342,22 @@ void PostSymbolMinLots()
       double minNotional = 50.0;
       if(tickSize > 0 && tickVal > 0)
          minNotional = MathMax(10.0, (minLot * tickVal / tickSize) * (point * 100.0));
-      double margin = 0;
-      if(OrderCalcMargin(ORDER_TYPE_BUY, brokerSym, minLot,
-                         SymbolInfoDouble(brokerSym, SYMBOL_ASK), margin))
+      // Margin for min lot (capacity floor) AND true margin per 1.0 lot for sizing
+      double marginMin = 0;
+      double marginPerLot = 0;
+      double ask = SymbolInfoDouble(brokerSym, SYMBOL_ASK);
+      if(OrderCalcMargin(ORDER_TYPE_BUY, brokerSym, minLot, ask, marginMin))
         {
-         if(margin > 0)
-            minNotional = MathMax(minNotional, margin);
+         if(marginMin > 0)
+            minNotional = MathMax(minNotional, marginMin);
         }
+      if(OrderCalcMargin(ORDER_TYPE_BUY, brokerSym, 1.0, ask, marginPerLot))
+        {
+         if(marginPerLot <= 0 && marginMin > 0 && minLot > 0)
+            marginPerLot = marginMin / minLot;  // scale only if 1.0 calc failed
+        }
+      else if(marginMin > 0 && minLot > 0)
+         marginPerLot = marginMin / minLot;
       string bodyMin = StringFormat(
          "{\"account_id\":\"%s\",\"symbol\":\"%s\",\"min_notional_usd\":%.2f,\"min_lot\":%.4f}",
          JsonEscape(InpAccountId), JsonEscape(baseSym), minNotional, minLot);
@@ -359,7 +372,7 @@ void PostSymbolMinLots()
          JsonEscape(InpAccountId), JsonEscape(baseSym),
          JsonEscape(InpAccountType), JsonEscape(InpBrokerId),
          contractSize, minLot, maxLot, stepLot,
-         tickSize, tickVal, margin,
+         tickSize, tickVal, marginPerLot,
          JsonEscape(SymbolInfoString(brokerSym, SYMBOL_CURRENCY_BASE)),
          JsonEscape(SymbolInfoString(brokerSym, SYMBOL_CURRENCY_PROFIT)),
          minNotional);
@@ -385,7 +398,7 @@ void PostAll()
       if(PostOhlcForSymbol(g_symbols[i])) ok++;
       else fail++;
      }
-   Print("AEGIS OHLC v2.04 cycle ok=", ok, " fail=", fail);
+   Print("AEGIS OHLC v2.05 cycle ok=", ok, " fail=", fail);
    PostAccountRisk();
   }
 

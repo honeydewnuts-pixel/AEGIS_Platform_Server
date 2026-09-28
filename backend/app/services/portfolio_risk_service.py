@@ -30,6 +30,8 @@ ALLOWED_ACCOUNT_TYPES = ("standard", "micro", "custom")
 MAX_MULTISYMBOL_PAIRS = 24
 DEFAULT_MIN_NOTIONAL_USD = 10.0
 DEFAULT_MIN_LOT = 0.01
+# Fail-closed when last free-margin report is older than this (seconds)
+MARGIN_STALE_SECONDS = 600
 # Used to convert risk-slot USD into lots when broker min_notional is only a floor.
 # volume ≈ (slot_budget_usd * leverage) / 100_000  for FX-style notionals.
 ASSUMED_ACCOUNT_LEVERAGE = 100.0
@@ -60,6 +62,8 @@ class PortfolioRiskService:
             budget = (equity * pct / 100.0) if equity and equity > 0 else 0.0
             open_risk = float(row.open_risk_usd or 0.0)
             remaining = max(0.0, budget - open_risk)
+            avail_m = getattr(row, "available_margin_usd", None)
+            margin_at = getattr(row, "margin_updated_at", None)
             return {
                 "account_id": account_id,
                 "account_equity_usd": equity,
@@ -68,6 +72,8 @@ class PortfolioRiskService:
                 "account_type": getattr(row, "account_type", None) or "standard",
                 "account_currency": getattr(row, "account_currency", None) or "USD",
                 "broker_id": getattr(row, "broker_id", None),
+                "available_margin_usd": float(avail_m) if avail_m is not None else None,
+                "margin_updated_at": margin_at.isoformat() if margin_at is not None else None,
                 "risk_budget_usd": round(budget, 2),
                 "open_risk_usd": round(open_risk, 2),
                 "remaining_risk_usd": round(remaining, 2),
@@ -77,9 +83,23 @@ class PortfolioRiskService:
                 "plan": row.plan,
             }
 
-    async def set_equity(self, account_id: str, equity_usd: float, source: str = "client") -> dict[str, Any]:
+    async def set_equity(
+        self,
+        account_id: str,
+        equity_usd: float,
+        source: str = "client",
+        *,
+        available_margin_usd: float | None = None,
+    ) -> dict[str, Any]:
+        """Persist equity and optional free margin from MT5.
+
+        available_margin_usd must be ACCOUNT_MARGIN_FREE (or equivalent).
+        Never pass equity as a substitute for free margin.
+        """
         if equity_usd < 0:
             raise ValueError("equity must be >= 0")
+        if available_margin_usd is not None and float(available_margin_usd) < 0:
+            raise ValueError("available_margin_usd must be >= 0")
         async with async_session_factory() as session:
             row = await session.get(Subscription, account_id)
             if row is None:
@@ -89,6 +109,9 @@ class PortfolioRiskService:
             peak = float(row.peak_equity_usd) if row.peak_equity_usd is not None else 0.0
             if equity_usd > peak:
                 row.peak_equity_usd = float(equity_usd)
+            if available_margin_usd is not None:
+                row.available_margin_usd = float(available_margin_usd)
+                row.margin_updated_at = datetime.now(timezone.utc)
             # Auto-resume if client adds capital and was halted for risk
             if row.trading_halted and equity_usd > (prev or 0):
                 pct = float(row.risk_tolerance_pct if row.risk_tolerance_pct is not None else 25.0)
@@ -583,6 +606,67 @@ class PortfolioRiskService:
             except Exception:
                 pass
 
+        # Resolve free margin: explicit arg wins; else last MT5-reported value (never equity)
+        avail = available_margin
+        margin_age_sec: float | None = None
+        margin_src = "caller" if avail is not None else "state"
+        if avail is None:
+            stored = state.get("available_margin_usd")
+            if stored is not None:
+                avail = float(stored)
+        margin_ts_raw = state.get("margin_updated_at")
+        if margin_ts_raw:
+            try:
+                if isinstance(margin_ts_raw, str):
+                    ts = datetime.fromisoformat(margin_ts_raw.replace("Z", "+00:00"))
+                else:
+                    ts = margin_ts_raw
+                if ts.tzinfo is None:
+                    ts = ts.replace(tzinfo=timezone.utc)
+                margin_age_sec = (datetime.now(timezone.utc) - ts).total_seconds()
+            except Exception:
+                margin_age_sec = None
+
+        if require_margin_check:
+            if avail is None or m_lot is None:
+                return {
+                    "allow": False,
+                    "volume": 0.0,
+                    "reason": "margin_data_missing",
+                    "client_risk_tolerance_pct": pct,
+                    "aegis_per_trade_risk_pct": per_trade_pct,
+                    "sizing_method": "aegis_assessed_stop_risk",
+                    "sizing_audit": {
+                        "account_id": account_id,
+                        "available_margin": avail,
+                        "margin_per_lot": m_lot,
+                        "margin_source": margin_src,
+                        "margin_age_sec": margin_age_sec,
+                        "rejection": "margin_data_missing",
+                    },
+                }
+            # Stale only when using persisted state (caller-supplied values are treated as live)
+            if margin_src == "state" and (
+                margin_age_sec is None or margin_age_sec > MARGIN_STALE_SECONDS
+            ):
+                return {
+                    "allow": False,
+                    "volume": 0.0,
+                    "reason": "margin_data_stale",
+                    "client_risk_tolerance_pct": pct,
+                    "aegis_per_trade_risk_pct": per_trade_pct,
+                    "sizing_method": "aegis_assessed_stop_risk",
+                    "sizing_audit": {
+                        "account_id": account_id,
+                        "available_margin": avail,
+                        "margin_per_lot": m_lot,
+                        "margin_source": margin_src,
+                        "margin_age_sec": margin_age_sec,
+                        "stale_after_sec": MARGIN_STALE_SECONDS,
+                        "rejection": "margin_data_stale",
+                    },
+                }
+
         result = size_by_stop_risk(
             equity=float(equity),
             risk_pct=per_trade_pct,
@@ -594,7 +678,7 @@ class PortfolioRiskService:
             fx_rates=rates,
             open_risk_usd=0.0,
             risk_budget_override=trade_budget,
-            available_margin=available_margin,
+            available_margin=float(avail) if avail is not None else None,
             margin_per_lot=m_lot,
             plan_max_volume=plan_max,
             require_margin_check=bool(require_margin_check),
@@ -628,8 +712,10 @@ class PortfolioRiskService:
             "final_volume": out.get("volume"),
             "estimated_monetary_risk": out.get("estimated_monetary_risk"),
             "required_margin": out.get("required_margin"),
-            "available_margin": available_margin,
+            "available_margin": avail if avail is not None else available_margin,
             "margin_per_lot": m_lot,
+            "margin_source": margin_src,
+            "margin_age_sec": margin_age_sec,
             "require_margin_check": bool(require_margin_check),
             "margin_check_status": out.get("margin_check_status"),
             "accepted": bool(out.get("allow")),

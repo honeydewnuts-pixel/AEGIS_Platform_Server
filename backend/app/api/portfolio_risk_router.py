@@ -14,6 +14,10 @@ class EquityBody(BaseModel):
     account_id: str
     equity_usd: float = Field(..., ge=0)
     source: str = "client"
+    # MT5 ACCOUNT_MARGIN_FREE — must not be equity/balance
+    available_margin_usd: float | None = Field(
+        None, ge=0, description="Broker free margin (ACCOUNT_MARGIN_FREE)"
+    )
 
 
 class ToleranceBody(BaseModel):
@@ -94,7 +98,12 @@ async def set_equity(
     require_account_match(auth, body.account_id)
     svc = request.app.state.portfolio_risk
     try:
-        return await svc.set_equity(body.account_id, body.equity_usd, body.source)
+        return await svc.set_equity(
+            body.account_id,
+            body.equity_usd,
+            body.source,
+            available_margin_usd=body.available_margin_usd,
+        )
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
 

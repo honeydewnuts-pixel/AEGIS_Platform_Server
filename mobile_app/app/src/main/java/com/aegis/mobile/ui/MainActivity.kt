@@ -138,6 +138,7 @@ class MainActivity : AppCompatActivity() {
         badgeLive = findViewById(R.id.badgeLive)
         badgeBackend = findViewById(R.id.badgeBackend)
         panelHome = findViewById(R.id.panelHome)
+        findViewById<android.widget.Button>(R.id.btnRefreshHome)?.setOnClickListener { refreshHomePanel() }
         panelAnalysis = findViewById(R.id.panelAnalysis)
         panelTrade = findViewById(R.id.panelTrade)
         panelCommunity = findViewById(R.id.panelCommunity)
@@ -693,6 +694,19 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
     override fun onPause() {
         notifBadgeHandler.removeCallbacks(notifBadgeRunnable)
         super.onPause()
+    }
+
+
+    private fun refreshHomePanel() {
+        refreshNotifBadge()
+        // Re-bind latest health labels if observers are active
+        try {
+            val code = HealthStatus.lastHttpCode.value
+            val reach = HealthStatus.backendReachable.value
+            val up = HealthStatus.lastUploadStatus.value
+            android.util.Log.i("AEGIS", "home refresh http=$code reachable=$reach upload=$up")
+        } catch (_: Exception) { }
+        android.widget.Toast.makeText(this, "Status refreshed", android.widget.Toast.LENGTH_SHORT).show()
     }
 
     override fun onResume() {

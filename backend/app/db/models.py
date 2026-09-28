@@ -61,6 +61,9 @@ class Subscription(Base):
     account_type: Mapped[str] = mapped_column(String(32), nullable=False, default="standard")
     account_currency: Mapped[str] = mapped_column(String(16), nullable=False, default="USD")
     broker_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Free margin from MT5 (ACCOUNT_MARGIN_FREE) — never substitute equity
+    available_margin_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
+    margin_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     max_devices: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     max_trades_per_day: Mapped[int] = mapped_column(Integer, nullable=False, default=10)  # 0 = unlimited
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
