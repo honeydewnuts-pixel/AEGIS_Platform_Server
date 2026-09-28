@@ -12,3 +12,8 @@ InpTimerSec = 30
 ```
 
 Empty `InpSymbolsList` → chart symbol only (never entire Market Watch).
+
+
+## v2.04
+Posts  and  (SymbolInfo contract data).
+Inputs: , .

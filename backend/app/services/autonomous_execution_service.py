@@ -1,130 +1,158 @@
-"""AEGIS V3 autonomous demo execution.
+"""Autonomous demo market-order path — portfolio sizing required (fail-closed)."""
 
-The V3 rule engine remains authoritative. A BUY/SELL result from the
-screenshot analysis can be executed automatically on the connected MT5
-demo terminal. Redis idempotency prevents repeated executions from the
-same M1 candle/signature when screenshots arrive every few seconds.
-"""
 from __future__ import annotations
-from typing import Any
 
-from app.config import settings
-from app.core.logging import configure_logging
-from app.schemas.trading import MarketOrderRequest
+import logging
+from typing import Any, Callable, Awaitable
+
+logger = logging.getLogger("AEGIS.autonomous_exec")
+
 
 class AutonomousDemoExecutionService:
-    def __init__(self, job_queue, worker_pool, subscription_service, trade_limits) -> None:
+    def __init__(
+        self,
+        job_queue: Any = None,
+        worker_pool: Any = None,
+        subscription_service: Any = None,
+        trade_limits: Any = None,
+    ) -> None:
         self.job_queue = job_queue
         self.worker_pool = worker_pool
         self.subscription_service = subscription_service
         self.trade_limits = trade_limits
-        self.logger = configure_logging(__name__)
+        self.credential_getter: Callable[..., Awaitable[Any]] | None = None
+        self.portfolio_risk: Any = None
 
     async def execute_if_signal(
         self,
+        *,
         account_id: str,
         symbol: str,
         result: dict[str, Any],
-        market_snapshot: dict[str, Any] | None,
+        market_snapshot: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        signal = str(result.get("signal") or "HOLD").upper()
-        if not settings.AUTONOMOUS_EXECUTION_ENABLED:
-            return {"status": "disabled", "executed": False}
-        if signal not in ("BUY", "SELL"):
-            return {"status": "no_trade_signal", "executed": False}
+        side = str(result.get("signal") or "").upper()
+        if side not in ("BUY", "SELL"):
+            return {"executed": False, "reason": "no_signal"}
 
-        plan = await self.subscription_service.get_plan(account_id)
-        if plan != "demo":
-            return {"status": "demo_only", "executed": False, "message": "Autonomous execution is restricted to the demo plan in this V3 checkpoint."}
-
-        creds = await self._credentials(account_id)
-        if not creds or not creds.get("execution_enabled"):
-            return {"status": "execution_disabled", "executed": False}
-
-        if not await self.worker_pool.is_running(account_id):
-            return {"status": "worker_not_connected", "executed": False, "message": "MT5 worker is not connected."}
-
-        # Prefer the synchronized M1 candle as the event identity.
-        candle = str((market_snapshot or {}).get("candle_time") or "")
-        rule = str(result.get("rule_name") or "unknown")
-        event_key = f"aegis:v3:auto:{account_id}:{symbol}:{candle}:{signal}:{rule}"
-        redis = self.job_queue.get_redis_client()
-        if redis is None:
-            return {"status": "redis_unavailable", "executed": False}
-
-        # Reserve the event before sending the order to prevent duplicate orders.
-        reserved = await redis.set(event_key, "reserved", nx=True, ex=7200)
-        if not reserved:
-            return {"status": "already_executed_for_signal_event", "executed": False}
-
-        try:
-            quota = await self.trade_limits.consume(account_id, 1)
-        except Exception as exc:
-            await redis.delete(event_key)
-            return {"status": "trade_limit_blocked", "executed": False, "message": str(exc)}
-
-        plan_code = plan if isinstance(plan, str) else "demo"
-        preset = await self.subscription_service.get_risk_preset(account_id)
-        volume = float(self.subscription_service.calculate_lot_size(plan_code, preset))
-        # Prefer equity-based portfolio sizing when available
-        pr = getattr(self, "portfolio_risk", None)
-        if pr is not None:
+        sym = (symbol or "").upper().split(".")[0]
+        plan_code = "demo"
+        preset = "standard"
+        if self.subscription_service is not None:
             try:
-                sized = await pr.size_order(account_id, symbol, plan_code)
-                if not sized.get("allow"):
-                    return {
-                        "status": "risk_blocked",
-                        "executed": False,
-                        "message": sized.get("reason") or sized.get("halted_reason") or "portfolio risk",
-                        "portfolio_risk": sized,
-                    }
-                volume = float(sized.get("volume") or volume)
+                st = await self.subscription_service.get_status(account_id)
+                if isinstance(st, dict):
+                    plan_code = (st.get("plan") or "demo").lower()
+                    preset = (st.get("risk_preset") or "standard").lower()
             except Exception:
                 pass
 
-        request = MarketOrderRequest(
-            symbol=symbol.strip(),
-            volume=volume,
-            order_type=signal,
-            account_id=account_id,
-            comment=f"AEGIS V3 {rule}",
-        )
+        try:
+            px = float(
+                result.get("entry_price")
+                or result.get("close")
+                or (market_snapshot or {}).get("close")
+                or (result.get("ohlc") or {}).get("close")
+                or 0
+            )
+        except (TypeError, ValueError):
+            px = 0.0
+
+        sl = result.get("stop_loss") or result.get("sl")
+        atr = result.get("atr14")
+        mult = float(result.get("initial_stop_atr_mult") or 1.5)
+        if (not sl or float(sl or 0) <= 0) and px > 0 and atr is not None:
+            try:
+                af = float(atr)
+                if af > 0:
+                    sl = px + mult * af if side == "SELL" else px - mult * af
+            except (TypeError, ValueError):
+                pass
+
+        if self.portfolio_risk is None:
+            return {"executed": False, "reason": "portfolio_risk_unavailable", "volume": 0.0}
+        if px <= 0 or not sl or float(sl) <= 0:
+            return {
+                "executed": False,
+                "reason": "entry_or_stop_missing_for_sizing",
+                "volume": 0.0,
+            }
+
+        atr_f = None
+        try:
+            if atr is not None:
+                atr_f = float(atr)
+        except (TypeError, ValueError):
+            atr_f = None
 
         try:
-            job = await self.job_queue.submit_and_wait(
-                account_id, "market_order", request.model_dump(mode="json"),
-                timeout_seconds=settings.WORKER_JOB_TIMEOUT_SECONDS,
+            sized = await self.portfolio_risk.size_order(
+                account_id,
+                sym,
+                plan_code,
+                entry_price=px,
+                stop_loss=float(sl),
+                side=side,
+                atr14=atr_f,
             )
-            if job is None:
-                await redis.delete(event_key)
-                return {"status": "execution_timeout", "executed": False, "message": "MT5 worker did not return an execution result."}
-            if not job.get("success"):
-                await redis.delete(event_key)
-                return {"status": "execution_failed", "executed": False, "message": job.get("message", "MT5 execution failed.")}
-            broker_result = job.get("result")
-            if isinstance(broker_result, dict) and not broker_result.get("success", False):
-                await redis.delete(event_key)
-                return {"status": "broker_rejected", "executed": False, "message": broker_result.get("message", "Broker rejected order.")}
-            return {
-                "status": "executed",
-                "executed": True,
-                "signal": signal,
-                "rule": rule,
-                "symbol": symbol,
-                "volume": volume,
-                "trade_quota": quota,
-                "broker_result": broker_result,
-            }
-        except Exception as exc:
-            await redis.delete(event_key)
-            self.logger.exception("Autonomous V3 demo execution failed for %s %s", account_id, symbol)
-            return {"status": "execution_exception", "executed": False, "message": str(exc)}
+        except Exception as e:
+            logger.exception("size_order failed")
+            return {"executed": False, "reason": f"sizing_error:{e}", "volume": 0.0}
 
-    async def _credentials(self, account_id: str):
-        # Vault is not directly available here; this check is supplied by the
-        # caller through app state in the route. Kept as a late-bound hook.
-        # Fail CLOSED: missing getter must never enable execution.
-        getter = getattr(self, "credential_getter", None)
-        if getter:
-            return await getter(account_id)
-        return {"execution_enabled": False}
+        if not sized.get("allow"):
+            return {
+                "executed": False,
+                "reason": sized.get("reason") or "risk_blocked",
+                "volume": 0.0,
+                "portfolio_risk": sized,
+            }
+        try:
+            volume = float(sized.get("volume") or 0)
+        except (TypeError, ValueError):
+            volume = 0.0
+        if volume <= 0:
+            return {
+                "executed": False,
+                "reason": "invalid_volume_after_sizing",
+                "volume": 0.0,
+                "portfolio_risk": sized,
+            }
+
+        out: dict[str, Any] = {
+            "executed": False,
+            "side": side,
+            "symbol": sym,
+            "volume": volume,
+            "stop_loss": float(sl),
+            "portfolio_risk": sized,
+            "plan": plan_code,
+            "risk_preset": preset,
+        }
+        try:
+            if self.job_queue is not None and hasattr(self.job_queue, "enqueue_market_order"):
+                await self.job_queue.enqueue_market_order(
+                    account_id=account_id,
+                    symbol=sym,
+                    side=side,
+                    volume=volume,
+                    stop_loss=float(sl),
+                )
+                out["executed"] = True
+                out["reason"] = "enqueued"
+            elif self.worker_pool is not None and hasattr(self.worker_pool, "submit_market_order"):
+                await self.worker_pool.submit_market_order(
+                    account_id=account_id,
+                    symbol=sym,
+                    side=side,
+                    volume=volume,
+                    stop_loss=float(sl),
+                )
+                out["executed"] = True
+                out["reason"] = "submitted"
+            else:
+                out["executed"] = False
+                out["reason"] = "no_execution_backend"
+        except Exception as e:
+            out["executed"] = False
+            out["reason"] = f"submit_error:{e}"
+        return out

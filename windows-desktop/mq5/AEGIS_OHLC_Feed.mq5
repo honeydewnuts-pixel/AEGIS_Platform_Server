@@ -1,13 +1,13 @@
 //+------------------------------------------------------------------+
-//| AEGIS_OHLC_Feed.mq5  v2.03                                       |
+//| AEGIS_OHLC_Feed.mq5  v2.04                                       |
 //| Same ResolveBrokerSymbol strategy as Executor (suffixes + scan). |
 //| ChartOnly | MultiSymbol (explicit list required for multi-pair). |
 //| CLOSED vs CURRENT; no invented OHLC.                             |
 //+------------------------------------------------------------------+
 #property copyright "Honeydewnuts Nigerian Limited / LeverageFx"
-#property version   "2.03"
+#property version   "2.04"
 #property strict
-#property description "AEGIS multi-symbol OHLC feed v2.03 — equity + min lot report"
+#property description "AEGIS multi-symbol OHLC feed v2.04 — equity + min lot report"
 
 enum ENUM_AEGIS_FEED_MODE
   {
@@ -24,6 +24,8 @@ input int    InpBars        = 200;
 input int    InpTimerSec    = 30;
 input int    InpMaxSymbols  = 24;
 input ENUM_TIMEFRAMES InpForceTF = PERIOD_CURRENT;
+input string InpAccountType = "standard";  // standard | micro | custom
+input string InpBrokerId    = "default";
 
 datetime g_last_bar_time[];
 string   g_symbols[];
@@ -149,7 +151,7 @@ void BuildSymbolList()
      }
    ArrayResize(g_last_bar_time, ArraySize(g_symbols));
    ArrayInitialize(g_last_bar_time, 0);
-   Print("AEGIS OHLC v2.03 symbols=", ArraySize(g_symbols), " mode=", EnumToString(InpMode));
+   Print("AEGIS OHLC v2.04 symbols=", ArraySize(g_symbols), " mode=", EnumToString(InpMode));
   }
 
 
@@ -301,9 +303,20 @@ void PostAccountEquity()
       Print("AEGIS: equity reported ", DoubleToString(equity, 2));
   }
 
+void PostAccountProfile()
+  {
+   string at = InpAccountType;
+   if(StringLen(at) < 3) at = "standard";
+   string body = StringFormat(
+      "{\"account_id\":\"%s\",\"account_type\":\"%s\",\"account_currency\":\"USD\",\"broker_id\":\"%s\"}",
+      JsonEscape(InpAccountId), JsonEscape(at), JsonEscape(InpBrokerId));
+   if(HttpPostJson("/api/portfolio/account-profile", body))
+      Print("AEGIS: account profile ", at, " broker=", InpBrokerId);
+  }
+
 void PostSymbolMinLots()
   {
-   if(ArraySize(g_symbols) == 0) BuildSymbolList();
+   // Legacy min-notional + full broker instrument-spec for stop-based sizing
    for(int i = 0; i < ArraySize(g_symbols); i++)
      {
       string brokerSym = g_symbols[i];
@@ -311,15 +324,20 @@ void PostSymbolMinLots()
       if(!SymbolSelect(brokerSym, true))
          continue;
       double minLot = SymbolInfoDouble(brokerSym, SYMBOL_VOLUME_MIN);
+      double maxLot = SymbolInfoDouble(brokerSym, SYMBOL_VOLUME_MAX);
+      double stepLot = SymbolInfoDouble(brokerSym, SYMBOL_VOLUME_STEP);
       if(minLot <= 0) minLot = 0.01;
+      if(maxLot <= 0) maxLot = 100.0;
+      if(stepLot <= 0) stepLot = minLot;
       double tickVal = SymbolInfoDouble(brokerSym, SYMBOL_TRADE_TICK_VALUE);
       double tickSize = SymbolInfoDouble(brokerSym, SYMBOL_TRADE_TICK_SIZE);
+      if(tickSize <= 0) tickSize = SymbolInfoDouble(brokerSym, SYMBOL_POINT);
+      double contractSize = SymbolInfoDouble(brokerSym, SYMBOL_TRADE_CONTRACT_SIZE);
+      if(contractSize <= 0) contractSize = 100000.0;
       double point = SymbolInfoDouble(brokerSym, SYMBOL_POINT);
-      // Approximate min notional: value of minLot for a 100-point move, floored at $10
       double minNotional = 50.0;
       if(tickSize > 0 && tickVal > 0)
          minNotional = MathMax(10.0, (minLot * tickVal / tickSize) * (point * 100.0));
-      // Prefer margin for 1 min lot if available
       double margin = 0;
       if(OrderCalcMargin(ORDER_TYPE_BUY, brokerSym, minLot,
                          SymbolInfoDouble(brokerSym, SYMBOL_ASK), margin))
@@ -327,16 +345,33 @@ void PostSymbolMinLots()
          if(margin > 0)
             minNotional = MathMax(minNotional, margin);
         }
-      string body = StringFormat(
+      string bodyMin = StringFormat(
          "{\"account_id\":\"%s\",\"symbol\":\"%s\",\"min_notional_usd\":%.2f,\"min_lot\":%.4f}",
          JsonEscape(InpAccountId), JsonEscape(baseSym), minNotional, minLot);
-      HttpPostJson("/api/portfolio/min-notional", body);
+      HttpPostJson("/api/portfolio/min-notional", bodyMin);
+
+      // Full instrument specification for server position sizing
+      string bodySpec = StringFormat(
+         "{\"account_id\":\"%s\",\"symbol\":\"%s\",\"account_type\":\"%s\",\"broker_id\":\"%s\","
+         "\"contract_size\":%.2f,\"volume_min\":%.4f,\"volume_max\":%.4f,\"volume_step\":%.4f,"
+         "\"tick_size\":%.8f,\"tick_value\":%.8f,\"margin_per_lot\":%.4f,"
+         "\"base_currency\":\"%s\",\"quote_currency\":\"%s\",\"min_notional_usd\":%.2f,\"source\":\"mt5\"}",
+         JsonEscape(InpAccountId), JsonEscape(baseSym),
+         JsonEscape(InpAccountType), JsonEscape(InpBrokerId),
+         contractSize, minLot, maxLot, stepLot,
+         tickSize, tickVal, margin,
+         JsonEscape(SymbolInfoString(brokerSym, SYMBOL_CURRENCY_BASE)),
+         JsonEscape(SymbolInfoString(brokerSym, SYMBOL_CURRENCY_PROFIT)),
+         minNotional);
+      if(HttpPostJson("/api/portfolio/instrument-spec", bodySpec))
+         Print("AEGIS: instrument-spec ", baseSym, " contract=", contractSize, " minLot=", minLot);
      }
   }
 
 void PostAccountRisk()
   {
    PostAccountEquity();
+   PostAccountProfile();
    PostSymbolMinLots();
   }
 
@@ -350,7 +385,7 @@ void PostAll()
       if(PostOhlcForSymbol(g_symbols[i])) ok++;
       else fail++;
      }
-   Print("AEGIS OHLC v2.03 cycle ok=", ok, " fail=", fail);
+   Print("AEGIS OHLC v2.04 cycle ok=", ok, " fail=", fail);
    PostAccountRisk();
   }
 

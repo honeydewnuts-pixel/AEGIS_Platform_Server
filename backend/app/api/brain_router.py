@@ -445,9 +445,28 @@ async def analyze_screenshot(
                 except Exception as _re:
                     pub_reason = f"registry_check_error:{_re}"
             if allow_pub:
-                # Portfolio risk: equity × tolerance → lot + max pairs (MultiSymbol)
-                sized_vol = float(vol) if vol is not None else None
+                # Stop-based sizing only — never publish with legacy/assumed volume
+                sized_vol = None
                 risk_meta = None
+                try:
+                    px_sz = float(
+                        result.get("entry_price")
+                        or result.get("close")
+                        or (result.get("ohlc") or {}).get("close")
+                        or 0
+                    )
+                except Exception:
+                    px_sz = 0.0
+                sl_sz = result.get("stop_loss") or result.get("sl")
+                atr_sz = result.get("atr14")
+                mult_sz = float(result.get("initial_stop_atr_mult") or 1.5)
+                if (not sl_sz or float(sl_sz or 0) <= 0) and px_sz > 0 and atr_sz is not None:
+                    try:
+                        af = float(atr_sz)
+                        if af > 0:
+                            sl_sz = px_sz + mult_sz * af if side == "SELL" else px_sz - mult_sz * af
+                    except (TypeError, ValueError):
+                        pass
                 try:
                     pr = getattr(request.app.state, "portfolio_risk", None)
                     sub_svc = getattr(request.app.state, "subscription_service", None)
@@ -459,16 +478,46 @@ async def analyze_screenshot(
                                 plan_code = rec.get("plan") or "demo"
                         except Exception:
                             pass
-                    if pr is not None:
-                        risk_meta = await pr.size_order(account_id, sym, plan_code)
+                    if pr is None:
+                        allow_pub = False
+                        pub_reason = "portfolio_risk_unavailable"
+                    elif px_sz <= 0 or not sl_sz or float(sl_sz) <= 0:
+                        allow_pub = False
+                        pub_reason = "entry_or_stop_missing_for_sizing"
+                    else:
+                        atr_f = None
+                        try:
+                            if atr_sz is not None:
+                                atr_f = float(atr_sz)
+                        except (TypeError, ValueError):
+                            atr_f = None
+                        risk_meta = await pr.size_order(
+                            account_id,
+                            sym,
+                            plan_code,
+                            entry_price=px_sz,
+                            stop_loss=float(sl_sz),
+                            side=side,
+                            atr14=atr_f,
+                        )
                         result["portfolio_risk"] = risk_meta
                         if not risk_meta.get("allow"):
                             allow_pub = False
                             pub_reason = risk_meta.get("reason") or "risk_blocked"
                         else:
-                            sized_vol = float(risk_meta.get("volume") or sized_vol or 0.01)
+                            try:
+                                sized_vol = float(risk_meta.get("volume") or 0)
+                            except (TypeError, ValueError):
+                                sized_vol = 0.0
+                            if sized_vol <= 0:
+                                allow_pub = False
+                                pub_reason = "invalid_volume_after_sizing"
+                                sized_vol = None
                 except Exception as _re:
                     result["portfolio_risk_error"] = str(_re)
+                    allow_pub = False
+                    pub_reason = f"sizing_error:{_re}"
+                    sized_vol = None
                 if allow_pub:
                     pub_conf = float(result.get("confidence") or 0)
                     # Confidence-based entry/flip (no artificial 0.55 floor)
@@ -500,22 +549,26 @@ async def analyze_screenshot(
                                 sl = px * (0.995 if side == "BUY" else 1.005)
                             result["stop_loss"] = float(sl)
                             result["take_profit"] = None
-                        exec_svc.publish(
-                            account_id=account_id,
-                            symbol=sym,
-                            side=side,
-                            confidence=pub_conf,
-                            rule_name=str(result.get("rule_name") or ""),
-                            volume=sized_vol,
-                            stop_loss=float(sl) if sl else None,
-                            take_profit=None,
-                            details=str(result.get("details") or "")[:500],
-                        )
-                        if auto is not None:
-                            auto.set_side(account_id, sym, side)
-                        result["executor_published"] = True
-                        result["executor_publish_reason"] = pub_reason
-                        result["executor_volume"] = sized_vol
+                        if sized_vol is None or float(sized_vol) <= 0:
+                            result["executor_published"] = False
+                            result["executor_publish_reason"] = "invalid_volume_after_sizing"
+                        else:
+                            exec_svc.publish(
+                                account_id=account_id,
+                                symbol=sym,
+                                side=side,
+                                confidence=pub_conf,
+                                rule_name=str(result.get("rule_name") or ""),
+                                volume=float(sized_vol),
+                                stop_loss=float(sl) if sl else None,
+                                take_profit=None,
+                                details=str(result.get("details") or "")[:500],
+                            )
+                            if auto is not None:
+                                auto.set_side(account_id, sym, side)
+                            result["executor_published"] = True
+                            result["executor_publish_reason"] = pub_reason
+                            result["executor_volume"] = sized_vol
                 else:
                     result["executor_published"] = False
                     result["executor_publish_reason"] = pub_reason
