@@ -1,0 +1,32 @@
+checkpoint_id: AEGIS-RESEARCH-2026-09-28
+checkpoint_date: 2026-09-28
+active_instrument: USDCHF
+active_timeframe: M5
+research_status: OPEN
+active_task: V53.6 cash-test reconciliation
+final_test: LOCKED
+server_integration: NOT_CONFIRMED
+latest_available_server_archive_commit: 9eb0fc2085ad61c568f416901121fa9ad8d5f7ee
+cash_test_matrix:
+  balances_usd: [50, 100, 250, 500, 1000, 5000, 10000]
+  risk_percentages: [0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0]
+  leverage: [100, 500, 1000]
+  scenario_count: 147
+  periods: [1_day, 1_week, 1_month, 6_months, 1_year, 5_years]
+execution_reference:
+  direction: short_only
+  entry: next_bar_ask
+  exit: bid
+  atr_period: 14
+  initial_stop_atr: 1.5
+  breakeven_trigger: +1R
+  trailing_stop_atr: 0.75
+  max_holding_bars: 72
+  cost_model: bid_ask_embedded_v1
+  universal_fixed_0_085R: prohibited
+vps_demo_incident:
+  status: unresolved
+  evidence_date: 2026-09-28
+  screenshots_included: true
+  unintended_order_confirmed: false
+  required_checks: [MT5_positions_and_history, OHLC_freshness, worker_logs, analysis_logs, executor_pending_and_ACK, notification_generation_and_delivery]

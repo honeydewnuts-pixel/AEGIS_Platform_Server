@@ -1,0 +1,8 @@
+feature,research_status,server_status,notes
+USDCHF discovery,Open,Not integrated,Active instrument; discovery not closed
+USDCHF cash-test reconciliation,In progress,Not integrated,Original ledger incomplete vs full 147-scenario matrix
+USDCHF rulebook,Not yet approved,Not integrated,Final Test locked; no operational promotion
+Cash-test generator,Requires reconstruction or verification,Not verified,Do not treat existing ledgers as full matrix completion
+Position-sizing validation,Pending,Existing Server component,Server has stop-risk sizing; research validation separate
+Margin validation,Pending runtime verification,Existing component reported,Fail-closed margin path exists in Server; not research-validated here
+VPS/Demo investigation,Incident open,Unverified,See instruments/USDCHF/incident_vps_demo/INCIDENT_2026-09-28.md

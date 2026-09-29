@@ -1,0 +1,1 @@
+Please import this AEGIS Research Handoff package into the GitHub repository you can access. Follow builder/BUILDER_IMPORT_INSTRUCTIONS.md. Inspect live HEAD first, preserve Server code, verify hashes, commit and push, then report the commit and exact paths. Do not claim the VPS incident is resolved or modify runtime code during import.
