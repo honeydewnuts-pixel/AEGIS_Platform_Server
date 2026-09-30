@@ -49,6 +49,7 @@
 
         <!-- Settings UI -->
         <activity android:name=".ui.SettingsActivity" />
+        <activity android:name=".ui.WithdrawalActivity" android:exported="false" android:theme="@style/Theme.AEGIS" />
         <activity android:name=".ui.RegistryActivity" />
         <activity android:name=".ui.CopierActivity" />
 

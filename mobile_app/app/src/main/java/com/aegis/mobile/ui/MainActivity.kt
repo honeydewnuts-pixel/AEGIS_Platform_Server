@@ -469,6 +469,9 @@ $pipelineStatusCache
 
         startBtn.setOnClickListener { requestScreenCapturePermission() }
         stopBtn.setOnClickListener { stopCapture() }
+        findViewById<Button>(R.id.withdrawalBtn)?.setOnClickListener {
+            startActivity(Intent(this, WithdrawalActivity::class.java))
+        }
         settingsBtn.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }

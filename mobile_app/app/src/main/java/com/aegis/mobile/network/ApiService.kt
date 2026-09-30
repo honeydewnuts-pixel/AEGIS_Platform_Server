@@ -227,5 +227,30 @@ interface ApiService {
         @Query("limit") limit: Int = 30
     ): Response<Map<String, @JvmSuppressWildcards Any>>
 
+
+    @GET("/api/withdrawal/status")
+    suspend fun withdrawalModuleStatus(): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @POST("/api/withdrawal/configure")
+    suspend fun withdrawalConfigure(@Body body: Map<String, @JvmSuppressWildcards Any>): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @GET("/api/withdrawal/dashboard/{account_id}")
+    suspend fun withdrawalDashboard(
+        @Path("account_id") accountId: String,
+        @Query("symbol") symbol: String? = null
+    ): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @POST("/api/withdrawal/realized-trade")
+    suspend fun withdrawalRealizedTrade(@Body body: Map<String, @JvmSuppressWildcards Any>): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @POST("/api/withdrawal/request")
+    suspend fun withdrawalRequest(@Body body: Map<String, @JvmSuppressWildcards Any>): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @GET("/api/withdrawal/history/{account_id}")
+    suspend fun withdrawalHistory(
+        @Path("account_id") accountId: String,
+        @Query("limit") limit: Int = 40
+    ): Response<Map<String, @JvmSuppressWildcards Any>>
+
 }
 
