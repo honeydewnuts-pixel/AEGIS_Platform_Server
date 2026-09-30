@@ -3,7 +3,10 @@
     android:id="@android:id/text1"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:padding="12dp"
-    android:textColor="#E8F4FF"
+    android:minHeight="44dp"
+    android:gravity="center_vertical"
+    android:paddingStart="14dp"
+    android:paddingEnd="14dp"
+    android:textColor="#F8FAFC"
     android:textSize="15sp"
-    android:background="#132238" />
+    android:background="#1E293B" />

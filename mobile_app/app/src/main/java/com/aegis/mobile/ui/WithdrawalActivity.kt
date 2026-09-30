@@ -44,21 +44,19 @@ class WithdrawalActivity : AppCompatActivity() {
         spinnerMode = findViewById(R.id.wdSpinnerMode)
         etAmount = findViewById(R.id.wdEtAmount)
 
-        spinnerStart.adapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_spinner_dropdown_item,
-            startOptions.map { "$${"%.0f".format(it)}" }
-        )
-        spinnerRisk.adapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_spinner_dropdown_item,
-            riskOptions.map { "${it}% risk / trade (label)" }
-        )
-        spinnerMode.adapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_spinner_dropdown_item,
-            modeOptions.map { it.second }
-        )
+        fun <T> darkSpinnerAdapter(items: List<T>): ArrayAdapter<T> {
+            return ArrayAdapter(this, R.layout.spinner_item_dark, items).also {
+                it.setDropDownViewResource(R.layout.spinner_dropdown_item_dark)
+            }
+        }
+        spinnerStart.adapter = darkSpinnerAdapter(startOptions.map { "$${"%.0f".format(it)}" })
+        spinnerRisk.adapter = darkSpinnerAdapter(riskOptions.map { "${it}% risk / trade (label)" })
+        spinnerMode.adapter = darkSpinnerAdapter(modeOptions.map { it.second })
+        // Dark popup panel (system default is white and hides light text)
+        val popupBg = android.graphics.drawable.ColorDrawable(0xFF0F1C2E.toInt())
+        spinnerStart.setPopupBackgroundDrawable(popupBg)
+        spinnerRisk.setPopupBackgroundDrawable(popupBg)
+        spinnerMode.setPopupBackgroundDrawable(popupBg)
         // default $1000 / 1%
         spinnerStart.setSelection(startOptions.indexOf(1000.0).coerceAtLeast(0))
         spinnerRisk.setSelection(1)
