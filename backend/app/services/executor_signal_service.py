@@ -246,6 +246,62 @@ class ExecutorSignalService:
     def recent_for_account(self, account_id: str, limit: int = 20) -> list[dict[str, Any]]:
         return self.recent_executions(account_id, limit=limit)
 
+
+    def fleet_poll_snapshot(self, silent_after_sec: float = 120.0) -> dict[str, Any]:
+        """All accounts that have polled recently + silent ones."""
+        now = int(time.time() * 1000)
+        with self._lock:
+            polls = dict(self._last_poll_ms)
+            pending_n = 0
+            pending_by_account: dict[str, int] = {}
+            for row in self._pending.values():
+                aid = str(row.get("account_id") or "")
+                if not aid:
+                    continue
+                pending_n += 1
+                pending_by_account[aid] = pending_by_account.get(aid, 0) + 1
+            recent = list(self._recent)[:50]
+        active = []
+        silent = []
+        for aid, ms in polls.items():
+            age = (now - int(ms)) / 1000.0
+            entry = {
+                "account_id": aid,
+                "last_poll_ms": ms,
+                "age_sec": round(age, 1),
+                "pending": pending_by_account.get(aid, 0),
+            }
+            if age <= silent_after_sec:
+                active.append(entry)
+            else:
+                silent.append(entry)
+        active.sort(key=lambda x: x["age_sec"])
+        silent.sort(key=lambda x: -x["age_sec"])
+        return {
+            "polling_accounts": active,
+            "silent_accounts": silent,
+            "pending_total": pending_n,
+            "pending_by_account": pending_by_account,
+            "recent_acks": recent,
+        }
+
+    def list_all_pending(self, limit: int = 100) -> list[dict[str, Any]]:
+        now = int(time.time() * 1000)
+        out: list[dict[str, Any]] = []
+        with self._lock:
+            self._prune_completed()
+            for key, row in list(self._pending.items()):
+                age = (now - int(row.get("created_at_ms") or 0)) / 1000.0
+                if age > self.max_age_sec:
+                    self._pending.pop(key, None)
+                    continue
+                item = dict(row)
+                item["age_sec"] = round(age, 1)
+                out.append(item)
+                if len(out) >= limit:
+                    break
+        return out
+
     def _emit(self, **kwargs: Any) -> None:
         log = self.event_log
         if log is None:
