@@ -721,6 +721,18 @@
                     android:textAllCaps="false"
                     android:textColor="#FFF"
                     android:background="@drawable/btn_secondary_bg"/>
+
+                <Button
+                    android:id="@+id/opsConsoleBtn"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Ops console (Admin / Owner)"
+                    android:textAllCaps="false"
+                    android:textColor="#0A1628"
+                    android:background="#FBBF24"
+                    android:layout_marginTop="6dp"
+                    android:layout_marginBottom="6dp"/>
+
                 <androidx.appcompat.widget.AppCompatButton
                     android:id="@+id/batteryBtn"
                     android:layout_width="match_parent" android:layout_height="44dp" android:layout_marginTop="6dp"

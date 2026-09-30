@@ -472,6 +472,9 @@ $pipelineStatusCache
         findViewById<Button>(R.id.withdrawalBtn)?.setOnClickListener {
             startActivity(Intent(this, WithdrawalActivity::class.java))
         }
+        findViewById<Button>(R.id.opsConsoleBtn)?.setOnClickListener {
+            startActivity(Intent(this, AdminLoginActivity::class.java))
+        }
         settingsBtn.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }

@@ -23,7 +23,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="70% eligible · 30% CAP growth after 2× start equity. Separate from trading PnL."
+            android:text="Enter your real account equity. After 2× start equity: 70% eligible to withdraw, 30% grows CAP. Separate from trading PnL."
             android:textSize="11sp"
             android:textColor="#94A3B8"
             android:paddingBottom="10dp"/>
@@ -58,58 +58,83 @@
             android:textSize="14sp"
             android:paddingBottom="6dp"/>
 
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="Starting equity" android:textColor="#94A3B8" android:textSize="11sp"/>
-        <Spinner
-            android:id="@+id/wdSpinnerStartEquity"
+        <TextView
             android:layout_width="match_parent"
-            android:layout_height="44dp"
+            android:layout_height="wrap_content"
+            android:text="Starting equity (USD) — type your balance"
+            android:textColor="#94A3B8"
+            android:textSize="11sp"/>
+        <EditText
+            android:id="@+id/wdEtStartEquity"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
             android:layout_marginBottom="8dp"
             android:background="#1E293B"
-            android:popupBackground="#0F1C2E"
-            android:spinnerMode="dropdown"/>
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:hint="e.g. 250, 1200, 8500"
+            android:inputType="numberDecimal"
+            android:textColor="#F8FAFC"
+            android:textColorHint="#64748B"
+            android:textSize="16sp"/>
 
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="Risk per trade (config label only)" android:textColor="#94A3B8" android:textSize="11sp"/>
-        <Spinner
-            android:id="@+id/wdSpinnerRisk"
+        <TextView
             android:layout_width="match_parent"
-            android:layout_height="44dp"
+            android:layout_height="wrap_content"
+            android:text="Risk label % (ratchet accounting only)"
+            android:textColor="#94A3B8"
+            android:textSize="11sp"/>
+        <EditText
+            android:id="@+id/wdEtRisk"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
             android:layout_marginBottom="8dp"
             android:background="#1E293B"
-            android:popupBackground="#0F1C2E"
-            android:spinnerMode="dropdown"/>
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:hint="e.g. 0.5 or 1.0"
+            android:inputType="numberDecimal"
+            android:text="1.0"
+            android:textColor="#F8FAFC"
+            android:textColorHint="#64748B"
+            android:textSize="16sp"/>
 
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="Mode" android:textColor="#94A3B8" android:textSize="11sp"/>
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Mode"
+            android:textColor="#94A3B8"
+            android:textSize="11sp"/>
         <Spinner
             android:id="@+id/wdSpinnerMode"
             android:layout_width="match_parent"
-            android:layout_height="44dp"
-            android:layout_marginBottom="10dp"
+            android:layout_height="48dp"
+            android:layout_marginBottom="12dp"
             android:background="#1E293B"
             android:popupBackground="#0F1C2E"
             android:spinnerMode="dropdown"/>
 
-        <androidx.appcompat.widget.AppCompatButton
+        <Button
             android:id="@+id/wdBtnConfigure"
             android:layout_width="match_parent"
-            android:layout_height="46dp"
+            android:layout_height="52dp"
             android:text="Configure withdrawal account"
             android:textAllCaps="false"
+            android:textStyle="bold"
+            android:textSize="15sp"
             android:textColor="#0A1628"
-            android:backgroundTint="#00D4FF"
+            android:background="#00D4FF"
             android:layout_marginBottom="8dp"/>
 
-        <androidx.appcompat.widget.AppCompatButton
+        <Button
             android:id="@+id/wdBtnRefresh"
             android:layout_width="match_parent"
-            android:layout_height="44dp"
+            android:layout_height="48dp"
             android:text="Refresh dashboard"
             android:textAllCaps="false"
             android:textColor="#FFFFFF"
-            android:backgroundTint="#334155"
-            android:layout_marginBottom="14dp"/>
+            android:background="#334155"
+            android:layout_marginBottom="16dp"/>
 
         <TextView
             android:layout_width="match_parent"
@@ -124,31 +149,24 @@
             android:id="@+id/wdEtAmount"
             android:layout_width="match_parent"
             android:layout_height="48dp"
+            android:layout_marginBottom="8dp"
+            android:background="#1E293B"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
             android:hint="Amount from eligible balance"
             android:inputType="numberDecimal"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#64748B"
-            android:background="#1E293B"
-            android:padding="12dp"
-            android:layout_marginBottom="8dp"/>
+            android:textColor="#F8FAFC"
+            android:textColorHint="#64748B"/>
 
-        <androidx.appcompat.widget.AppCompatButton
+        <Button
             android:id="@+id/wdBtnRequest"
             android:layout_width="match_parent"
-            android:layout_height="46dp"
+            android:layout_height="48dp"
             android:text="Submit withdrawal request"
             android:textAllCaps="false"
             android:textColor="#0A1628"
-            android:backgroundTint="#00FF88"
-            android:layout_marginBottom="8dp"/>
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Requests are recorded on the server. Actual bank/broker transfer is a separate authorized process — AEGIS does not move funds by itself."
-            android:textSize="10sp"
-            android:textColor="#94A3B8"
-            android:paddingBottom="12dp"/>
+            android:background="#00FF88"
+            android:layout_marginBottom="16dp"/>
 
         <TextView
             android:layout_width="match_parent"
@@ -168,7 +186,6 @@
             android:text="—"
             android:textSize="11sp"
             android:textColor="#CBD5E1"
-            android:fontFamily="monospace"
-            android:layout_marginBottom="16dp"/>
+            android:minHeight="80dp"/>
     </LinearLayout>
 </ScrollView>

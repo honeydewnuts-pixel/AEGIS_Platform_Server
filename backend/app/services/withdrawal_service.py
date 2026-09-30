@@ -82,14 +82,13 @@ class WithdrawalService:
         risk_per_trade_pct: float = 0.5,
         symbol: str | None = None,
     ) -> dict[str, Any]:
-        allowed = list(getattr(settings, "WITHDRAWAL_ALLOWED_START_EQUITY", [50, 100, 250, 500, 1000, 10000]))
-        if float(start_equity) not in {float(x) for x in allowed}:
-            # allow exact match with tolerance for 50.0 vs 50
-            if not any(abs(float(start_equity) - float(x)) < 1e-6 for x in allowed):
-                raise ValueError(f"start_equity must be one of {allowed}")
-        risk_allowed = list(getattr(settings, "WITHDRAWAL_ALLOWED_RISK_PCT", [0.5, 1.0]))
-        if not any(abs(float(risk_per_trade_pct) - float(x)) < 1e-9 for x in risk_allowed):
-            raise ValueError(f"risk_per_trade_pct must be one of {risk_allowed}")
+        # Any positive account equity is allowed (not limited to cash-test ladder).
+        se = float(start_equity)
+        if se <= 0 or se > 50_000_000:
+            raise ValueError("start_equity must be a positive amount (USD account equity)")
+        risk = float(risk_per_trade_pct)
+        if risk <= 0 or risk > 50:
+            raise ValueError("risk_per_trade_pct must be between 0 exclusive and 50 inclusive")
 
         q = select(WithdrawalAccount).where(WithdrawalAccount.account_id == account_id)
         if mode == "per_pair":

@@ -13,9 +13,9 @@ router = APIRouter(prefix="/api/withdrawal", tags=["Withdrawal Ratchet"])
 
 class ConfigureBody(BaseModel):
     account_id: str
-    start_equity: float = Field(..., description="One of 50,100,250,500,1000,10000")
+    start_equity: float = Field(..., gt=0, description="Client account equity in USD (any positive amount)")
     mode: str = Field("portfolio", description="portfolio | per_pair")
-    risk_per_trade_pct: float = Field(0.5, description="0.5 or 1.0")
+    risk_per_trade_pct: float = Field(0.5, gt=0, le=50, description="Risk label % for ratchet config (not V53.6 trade risk)")
     symbol: str | None = None
 
 

@@ -86,7 +86,7 @@ class Settings(BaseSettings):
     WITHDRAWAL_RETAIN_PCT: float = 0.30
     WITHDRAWAL_ARM_MULTIPLE: float = 2.0
     WITHDRAWAL_PAUSE_DD_FROM_CAP: float = 0.20  # pause when equity < CAP * (1 - this)
-    WITHDRAWAL_ALLOWED_START_EQUITY: list = [50.0, 100.0, 250.0, 500.0, 1000.0, 10000.0]
+    WITHDRAWAL_ALLOWED_START_EQUITY: list = []  # empty = any positive equity (legacy list ignored)
     WITHDRAWAL_ALLOWED_RISK_PCT: list = [0.5, 1.0]
 
 
