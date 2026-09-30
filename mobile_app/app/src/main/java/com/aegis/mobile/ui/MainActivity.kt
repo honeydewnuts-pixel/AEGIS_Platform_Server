@@ -44,6 +44,18 @@ class MainActivity : AppCompatActivity() {
     private lateinit var healthText: TextView
     private lateinit var diagText: TextView
     private var pipelineStatusCache: String = "Pipeline: (tap Refresh)"
+    private var monitorOverallBadge: TextView? = null
+    private var monitorOverallMessage: TextView? = null
+    private var monitorStagesText: TextView? = null
+    private var monitorHintText: TextView? = null
+    private var lastPipelineLinesForDetails: String = ""
+    private val pipelineRefreshHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val pipelineRefreshRunnable = object : Runnable {
+        override fun run() {
+            fetchDemoPipelineStatus(forceToast = false)
+            pipelineRefreshHandler.postDelayed(this, 15_000L)
+        }
+    }
     private lateinit var confidenceText: TextView
     private lateinit var ruleText: TextView
     private lateinit var runningStateText: TextView
@@ -132,6 +144,10 @@ class MainActivity : AppCompatActivity() {
         detailsText = findViewById(R.id.detailsText)
         healthText = findViewById(R.id.healthText)
         diagText = findViewById(R.id.diagText)
+        monitorOverallBadge = findViewById(R.id.monitorOverallBadge)
+        monitorOverallMessage = findViewById(R.id.monitorOverallMessage)
+        monitorStagesText = findViewById(R.id.monitorStagesText)
+        monitorHintText = findViewById(R.id.monitorHintText)
         confidenceText = findViewById(R.id.confidenceText)
         ruleText = findViewById(R.id.ruleText)
         runningStateText = findViewById(R.id.runningStateText)
@@ -336,6 +352,9 @@ class MainActivity : AppCompatActivity() {
             when {
                 result.executed == true -> lines.add("Execution: submitted")
                 result.execution_status != null -> lines.add("Execution: ${result.execution_status}")
+            }
+            if (lastPipelineLinesForDetails.isNotBlank()) {
+                lines.add(lastPipelineLinesForDetails)
             }
             detailsText.text = lines.joinToString("\n")
         }
@@ -696,6 +715,7 @@ $pipelineStatusCache
 
     override fun onPause() {
         notifBadgeHandler.removeCallbacks(notifBadgeRunnable)
+        pipelineRefreshHandler.removeCallbacks(pipelineRefreshRunnable)
         super.onPause()
     }
 
@@ -718,6 +738,12 @@ $pipelineStatusCache
                 val accountId = prefs[PrefKeys.ACCOUNT_ID]?.trim().orEmpty()
                 if (accountId.isBlank()) {
                     pipelineStatusCache = "Pipeline: no account_id — log in first"
+                    applyPipelineToMonitorCard(
+                        "NO ACCOUNT",
+                        "Log in so the monitor can load pipeline stages.",
+                        "• MT5 / OHLC link: —\n• Signal queue: —\n• Executor poll: —\n• Order / ACK: —",
+                        "Account ID is required for the execution monitor."
+                    )
                     if (forceToast) {
                         android.widget.Toast.makeText(this@MainActivity, pipelineStatusCache, android.widget.Toast.LENGTH_SHORT).show()
                     }
@@ -727,36 +753,79 @@ $pipelineStatusCache
                 val resp = api.demoMonitor(accountId)
                 if (!resp.isSuccessful || resp.body() == null) {
                     pipelineStatusCache = "Pipeline: HTTP ${resp.code()} (monitor unavailable)"
+                    applyPipelineToMonitorCard(
+                        "HTTP ${resp.code()}",
+                        "Monitor API unavailable — check API key or server deploy.",
+                        "• HTTP ${resp.code()}\n• Confirm /api/demo-monitor is live",
+                        "Render logs can still show OHLC + pending-batch even when this card fails."
+                    )
                 } else {
                     val body = resp.body()!!
                     val overall = body["overall"] as? Map<*, *>
                     val code = overall?.get("code")?.toString() ?: "—"
                     val msg = overall?.get("message")?.toString() ?: ""
                     val stages = body["stages"] as? List<*>
-                    val lines = mutableListOf<String>()
-                    lines.add("EXEC PIPELINE: $code")
-                    lines.add(msg.take(120))
-                    stages?.take(8)?.forEach { st ->
+                    val friendly = mapOf(
+                        "mt5_connection" to "MT5 / OHLC link",
+                        "ohlc_feed" to "OHLC bars",
+                        "signal_generation" to "Strategy signal",
+                        "signal_queue" to "Signal queue",
+                        "executor" to "Executor poll",
+                        "order_submission" to "Order send",
+                        "acknowledgement" to "ACK to server",
+                        "notifications" to "Notifications"
+                    )
+                    val stageLines = mutableListOf<String>()
+                    stages?.forEach { st ->
                         val m = st as? Map<*, *> ?: return@forEach
-                        val name = m["stage"]?.toString() ?: "?"
+                        val name = m["stage"]?.toString() ?: return@forEach
                         val status = m["status"]?.toString() ?: "?"
-                        lines.add("• $name: $status")
+                        val detail = m["detail"]?.toString()?.take(72) ?: ""
+                        val label = friendly[name] ?: name
+                        val icon = when {
+                            status in listOf("CONNECTED", "OK", "FRESH", "POLLING", "TRADE_FILLED", "ACKED", "EMPTY") -> "✓"
+                            status in listOf("NO_SIGNAL", "IDLE", "QUEUED") -> "○"
+                            status in listOf("STALE", "SILENT", "NO_POLL_YET", "MISSING") -> "!"
+                            status.contains("ERROR") || status.contains("REJECT") || status.contains("DISCONNECTED") -> "✗"
+                            else -> "•"
+                        }
+                        stageLines.add("$icon $label: $status${if (detail.isNotBlank()) " — $detail" else ""}")
                     }
                     val pending = body["pending_signals"] as? List<*>
-                    lines.add("Pending signals: ${pending?.size ?: 0}")
+                    stageLines.add("• Pending BUY/SELL: ${pending?.size ?: 0}")
+                    val lines = mutableListOf<String>()
+                    lines.add("EXEC PIPELINE: $code")
+                    lines.add(msg.take(140))
+                    lines.addAll(stageLines)
                     pipelineStatusCache = lines.joinToString("\n")
+                    lastPipelineLinesForDetails = "—— Pipeline ——\n" + stageLines.take(8).joinToString("\n")
+                    val hint = when (code) {
+                        "NO_SIGNAL" -> "Background OK: Feed + Executor alive. No trade because the rule has no entry yet."
+                        "TRADE_FILLED" -> "A trade was filled and acknowledged. Check Alerts and MT5."
+                        "SIGNAL_AWAITING_EXECUTION" -> "Signal is queued — Executor should take it on the next poll."
+                        "EXECUTOR_NOT_POLLING" -> "Signal waiting but Executor has not polled — check EA on VPS."
+                        "OHLC_STALE", "MT5_DISCONNECTED" -> "Market data path needs attention on the VPS Feed."
+                        "ORDER_REJECTED" -> "Broker/EA rejected the last order — see stage detail / Journal."
+                        else -> "Stages show the full path even when there is no trade."
+                    }
+                    applyPipelineToMonitorCard(code, msg, stageLines.joinToString("\n"), hint)
                 }
-                // Force UI observer path to repaint diag by touching health
                 HealthStatus.backendReachable.postValue(HealthStatus.backendReachable.value)
                 if (forceToast) {
                     android.widget.Toast.makeText(
                         this@MainActivity,
-                        "Pipeline: " + (pipelineStatusCache.lineSequence().firstOrNull() ?: "updated"),
+                        "Monitor: " + (pipelineStatusCache.lineSequence().firstOrNull() ?: "updated"),
                         android.widget.Toast.LENGTH_SHORT
                     ).show()
                 }
             } catch (e: Exception) {
                 pipelineStatusCache = "Pipeline: error ${e.message?.take(80)}"
+                applyPipelineToMonitorCard(
+                    "ERROR",
+                    pipelineStatusCache,
+                    "• ${e.javaClass.simpleName}",
+                    "Check network and API base URL in Settings."
+                )
                 if (forceToast) {
                     android.widget.Toast.makeText(this@MainActivity, pipelineStatusCache, android.widget.Toast.LENGTH_SHORT).show()
                 }
@@ -764,12 +833,35 @@ $pipelineStatusCache
         }
     }
 
+    private fun applyPipelineToMonitorCard(code: String, message: String, stageLines: String, hint: String) {
+        runOnUiThread {
+            monitorOverallBadge?.text = code
+            val badgeColor = when (code) {
+                "TRADE_FILLED" -> "#00FF88"
+                "NO_SIGNAL" -> "#00D4FF"
+                "SIGNAL_AWAITING_EXECUTION" -> "#FBBF24"
+                "ORDER_REJECTED", "MT5_DISCONNECTED", "OHLC_STALE", "EXECUTOR_NOT_POLLING", "ERROR" -> "#F87171"
+                else -> "#94A3B8"
+            }
+            try {
+                monitorOverallBadge?.setTextColor(android.graphics.Color.parseColor("#0A1628"))
+                monitorOverallBadge?.setBackgroundColor(android.graphics.Color.parseColor(badgeColor))
+            } catch (_: Exception) { }
+            monitorOverallMessage?.text = message
+            monitorStagesText?.text = stageLines
+            monitorHintText?.text = hint
+        }
+    }
+
+
     override fun onResume() {
         refreshNotifBadge()
         notifBadgeHandler.removeCallbacks(notifBadgeRunnable)
         notifBadgeHandler.postDelayed(notifBadgeRunnable, 20_000L)
         if (captureRunning) pollExecutionNotifications()
         fetchDemoPipelineStatus(forceToast = false)
+        pipelineRefreshHandler.removeCallbacks(pipelineRefreshRunnable)
+        pipelineRefreshHandler.postDelayed(pipelineRefreshRunnable, 3_000L)
         super.onResume()
         updateBatteryButtonLabel()
         val projectionOk = HealthStatus.mediaProjectionActive.value == true

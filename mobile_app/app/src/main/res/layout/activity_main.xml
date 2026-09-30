@@ -136,6 +136,77 @@
                 android:backgroundTint="#00D4FF"
                 android:textColor="#0A1628" />
 
+
+                <!-- Execution Monitor — always visible on Home -->
+                <LinearLayout
+                    android:id="@+id/cardExecutionMonitor"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginBottom="10dp"
+                    android:padding="12dp"
+                    android:background="@drawable/row_card_bg">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Execution Monitor"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/aegis_text"/>
+
+                        <TextView
+                            android:id="@+id/monitorOverallBadge"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="—"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:textColor="#0A1628"
+                            android:background="#00D4FF"
+                            android:paddingStart="10dp"
+                            android:paddingEnd="10dp"
+                            android:paddingTop="4dp"
+                            android:paddingBottom="4dp"/>
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/monitorOverallMessage"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="Tap Refresh status to load pipeline stages."
+                        android:textSize="12sp"
+                        android:textColor="@color/aegis_muted"/>
+
+                    <TextView
+                        android:id="@+id/monitorStagesText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:fontFamily="monospace"
+                        android:lineSpacingExtra="2dp"
+                        android:text="• MT5 / OHLC: —\n• Signal queue: —\n• Executor poll: —\n• Order / ACK: —\n• Pending: —"
+                        android:textSize="11sp"
+                        android:textColor="#E2E8F0"/>
+
+                    <TextView
+                        android:id="@+id/monitorHintText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="HOLD with 0% confidence is normal when the rule finds no entry. That is not a broken connection."
+                        android:textSize="10sp"
+                        android:textColor="#94A3B8"/>
+                </LinearLayout>
+
                 <!-- Market Overview header -->
                 <LinearLayout
                     android:layout_width="match_parent"
