@@ -23,6 +23,38 @@ class AutonomousDemoExecutionService:
         self.credential_getter: Callable[..., Awaitable[Any]] | None = None
         self.portfolio_risk: Any = None
 
+
+    async def _credentials(self, account_id: str) -> dict[str, Any]:
+        """Fail closed when no credential getter is wired (demo/autonomous path)."""
+        getter = self.credential_getter
+        if getter is None:
+            return {
+                "account_id": account_id,
+                "execution_enabled": False,
+                "reason": "no_credential_getter",
+            }
+        try:
+            data = await getter(account_id)
+            if not isinstance(data, dict):
+                return {
+                    "account_id": account_id,
+                    "execution_enabled": False,
+                    "reason": "invalid_credential_payload",
+                }
+            # Explicit opt-in only
+            enabled = bool(data.get("execution_enabled"))
+            out = dict(data)
+            out["account_id"] = account_id
+            out["execution_enabled"] = enabled
+            return out
+        except Exception as e:
+            logger.exception("credential_getter failed")
+            return {
+                "account_id": account_id,
+                "execution_enabled": False,
+                "reason": f"credential_error:{e}",
+            }
+
     async def execute_if_signal(
         self,
         *,
