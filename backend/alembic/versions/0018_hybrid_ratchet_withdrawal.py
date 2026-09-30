@@ -1,15 +1,15 @@
 """Hybrid Ratchet 70/30 withdrawal tables.
 
 Revision ID: 0018
-Revises: 0017
+Revises: 0017_available_margin
 """
 from __future__ import annotations
 
 from alembic import op
 import sqlalchemy as sa
 
-revision = "0018"
-down_revision = "0017"
+revision = "0018_hybrid_ratchet_withdrawal"
+down_revision = "0017_available_margin"
 branch_labels = None
 depends_on = None
 
