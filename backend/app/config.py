@@ -80,6 +80,15 @@ class Settings(BaseSettings):
     CAPTURE_PAIR_DIRECTORY: str = "capture_pairs"
     CAPTURE_PAIR_RETENTION_DAYS: int = 30
 
+    # Hybrid Ratchet 70/30 withdrawal management (disabled until demo acceptance)
+    WITHDRAWAL_MODULE_ENABLED: bool = False
+    WITHDRAWAL_WITHDRAW_PCT: float = 0.70
+    WITHDRAWAL_RETAIN_PCT: float = 0.30
+    WITHDRAWAL_ARM_MULTIPLE: float = 2.0
+    WITHDRAWAL_PAUSE_DD_FROM_CAP: float = 0.20  # pause when equity < CAP * (1 - this)
+    WITHDRAWAL_ALLOWED_START_EQUITY: list = [50.0, 100.0, 250.0, 500.0, 1000.0, 10000.0]
+    WITHDRAWAL_ALLOWED_RISK_PCT: list = [0.5, 1.0]
+
 
     # Multi-channel alerts (all optional)
     SMTP_HOST: str = ""

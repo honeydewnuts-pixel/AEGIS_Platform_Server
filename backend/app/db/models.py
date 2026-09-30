@@ -462,3 +462,60 @@ class ChatReport(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     resolver_note: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
+
+class WithdrawalAccount(Base):
+    """Hybrid Ratchet account state (portfolio mode or per-pair row)."""
+    __tablename__ = "withdrawal_accounts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    account_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    symbol: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    mode: Mapped[str] = mapped_column(String(16), nullable=False, default="portfolio")
+    start_equity: Mapped[float] = mapped_column(Float, nullable=False)
+    risk_per_trade_pct: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
+    equity: Mapped[float] = mapped_column(Float, nullable=False)
+    cap: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    armed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    paused: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    cumulative_withdrawn: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    eligible_balance: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    retained_profit_total: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    realized_trading_pnl: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class WithdrawalLedger(Base):
+    """Idempotent allocation / withdrawal ledger."""
+    __tablename__ = "withdrawal_ledger"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    account_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    symbol: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    trade_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    realized_pnl: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    excess: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    to_eligible: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    to_cap: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    equity_after: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    cap_after: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    detail: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+
+
+class WithdrawalRequest(Base):
+    """Client withdrawal request — funds movement is external."""
+    __tablename__ = "withdrawal_requests"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    account_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
+    # pending | approved | paid | rejected | cancelled
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    detail: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
