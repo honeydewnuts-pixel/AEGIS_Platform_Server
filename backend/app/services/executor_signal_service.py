@@ -19,6 +19,8 @@ class ExecutorSignalService:
         self._pending: dict[str, dict[str, Any]] = {}  # account|symbol -> payload
         self._completed: dict[str, dict[str, Any]] = {}  # signal_id -> audit
         self._recent: list[dict[str, Any]] = []  # last N execution events for clients
+        self._last_poll_ms: dict[str, int] = {}  # account_id -> ms
+        self.event_log: Any | None = None  # optional TradeEventLog
         self.max_age_sec = max_age_sec
         self.completed_ttl_sec = completed_ttl_sec
 
@@ -87,11 +89,21 @@ class ExecutorSignalService:
         }
         with self._lock:
             self._pending[self._key(account_id, sym)] = payload
+        self._emit(
+            stage="queued",
+            account_id=account_id,
+            status="QUEUED",
+            signal_id=signal_id,
+            symbol=sym,
+            detail=f"{side_u} conf={confidence:.2f} rule={rule_name}",
+            extra={"volume": volume, "stop_loss": stop_loss},
+        )
         return signal_id
 
     def get_pending(self, account_id: str, symbol: str) -> dict[str, Any] | None:
         key = self._key(account_id, symbol)
         now = int(time.time() * 1000)
+        self.note_poll(account_id)
         with self._lock:
             self._prune_completed()
             row = self._pending.get(key)
@@ -177,12 +189,68 @@ class ExecutorSignalService:
             self._completed[signal_id] = audit
             if found_key:
                 self._pending.pop(found_key, None)
-            if ok:
-                self._recent.insert(0, dict(audit))
-                self._recent = self._recent[:100]
-            return {"acked": True, "idempotent": False, "signal_id": signal_id, **audit}
+            self._recent.insert(0, dict(audit))
+            self._recent = self._recent[:100]
+        self._emit(
+            stage="ack",
+            account_id=account_id,
+            status="ACK_OK" if ok else "ACK_FAIL",
+            signal_id=signal_id,
+            symbol=symbol,
+            detail=(message or "")[:300],
+            extra={
+                "ok": ok,
+                "retcode": retcode,
+                "order_ticket": order_ticket or ticket,
+                "position_ticket": position_ticket,
+            },
+        )
+        return {"acked": True, "idempotent": False, "signal_id": signal_id, **audit}
 
     def recent_executions(self, account_id: str, limit: int = 20) -> list[dict[str, Any]]:
         with self._lock:
             rows = [r for r in self._recent if r.get("account_id") == account_id]
             return rows[:limit]
+
+    def note_poll(self, account_id: str) -> None:
+        aid = (account_id or "").strip()
+        if not aid:
+            return
+        with self._lock:
+            self._last_poll_ms[aid] = int(time.time() * 1000)
+
+    def last_poll_ms(self, account_id: str) -> int | None:
+        with self._lock:
+            return self._last_poll_ms.get((account_id or "").strip())
+
+    def list_pending_for_account(self, account_id: str) -> list[dict[str, Any]]:
+        aid = (account_id or "").strip()
+        now = int(time.time() * 1000)
+        out: list[dict[str, Any]] = []
+        with self._lock:
+            self._prune_completed()
+            for key, row in list(self._pending.items()):
+                if row.get("account_id") != aid:
+                    continue
+                sid = row.get("signal_id")
+                if sid and sid in self._completed:
+                    self._pending.pop(key, None)
+                    continue
+                age = (now - int(row.get("created_at_ms") or 0)) / 1000.0
+                if age > self.max_age_sec:
+                    self._pending.pop(key, None)
+                    continue
+                out.append(dict(row))
+        return out
+
+    def recent_for_account(self, account_id: str, limit: int = 20) -> list[dict[str, Any]]:
+        return self.recent_executions(account_id, limit=limit)
+
+    def _emit(self, **kwargs: Any) -> None:
+        log = self.event_log
+        if log is None:
+            return
+        try:
+            log.record(**kwargs)
+        except Exception:
+            pass

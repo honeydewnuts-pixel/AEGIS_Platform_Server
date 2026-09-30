@@ -115,6 +115,11 @@ async def on_startup(app: FastAPI) -> None:
     app.state.signup_sessions = SignupSessionService(app.state.job_queue.get_redis_client())
     app.state.signal_history = SignalHistoryService()
     app.state.executor_signals = ExecutorSignalService(max_age_sec=300.0)
+    from app.services.trade_event_log import TradeEventLog
+    from app.services.demo_execution_monitor import DemoExecutionMonitor
+    app.state.trade_event_log = TradeEventLog()
+    app.state.executor_signals.event_log = app.state.trade_event_log
+    app.state.demo_monitor = DemoExecutionMonitor(trade_log=app.state.trade_event_log)
     app.state.trade_copier = TradeCopierService()
     app.state.audit_service = AuditService()
     app.state.upload_diagnostics = UploadDiagnosticService()

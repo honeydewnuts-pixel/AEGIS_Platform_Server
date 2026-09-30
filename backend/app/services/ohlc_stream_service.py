@@ -109,6 +109,8 @@ class OhlcStreamService:
         for k, v in self._store.items():
             if account_id and not k.startswith(account_id.strip() + "|"):
                 continue
+            recv = int(v.get("received_at_ms") or 0)
+            age_sec = max(0.0, (time.time() * 1000 - recv) / 1000.0) if recv else None
             items.append(
                 {
                     "key": k,
@@ -117,7 +119,10 @@ class OhlcStreamService:
                     "timeframe": v.get("timeframe"),
                     "bar_count": v.get("bar_count"),
                     "received_at_ms": v.get("received_at_ms"),
+                    "updated_at_ms": recv,
+                    "age_sec": age_sec,
                     "latest_close": (v.get("latest") or {}).get("close"),
+                    "latest_time": (v.get("latest") or {}).get("time"),
                 }
             )
         return {"streams": items, "count": len(items)}
