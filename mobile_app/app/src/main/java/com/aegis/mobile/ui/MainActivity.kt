@@ -43,6 +43,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var detailsText: TextView
     private lateinit var healthText: TextView
     private lateinit var diagText: TextView
+    private var pipelineStatusCache: String = "Pipeline: (tap Refresh)"
     private lateinit var confidenceText: TextView
     private lateinit var ruleText: TextView
     private lateinit var runningStateText: TextView
@@ -394,6 +395,8 @@ MT5 Foreground: $mt5Fg
 History (local): $histN / 100
 Fail rate (last 20): ${"%.0f".format(failRate * 100)}%
 Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
+
+$pipelineStatusCache
 """.trimIndent()
             try {
                 val online = reachStr.contains("YES", ignoreCase = true)
@@ -699,14 +702,66 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
 
     private fun refreshHomePanel() {
         refreshNotifBadge()
-        // Re-bind latest health labels if observers are active
+        fetchDemoPipelineStatus(forceToast = true)
         try {
             val code = HealthStatus.lastHttpCode.value
             val reach = HealthStatus.backendReachable.value
             val up = HealthStatus.lastUploadStatus.value
             android.util.Log.i("AEGIS", "home refresh http=$code reachable=$reach upload=$up")
         } catch (_: Exception) { }
-        android.widget.Toast.makeText(this, "Status refreshed", android.widget.Toast.LENGTH_SHORT).show()
+    }
+
+    private fun fetchDemoPipelineStatus(forceToast: Boolean = false) {
+        lifecycleScope.launch {
+            try {
+                val prefs = applicationContext.dataStore.data.first()
+                val accountId = prefs[PrefKeys.ACCOUNT_ID]?.trim().orEmpty()
+                if (accountId.isBlank()) {
+                    pipelineStatusCache = "Pipeline: no account_id — log in first"
+                    if (forceToast) {
+                        android.widget.Toast.makeText(this@MainActivity, pipelineStatusCache, android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                    return@launch
+                }
+                val api = RetrofitClient.getApiService(this@MainActivity)
+                val resp = api.demoMonitor(accountId)
+                if (!resp.isSuccessful || resp.body() == null) {
+                    pipelineStatusCache = "Pipeline: HTTP ${resp.code()} (monitor unavailable)"
+                } else {
+                    val body = resp.body()!!
+                    val overall = body["overall"] as? Map<*, *>
+                    val code = overall?.get("code")?.toString() ?: "—"
+                    val msg = overall?.get("message")?.toString() ?: ""
+                    val stages = body["stages"] as? List<*>
+                    val lines = mutableListOf<String>()
+                    lines.add("EXEC PIPELINE: $code")
+                    lines.add(msg.take(120))
+                    stages?.take(8)?.forEach { st ->
+                        val m = st as? Map<*, *> ?: return@forEach
+                        val name = m["stage"]?.toString() ?: "?"
+                        val status = m["status"]?.toString() ?: "?"
+                        lines.add("• $name: $status")
+                    }
+                    val pending = body["pending_signals"] as? List<*>
+                    lines.add("Pending signals: ${pending?.size ?: 0}")
+                    pipelineStatusCache = lines.joinToString("\n")
+                }
+                // Force UI observer path to repaint diag by touching health
+                HealthStatus.backendReachable.postValue(HealthStatus.backendReachable.value)
+                if (forceToast) {
+                    android.widget.Toast.makeText(
+                        this@MainActivity,
+                        "Pipeline: " + (pipelineStatusCache.lineSequence().firstOrNull() ?: "updated"),
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            } catch (e: Exception) {
+                pipelineStatusCache = "Pipeline: error ${e.message?.take(80)}"
+                if (forceToast) {
+                    android.widget.Toast.makeText(this@MainActivity, pipelineStatusCache, android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 
     override fun onResume() {
@@ -714,6 +769,7 @@ Avg latency (last 20): ${avgLat?.let { "${it}ms" } ?: "—"}
         notifBadgeHandler.removeCallbacks(notifBadgeRunnable)
         notifBadgeHandler.postDelayed(notifBadgeRunnable, 20_000L)
         if (captureRunning) pollExecutionNotifications()
+        fetchDemoPipelineStatus(forceToast = false)
         super.onResume()
         updateBatteryButtonLabel()
         val projectionOk = HealthStatus.mediaProjectionActive.value == true

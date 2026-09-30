@@ -217,5 +217,15 @@ interface ApiService {
         @Part("account_id") accountId: RequestBody,
         @Part file: MultipartBody.Part
     ): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @GET("/api/demo-monitor/{account_id}")
+    suspend fun demoMonitor(@Path("account_id") accountId: String): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @GET("/api/demo-monitor/{account_id}/events")
+    suspend fun demoMonitorEvents(
+        @Path("account_id") accountId: String,
+        @Query("limit") limit: Int = 30
+    ): Response<Map<String, @JvmSuppressWildcards Any>>
+
 }
 
