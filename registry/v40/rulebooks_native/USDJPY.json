@@ -1,0 +1,51 @@
+{
+  "rulebook_id": "AEGIS-RB-NATIVE-USDJPY-LONG_EMA_PULLBACK-M5-20261001",
+  "version": "1.0.0-research",
+  "instrument": "USDJPY",
+  "asset_class": "FOREX",
+  "timeframe": "M5",
+  "direction": "LONG_ONLY",
+  "status": "RESEARCH_QUALIFIED_NOT_PRODUCTION",
+  "production_authorized": false,
+  "historical_research_only": true,
+  "fail_closed": true,
+  "discovery_date": "2026-10-01",
+  "entry": {
+    "name": "long_ema_pullback",
+    "family": "trend",
+    "side": "long"
+  },
+  "exit": {
+    "initial_stop_atr": 1.0,
+    "break_even": "+1R",
+    "trailing_stop_atr": 0.5,
+    "max_hold_bars": 72
+  },
+  "validation_metrics": {
+    "n": 2151,
+    "pf": 1.696,
+    "wr": 0.521,
+    "net_R": 644.72,
+    "six_block_min_pf": 1.49
+  },
+  "test_metrics": {
+    "n": 2451,
+    "pf": 2.075,
+    "wr": 0.561,
+    "net_R": 1039.08,
+    "six_block_min_pf": 1.588
+  },
+  "train_metrics": {
+    "n": 6909,
+    "pf": 1.869,
+    "wr": 0.55,
+    "net_R": 2406.16
+  },
+  "data_mode": "bidask",
+  "gates": {
+    "val_trades": 350,
+    "val_pf": 1.6,
+    "six_block_min_pf": 1.0
+  },
+  "qualified_with_test": true
+}

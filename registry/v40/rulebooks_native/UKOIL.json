@@ -1,0 +1,51 @@
+{
+  "rulebook_id": "AEGIS-RB-NATIVE-UKOIL-LONG_FAILED_BREAKOUT20-M5-20261001",
+  "version": "1.0.0-research",
+  "instrument": "UKOIL",
+  "asset_class": "COMMODITY",
+  "timeframe": "M5",
+  "direction": "LONG_ONLY",
+  "status": "RESEARCH_QUALIFIED_NOT_PRODUCTION",
+  "production_authorized": false,
+  "historical_research_only": true,
+  "fail_closed": true,
+  "discovery_date": "2026-10-01",
+  "entry": {
+    "name": "long_failed_breakout20",
+    "family": "fade",
+    "side": "long"
+  },
+  "exit": {
+    "initial_stop_atr": 1.0,
+    "break_even": "+1R",
+    "trailing_stop_atr": 0.75,
+    "max_hold_bars": 48
+  },
+  "validation_metrics": {
+    "n": 2040,
+    "pf": 1.738,
+    "wr": 0.481,
+    "net_R": 633.84,
+    "six_block_min_pf": 1.508
+  },
+  "test_metrics": {
+    "n": 2178,
+    "pf": 1.59,
+    "wr": 0.483,
+    "net_R": 562.34,
+    "six_block_min_pf": 1.445
+  },
+  "train_metrics": {
+    "n": 6369,
+    "pf": 1.461,
+    "wr": 0.457,
+    "net_R": 1350.86
+  },
+  "data_mode": "ohlc",
+  "gates": {
+    "val_trades": 350,
+    "val_pf": 1.6,
+    "six_block_min_pf": 1.0
+  },
+  "qualified_with_test": true
+}

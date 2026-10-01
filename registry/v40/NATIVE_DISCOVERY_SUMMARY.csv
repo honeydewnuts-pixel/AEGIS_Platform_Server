@@ -1,0 +1,10 @@
+symbol,asset,best,side,stop_atr,trail_atr,max_hold,val_n,val_pf,val_block,test_n,test_pf,test_block,research,qualified_rules
+GER40,INDEX,long_rsi9_lt30,long,1.0,0.75,72,2210,1.844,1.504,2307,1.476,1.2,True,26
+UK100,INDEX,long_z60_lt-1.5,long,1.0,0.75,48,2737,1.665,1.25,2700,1.575,1.363,True,24
+UKOIL,COMMODITY,long_failed_breakout20,long,1.0,0.75,48,2040,1.738,1.508,2178,1.59,1.445,True,12
+US100,INDEX,long_rsi9_lt30,long,1.0,0.75,48,2175,1.638,1.323,2253,1.391,1.186,True,15
+US500,INDEX,long_bb20_lower,long,1.0,0.75,72,1907,1.588,1.271,1990,1.559,1.277,False,0
+USDJPY,FOREX,long_ema_pullback,long,1.0,0.5,72,2151,1.696,1.49,2451,2.075,1.588,True,13
+USOIL,COMMODITY,long_failed_breakout20,long,1.0,0.5,48,2346,1.533,1.26,2394,1.523,1.312,False,0
+XAGUSD,METAL,long_rsi9_lt25,long,1.0,0.5,48,1140,1.841,1.35,1184,1.581,1.214,True,27
+XAUUSD,METAL,long_z60_lt-1.5,long,1.0,0.75,48,2684,1.494,1.275,2842,1.444,1.368,False,0

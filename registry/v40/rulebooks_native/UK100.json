@@ -1,0 +1,51 @@
+{
+  "rulebook_id": "AEGIS-RB-NATIVE-UK100-LONG_Z60_LT-1.5-M5-20261001",
+  "version": "1.0.0-research",
+  "instrument": "UK100",
+  "asset_class": "INDEX",
+  "timeframe": "M5",
+  "direction": "LONG_ONLY",
+  "status": "RESEARCH_QUALIFIED_NOT_PRODUCTION",
+  "production_authorized": false,
+  "historical_research_only": true,
+  "fail_closed": true,
+  "discovery_date": "2026-10-01",
+  "entry": {
+    "name": "long_z60_lt-1.5",
+    "family": "mean_rev",
+    "side": "long"
+  },
+  "exit": {
+    "initial_stop_atr": 1.0,
+    "break_even": "+1R",
+    "trailing_stop_atr": 0.75,
+    "max_hold_bars": 48
+  },
+  "validation_metrics": {
+    "n": 2737,
+    "pf": 1.665,
+    "wr": 0.479,
+    "net_R": 792.79,
+    "six_block_min_pf": 1.25
+  },
+  "test_metrics": {
+    "n": 2700,
+    "pf": 1.575,
+    "wr": 0.454,
+    "net_R": 718.44,
+    "six_block_min_pf": 1.363
+  },
+  "train_metrics": {
+    "n": 8054,
+    "pf": 1.449,
+    "wr": 0.46,
+    "net_R": 1661.84
+  },
+  "data_mode": "ohlc",
+  "gates": {
+    "val_trades": 350,
+    "val_pf": 1.6,
+    "six_block_min_pf": 1.0
+  },
+  "qualified_with_test": true
+}

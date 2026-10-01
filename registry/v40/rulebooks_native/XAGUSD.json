@@ -1,0 +1,51 @@
+{
+  "rulebook_id": "AEGIS-RB-NATIVE-XAGUSD-LONG_RSI9_LT25-M5-20261001",
+  "version": "1.0.0-research",
+  "instrument": "XAGUSD",
+  "asset_class": "METAL",
+  "timeframe": "M5",
+  "direction": "LONG_ONLY",
+  "status": "RESEARCH_QUALIFIED_NOT_PRODUCTION",
+  "production_authorized": false,
+  "historical_research_only": true,
+  "fail_closed": true,
+  "discovery_date": "2026-10-01",
+  "entry": {
+    "name": "long_rsi9_lt25",
+    "family": "mean_rev",
+    "side": "long"
+  },
+  "exit": {
+    "initial_stop_atr": 1.0,
+    "break_even": "+1R",
+    "trailing_stop_atr": 0.5,
+    "max_hold_bars": 48
+  },
+  "validation_metrics": {
+    "n": 1140,
+    "pf": 1.841,
+    "wr": 0.548,
+    "net_R": 382.8,
+    "six_block_min_pf": 1.35
+  },
+  "test_metrics": {
+    "n": 1184,
+    "pf": 1.581,
+    "wr": 0.517,
+    "net_R": 295.72,
+    "six_block_min_pf": 1.214
+  },
+  "train_metrics": {
+    "n": 3372,
+    "pf": 1.302,
+    "wr": 0.491,
+    "net_R": 463.49
+  },
+  "data_mode": "ohlc",
+  "gates": {
+    "val_trades": 350,
+    "val_pf": 1.6,
+    "six_block_min_pf": 1.0
+  },
+  "qualified_with_test": true
+}

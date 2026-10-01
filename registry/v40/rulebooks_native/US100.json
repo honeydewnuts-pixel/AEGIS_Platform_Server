@@ -1,0 +1,51 @@
+{
+  "rulebook_id": "AEGIS-RB-NATIVE-US100-LONG_RSI9_LT30-M5-20261001",
+  "version": "1.0.0-research",
+  "instrument": "US100",
+  "asset_class": "INDEX",
+  "timeframe": "M5",
+  "direction": "LONG_ONLY",
+  "status": "RESEARCH_QUALIFIED_NOT_PRODUCTION",
+  "production_authorized": false,
+  "historical_research_only": true,
+  "fail_closed": true,
+  "discovery_date": "2026-10-01",
+  "entry": {
+    "name": "long_rsi9_lt30",
+    "family": "mean_rev",
+    "side": "long"
+  },
+  "exit": {
+    "initial_stop_atr": 1.0,
+    "break_even": "+1R",
+    "trailing_stop_atr": 0.75,
+    "max_hold_bars": 48
+  },
+  "validation_metrics": {
+    "n": 2175,
+    "pf": 1.638,
+    "wr": 0.475,
+    "net_R": 603.87,
+    "six_block_min_pf": 1.323
+  },
+  "test_metrics": {
+    "n": 2253,
+    "pf": 1.391,
+    "wr": 0.447,
+    "net_R": 415.51,
+    "six_block_min_pf": 1.186
+  },
+  "train_metrics": {
+    "n": 6500,
+    "pf": 1.369,
+    "wr": 0.463,
+    "net_R": 1097.7
+  },
+  "data_mode": "ohlc",
+  "gates": {
+    "val_trades": 350,
+    "val_pf": 1.6,
+    "six_block_min_pf": 1.0
+  },
+  "qualified_with_test": true
+}
