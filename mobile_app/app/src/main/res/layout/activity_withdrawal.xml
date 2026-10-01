@@ -52,7 +52,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Configure (once)"
+            android:text="Configure / update equity"
             android:textStyle="bold"
             android:textColor="#FFFFFF"
             android:textSize="14sp"
@@ -118,7 +118,7 @@
             android:id="@+id/wdBtnConfigure"
             android:layout_width="match_parent"
             android:layout_height="52dp"
-            android:text="Configure withdrawal account"
+            android:text="Save equity / settings"
             android:textAllCaps="false"
             android:textStyle="bold"
             android:textSize="15sp"

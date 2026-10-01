@@ -96,9 +96,6 @@ class WithdrawalService:
         else:
             q = q.where(WithdrawalAccount.symbol.is_(None))
         existing = (await self.session.execute(q)).scalar_one_or_none()
-        if existing:
-            raise ValueError("withdrawal account already configured")
-
         st = self.engine.seed(
             account_id,
             float(start_equity),
@@ -106,6 +103,26 @@ class WithdrawalService:
             risk_per_trade_pct=float(risk_per_trade_pct),
             symbol=symbol if mode == "per_pair" else None,
         )
+        if existing:
+            # Allow client to update starting equity / risk label later.
+            # Resets CAP/arm/eligible for the new baseline; keeps cumulative_withdrawn history.
+            existing.start_equity = st.start_equity
+            existing.risk_per_trade_pct = st.risk_per_trade_pct
+            existing.mode = st.mode
+            existing.symbol = st.symbol
+            existing.equity = st.equity
+            existing.cap = 0.0
+            existing.armed = False
+            existing.paused = False
+            existing.eligible_balance = 0.0
+            existing.retained_profit_total = 0.0
+            # realized_trading_pnl and cumulative_withdrawn retained for audit
+            existing.enabled = True
+            existing.updated_at = _now()
+            await self.session.commit()
+            await self.session.refresh(existing)
+            return self._dashboard(existing)
+
         row = WithdrawalAccount(
             account_id=account_id,
             symbol=st.symbol,
@@ -146,6 +163,7 @@ class WithdrawalService:
             "mode": row.mode,
             "start_equity": row.start_equity,
             "current_equity": row.equity,
+            "equity": row.equity,  # alias for clients
             "cap": row.cap,
             "armed": row.armed,
             "paused": row.paused,
@@ -153,6 +171,7 @@ class WithdrawalService:
             "eligible_balance": row.eligible_balance,
             "retained_profit": row.retained_profit_total,
             "cumulative_withdrawals": row.cumulative_withdrawn,
+            "total_withdrawn": row.cumulative_withdrawn,  # alias for clients
             "total_value": snap["total_value"],
             "drawdown_from_cap_pct": snap["drawdown_from_cap_pct"],
             "drawdown_from_start_pct": snap["drawdown_from_start_pct"],

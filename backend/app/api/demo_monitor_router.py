@@ -13,6 +13,32 @@ from app.security import AuthContext, require_account_match, verify_api_key
 
 router = APIRouter(prefix="/api/demo-monitor", tags=["Demo Execution Monitor"])
 
+@router.get("")
+@router.get("/")
+async def demo_monitor_root(
+    request: Request,
+    account_id: str | None = Query(None),
+    auth: AuthContext = Depends(verify_api_key),
+) -> dict[str, Any]:
+    """Admin/ops: optional account_id query; otherwise returns monitor availability."""
+    mon = getattr(request.app.state, "demo_monitor", None)
+    if mon is None:
+        raise HTTPException(503, "Demo monitor not initialized")
+    if account_id:
+        require_account_match(auth, account_id)
+        return mon.build(
+            account_id=account_id,
+            ohlc_stream=getattr(request.app.state, "ohlc_stream", None),
+            executor_signals=getattr(request.app.state, "executor_signals", None),
+            worker_pool=getattr(request.app.state, "worker_pool", None),
+        )
+    # Fleet-lite: monitor is up; clients pass account_id for full stages
+    return {
+        "monitor": "ready",
+        "hint": "GET /api/demo-monitor/{account_id} for full 10-stage status",
+        "admin": bool(getattr(auth, "is_admin", False) or getattr(auth, "admin", False)),
+    }
+
 
 @router.get("/{account_id}")
 async def demo_monitor_status(

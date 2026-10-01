@@ -3,6 +3,7 @@ package com.aegis.mobile.ui
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.widget.ArrayAdapter
+import android.widget.Button
 import android.widget.EditText
 import android.widget.Spinner
 import android.widget.TextView
@@ -26,6 +27,8 @@ class WithdrawalActivity : AppCompatActivity() {
     private lateinit var etRisk: EditText
     private lateinit var spinnerMode: Spinner
     private lateinit var etAmount: EditText
+    private lateinit var btnConfigure: Button
+    private lateinit var btnRefresh: Button
 
     private val modeOptions = listOf(
         "portfolio" to "Portfolio (all pairs)",
@@ -44,30 +47,47 @@ class WithdrawalActivity : AppCompatActivity() {
         etRisk = findViewById(R.id.wdEtRisk)
         spinnerMode = findViewById(R.id.wdSpinnerMode)
         etAmount = findViewById(R.id.wdEtAmount)
+        btnConfigure = findViewById(R.id.wdBtnConfigure)
+        btnRefresh = findViewById(R.id.wdBtnRefresh)
 
         val modeAdapter = ArrayAdapter(this, R.layout.spinner_item_dark, modeOptions.map { it.second })
         modeAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item_dark)
         spinnerMode.adapter = modeAdapter
         spinnerMode.setPopupBackgroundDrawable(ColorDrawable(0xFF0F1C2E.toInt()))
 
-        findViewById<android.widget.Button>(R.id.wdBtnRefresh).setOnClickListener { refreshAll() }
-        findViewById<android.widget.Button>(R.id.wdBtnConfigure).setOnClickListener { configure() }
-        findViewById<android.widget.Button>(R.id.wdBtnRequest).setOnClickListener { requestWithdrawal() }
+        btnRefresh.setOnClickListener {
+            btnRefresh.isEnabled = false
+            btnRefresh.text = "Refreshing…"
+            refreshAll {
+                btnRefresh.isEnabled = true
+                btnRefresh.text = "Refresh dashboard"
+            }
+        }
+        btnConfigure.setOnClickListener { configure() }
+        findViewById<Button>(R.id.wdBtnRequest).setOnClickListener { requestWithdrawal() }
 
-        refreshAll()
+        refreshAll(null)
     }
 
-    private fun refreshAll() {
+    private fun num(b: Map<String, Any?>, vararg keys: String): String {
+        for (k in keys) {
+            val v = b[k] ?: continue
+            if (v.toString().equals("null", true)) continue
+            return v.toString()
+        }
+        return "0"
+    }
+
+    private fun refreshAll(onDone: (() -> Unit)?) {
         lifecycleScope.launch {
             try {
                 val api = RetrofitClient.getApiService(this@WithdrawalActivity)
                 val st = api.withdrawalModuleStatus()
                 val enabled = st.body()?.get("module_enabled") == true
-                moduleStatus.text = if (st.isSuccessful) {
-                    if (enabled) "Module: ENABLED on server"
-                    else "Module: DISABLED on server (set WITHDRAWAL_MODULE_ENABLED=true)"
-                } else {
-                    "Module status: HTTP ${st.code()}"
+                moduleStatus.text = when {
+                    !st.isSuccessful -> "Module status: HTTP ${st.code()}"
+                    enabled -> "Module: ENABLED on server"
+                    else -> "Module: DISABLED (WITHDRAWAL_MODULE_ENABLED=false)"
                 }
 
                 val prefs = applicationContext.dataStore.data.first()
@@ -75,37 +95,53 @@ class WithdrawalActivity : AppCompatActivity() {
                 if (accountId.isBlank()) {
                     dashboardText.text = "No account ID — log in first."
                     historyText.text = "—"
+                    btnConfigure.text = "Configure withdrawal account"
                     return@launch
                 }
 
                 val dash = api.withdrawalDashboard(accountId)
                 if (dash.isSuccessful) {
-                    val b = dash.body() ?: emptyMap()
+                    val b = (dash.body() ?: emptyMap()).mapKeys { it.key.toString() }
                     if (b["configured"] == true) {
                         dashboardText.text = buildString {
-                            appendLine("Configured: YES")
-                            appendLine("Start equity: ${b["start_equity"]}")
-                            appendLine("Equity (ledger): ${b["equity"]}")
-                            appendLine("CAP: ${b["cap"]}")
+                            appendLine("Configured: YES  (you can update equity below)")
+                            appendLine("Start equity: ${num(b, "start_equity")}")
+                            appendLine("Equity (ledger): ${num(b, "equity", "current_equity")}")
+                            appendLine("CAP: ${num(b, "cap")}")
                             appendLine("Armed: ${b["armed"]}  Paused: ${b["paused"]}")
-                            appendLine("Eligible balance: ${b["eligible_balance"]}")
-                            appendLine("Total withdrawn: ${b["total_withdrawn"]}")
-                            appendLine("Total value: ${b["total_value"]}")
+                            appendLine("Eligible balance: ${num(b, "eligible_balance")}")
+                            appendLine("Total withdrawn: ${num(b, "total_withdrawn", "cumulative_withdrawals")}")
+                            appendLine("Total value: ${num(b, "total_value")}")
                             appendLine("Mode: ${b["mode"]}")
                         }.trim()
+                        btnConfigure.text = "Update equity / settings"
+                        // Prefill fields from server
+                        val se = num(b, "start_equity")
+                        if (etStartEquity.text.isNullOrBlank()) etStartEquity.setText(se)
+                        val risk = num(b, "risk_per_trade_pct")
+                        if (risk != "0" && etRisk.text.isNullOrBlank()) etRisk.setText(risk)
                     } else {
                         dashboardText.text =
-                            "Not configured yet.\nType your account equity (any amount) and tap Configure."
+                            "Not configured yet.\nType your account equity and tap Configure."
+                        btnConfigure.text = "Configure withdrawal account"
                     }
                 } else {
-                    dashboardText.text = "Dashboard HTTP ${dash.code()}: ${dash.errorBody()?.string()?.take(160)}"
+                    dashboardText.text =
+                        "Dashboard HTTP ${dash.code()}: ${dash.errorBody()?.string()?.take(180)}"
+                    Toast.makeText(
+                        this@WithdrawalActivity,
+                        "Refresh failed: HTTP ${dash.code()}",
+                        Toast.LENGTH_SHORT,
+                    ).show()
                 }
 
                 val hist = api.withdrawalHistory(accountId, 30)
                 if (hist.isSuccessful) {
                     val entries = hist.body()?.get("entries")
                     historyText.text = when (entries) {
-                        is List<*> -> if (entries.isEmpty()) "No history yet." else entries.joinToString("\n") { it.toString().take(120) }
+                        is List<*> ->
+                            if (entries.isEmpty()) "No history yet."
+                            else entries.joinToString("\n") { it.toString().take(120) }
                         else -> hist.body().toString().take(400)
                     }
                 } else {
@@ -113,6 +149,9 @@ class WithdrawalActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
                 dashboardText.text = "Error: ${e.message}"
+                Toast.makeText(this@WithdrawalActivity, "Refresh error: ${e.message}", Toast.LENGTH_LONG).show()
+            } finally {
+                onDone?.invoke()
             }
         }
     }
@@ -131,7 +170,7 @@ class WithdrawalActivity : AppCompatActivity() {
                 if (start == null || start <= 0) {
                     Toast.makeText(
                         this@WithdrawalActivity,
-                        "Enter your starting equity (any positive USD amount)",
+                        "Enter your equity (any positive USD amount)",
                         Toast.LENGTH_LONG,
                     ).show()
                     return@launch
@@ -148,15 +187,18 @@ class WithdrawalActivity : AppCompatActivity() {
                     "mode" to mode,
                     "risk_per_trade_pct" to risk,
                 )
+                btnConfigure.isEnabled = false
                 val resp = api.withdrawalConfigure(body)
+                btnConfigure.isEnabled = true
                 if (resp.isSuccessful) {
-                    Toast.makeText(this@WithdrawalActivity, "Configured", Toast.LENGTH_SHORT).show()
-                    refreshAll()
+                    Toast.makeText(this@WithdrawalActivity, "Saved — equity updated", Toast.LENGTH_SHORT).show()
+                    refreshAll(null)
                 } else {
                     val err = resp.errorBody()?.string()?.take(220) ?: "HTTP ${resp.code()}"
                     Toast.makeText(this@WithdrawalActivity, err, Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
+                btnConfigure.isEnabled = true
                 Toast.makeText(this@WithdrawalActivity, e.message, Toast.LENGTH_LONG).show()
             }
         }
@@ -185,7 +227,7 @@ class WithdrawalActivity : AppCompatActivity() {
                         "Request recorded (ledger only until payout rail is connected)",
                         Toast.LENGTH_LONG,
                     ).show()
-                    refreshAll()
+                    refreshAll(null)
                 } else {
                     val err = resp.errorBody()?.string()?.take(200) ?: "HTTP ${resp.code()}"
                     Toast.makeText(this@WithdrawalActivity, err, Toast.LENGTH_LONG).show()

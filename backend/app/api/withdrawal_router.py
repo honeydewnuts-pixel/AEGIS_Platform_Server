@@ -36,9 +36,14 @@ class WithdrawBody(BaseModel):
 
 @router.get("/status")
 async def withdrawal_module_status():
+    on = module_enabled()
     return {
-        "module_enabled": module_enabled(),
-        "note": "Disabled by default until demo acceptance. Set WITHDRAWAL_MODULE_ENABLED=true to activate.",
+        "module_enabled": on,
+        "note": (
+            "Withdrawal module is ACTIVE."
+            if on
+            else "Disabled. Set WITHDRAWAL_MODULE_ENABLED=true on the server to activate."
+        ),
     }
 
 
