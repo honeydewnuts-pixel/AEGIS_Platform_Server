@@ -39,3 +39,21 @@ WITHDRAWAL_MODULE_ENABLED=true
 ```
 pytest tests/test_hybrid_ratchet.py -v
 ```
+
+
+## Lean CAP v2 (Zero Dead Money)
+
+After arming, CAP grows via 30% retain until it hits a **lean ceiling** derived from the account risk label:
+
+| Risk label | LEAN_CAP_CEILING |
+|------------|------------------|
+| 0.5% | $83,286 |
+| 1.0% | $783,300 |
+
+When tentative CAP would exceed the ceiling:
+
+1. `OVERFLOW = CAP - LEAN_CAP_CEILING`
+2. Overflow is added to **eligible** balance (DEAD FREED — cash available to withdraw, not left as idle broker CAP)
+3. `CAP = LEAN_CAP_CEILING` permanently for further growth
+
+While lean-locked, 100% of new excess above CAP goes to eligible. CAP does not fall on losses. Withdrawals remain separate from trading PnL.

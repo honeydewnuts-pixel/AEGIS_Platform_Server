@@ -1,18 +1,21 @@
-"""Hybrid Ratchet 70/30 withdrawal accounting (pure logic).
+"""Hybrid Ratchet 70/30 + Lean CAP v2 withdrawal accounting (pure logic).
 
 Does NOT place trades, size positions, or alter V53.6 entry/exit.
 Operates only on realized net profit events and equity snapshots.
 
-Accounting rules (spec):
-- Before equity reaches ARM_MULTIPLE * start_equity: full compound, no withdrawals.
+Rules:
+- Before equity reaches ARM_MULTIPLE * start_equity: 100% compound, no withdrawals.
 - On arm: CAP = ARM_MULTIPLE * start_equity.
 - CAP never decreases on trading losses.
-- When armed, not paused, and equity > CAP after a realized profit:
+- When armed, not paused, equity > CAP after realized profit:
     excess = equity - CAP
-    eligible += withdraw_pct * excess
-    CAP += retain_pct * excess
+    eligible += withdraw_pct * excess   (default 70%)
+    CAP += retain_pct * excess          (default 30%)
+- Lean CAP v2: CAP is hard-capped at LEAN_CAP_CEILING (by risk label).
+    Any tentative CAP above the ceiling is swept into eligible (DEAD FREED)
+    and CAP is reset to the ceiling. CAP never exceeds the ceiling again.
 - Pause when equity < CAP * (1 - pause_dd); resume when equity >= CAP.
-- Withdrawals are ledger entitlements; broker transfer is a separate request workflow.
+- Withdrawals are ledger entitlements, not trading losses.
 - trade_id idempotency prevents double allocation.
 """
 from __future__ import annotations
@@ -21,12 +24,37 @@ from dataclasses import dataclass, field, asdict
 from typing import Any
 
 
+# Fixed Lean CAP ceilings from 5Y Full Stretch analysis (all start equities).
+LEAN_CAP_CEILING_BY_RISK: dict[float, float] = {
+    0.5: 83_286.0,
+    1.0: 783_300.0,
+}
+
+
+def resolve_lean_cap_ceiling(risk_per_trade_pct: float) -> float:
+    """Return Lean CAP ceiling for a risk label %.
+
+    Exact matches for 0.5 and 1.0. Other values use nearest known ceiling
+    (does not invent intermediate research levels).
+    """
+    r = float(risk_per_trade_pct)
+    if r in LEAN_CAP_CEILING_BY_RISK:
+        return LEAN_CAP_CEILING_BY_RISK[r]
+    # nearest key
+    keys = sorted(LEAN_CAP_CEILING_BY_RISK.keys())
+    nearest = min(keys, key=lambda k: abs(k - r))
+    return LEAN_CAP_CEILING_BY_RISK[nearest]
+
+
 @dataclass
 class RatchetConfig:
     withdraw_pct: float = 0.70
     retain_pct: float = 0.30
     arm_multiple: float = 2.0
     pause_dd_from_cap: float = 0.20
+    # None = derive from account risk_per_trade_pct via resolve_lean_cap_ceiling
+    lean_cap_ceiling: float | None = None
+    lean_cap_enabled: bool = True
 
     def validate(self) -> None:
         if abs(self.withdraw_pct + self.retain_pct - 1.0) > 1e-9:
@@ -35,6 +63,8 @@ class RatchetConfig:
             raise ValueError("arm_multiple must be >= 1")
         if not (0.0 < self.pause_dd_from_cap < 1.0):
             raise ValueError("pause_dd_from_cap must be in (0, 1)")
+        if self.lean_cap_ceiling is not None and self.lean_cap_ceiling <= 0:
+            raise ValueError("lean_cap_ceiling must be positive when set")
 
 
 @dataclass
@@ -49,11 +79,13 @@ class RatchetState:
     cap: float = 0.0
     armed: bool = False
     paused: bool = False
+    lean_locked: bool = False  # True once CAP has been clamped to lean ceiling
 
     cumulative_withdrawn: float = 0.0
     eligible_balance: float = 0.0
     retained_profit_total: float = 0.0
     realized_trading_pnl: float = 0.0
+    dead_freed_total: float = 0.0  # CAP excess swept at lean ceiling
 
     processed_trade_ids: set[str] = field(default_factory=set)
 
@@ -71,6 +103,7 @@ class RatchetState:
         d["drawdown_from_start_pct"] = round(
             max(0.0, (self.start_equity - self.equity) / self.start_equity * 100.0), 4
         ) if self.start_equity > 0 else 0.0
+        d["lean_cap_ceiling"] = resolve_lean_cap_ceiling(self.risk_per_trade_pct)
         return d
 
 
@@ -81,6 +114,7 @@ class AllocationResult:
     excess: float = 0.0
     to_eligible: float = 0.0
     to_cap: float = 0.0
+    dead_freed: float = 0.0
     state: dict[str, Any] = field(default_factory=dict)
 
 
@@ -89,8 +123,20 @@ class HybridRatchetEngine:
         self.config = config or RatchetConfig()
         self.config.validate()
 
-    def seed(self, account_id: str, start_equity: float, *, mode: str = "portfolio",
-             risk_per_trade_pct: float = 0.5, symbol: str | None = None) -> RatchetState:
+    def lean_ceiling_for(self, state: RatchetState) -> float:
+        if self.config.lean_cap_ceiling is not None:
+            return float(self.config.lean_cap_ceiling)
+        return resolve_lean_cap_ceiling(state.risk_per_trade_pct)
+
+    def seed(
+        self,
+        account_id: str,
+        start_equity: float,
+        *,
+        mode: str = "portfolio",
+        risk_per_trade_pct: float = 0.5,
+        symbol: str | None = None,
+    ) -> RatchetState:
         if start_equity <= 0:
             raise ValueError("start_equity must be positive")
         if mode not in ("portfolio", "per_pair"):
@@ -114,6 +160,25 @@ class HybridRatchetEngine:
             state.paused = True
         elif state.paused and state.equity >= state.cap:
             state.paused = False
+
+    def _apply_lean_cap(self, state: RatchetState, to_eligible: float, to_cap: float) -> tuple[float, float, float]:
+        """Clamp CAP to lean ceiling; sweep overflow into eligible (DEAD FREED)."""
+        if not self.config.lean_cap_enabled:
+            return to_eligible, to_cap, 0.0
+        ceiling = self.lean_ceiling_for(state)
+        if state.cap <= ceiling + 1e-12:
+            return to_eligible, to_cap, 0.0
+        overflow = round(state.cap - ceiling, 8)
+        state.cap = round(ceiling, 8)
+        state.lean_locked = True
+        # Sweep overflow into eligible — not left as dead CAP in the broker account
+        state.eligible_balance = round(state.eligible_balance + overflow, 8)
+        state.dead_freed_total = round(state.dead_freed_total + overflow, 8)
+        # retained_profit_total should not claim overflow that was swept out of CAP
+        state.retained_profit_total = round(max(0.0, state.retained_profit_total - overflow), 8)
+        to_eligible = round(to_eligible + overflow, 8)
+        to_cap = round(max(0.0, to_cap - overflow), 8)
+        return to_eligible, to_cap, overflow
 
     def apply_realized_trade(
         self,
@@ -143,6 +208,12 @@ class HybridRatchetEngine:
         if not state.armed and state.equity >= threshold:
             state.armed = True
             state.cap = round(threshold, 8)
+            # If arm threshold already above lean ceiling (huge start equity), clamp immediately
+            if self.config.lean_cap_enabled:
+                ceiling = self.lean_ceiling_for(state)
+                if state.cap > ceiling:
+                    state.cap = round(ceiling, 8)
+                    state.lean_locked = True
 
         self._update_pause(state)
 
@@ -161,19 +232,45 @@ class HybridRatchetEngine:
             return AllocationResult(False, "equity_not_above_cap", state=state.snapshot())
 
         excess = round(state.equity - state.cap, 8)
+        ceiling = self.lean_ceiling_for(state)
+
+        # Once lean-locked (CAP at ceiling), 100% of excess goes to eligible (zero dead CAP growth)
+        if self.config.lean_cap_enabled and state.cap >= ceiling - 1e-9:
+            state.lean_locked = True
+            to_eligible = excess
+            to_cap = 0.0
+            state.eligible_balance = round(state.eligible_balance + to_eligible, 8)
+            state.dead_freed_total = round(state.dead_freed_total + to_eligible, 8)
+            # CAP stays at ceiling
+            state.cap = round(ceiling, 8)
+            return AllocationResult(
+                True,
+                "allocated_lean_sweep",
+                excess=excess,
+                to_eligible=to_eligible,
+                to_cap=0.0,
+                dead_freed=to_eligible,
+                state=state.snapshot(),
+            )
+
+        # Growing phase: classic 70/30
         to_eligible = round(excess * self.config.withdraw_pct, 8)
         to_cap = round(excess * self.config.retain_pct, 8)
         state.eligible_balance = round(state.eligible_balance + to_eligible, 8)
         state.cap = round(state.cap + to_cap, 8)
         state.retained_profit_total = round(state.retained_profit_total + to_cap, 8)
-        # Equity is NOT clamped — broker equity and withdrawal entitlement are separate.
+
+        dead_freed = 0.0
+        to_eligible, to_cap, dead_freed = self._apply_lean_cap(state, to_eligible, to_cap)
+        reason = "allocated_lean_lock" if dead_freed > 0 else "allocated"
 
         return AllocationResult(
             True,
-            "allocated",
+            reason,
             excess=excess,
             to_eligible=to_eligible,
             to_cap=to_cap,
+            dead_freed=dead_freed,
             state=state.snapshot(),
         )
 
@@ -191,7 +288,9 @@ class HybridRatchetEngine:
         # Accounting equity reduced when funds leave the trading account
         state.equity = round(state.equity - amt, 8)
         self._update_pause(state)
-        return AllocationResult(True, "withdrawal_reserved", excess=amt, to_eligible=-amt, state=state.snapshot())
+        return AllocationResult(
+            True, "withdrawal_reserved", excess=amt, to_eligible=-amt, state=state.snapshot()
+        )
 
 
 def run_cash_path(
@@ -207,7 +306,7 @@ def run_cash_path(
     log = []
     for tid, pnl in trade_pnls:
         res = eng.apply_realized_trade(st, trade_id=tid, realized_pnl=pnl)
-        log.append({"trade_id": tid, "pnl": pnl, **res.__dict__, "state": res.state})
+        log.append({"trade_id": tid, "pnl": pnl, "reason": res.reason, "state": res.state})
     snap = st.snapshot()
     return {
         "final": snap,
@@ -215,4 +314,7 @@ def run_cash_path(
         "total_value": snap["total_value"],
         "max_eligible": snap["eligible_balance"],
         "cumulative_withdrawn": snap["cumulative_withdrawn"],
+        "dead_freed_total": snap["dead_freed_total"],
+        "cap": snap["cap"],
+        "lean_locked": snap["lean_locked"],
     }

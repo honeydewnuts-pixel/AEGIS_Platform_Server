@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.db.models import WithdrawalAccount, WithdrawalLedger, WithdrawalRequest
-from app.services.hybrid_ratchet import HybridRatchetEngine, RatchetConfig, RatchetState
+from app.services.hybrid_ratchet import HybridRatchetEngine, RatchetConfig, RatchetState, resolve_lean_cap_ceiling
 
 
 def module_enabled() -> bool:
@@ -176,8 +176,13 @@ class WithdrawalService:
             "drawdown_from_cap_pct": snap["drawdown_from_cap_pct"],
             "drawdown_from_start_pct": snap["drawdown_from_start_pct"],
             "risk_per_trade_pct": row.risk_per_trade_pct,
+            "lean_cap_ceiling": resolve_lean_cap_ceiling(float(row.risk_per_trade_pct)),
+            "lean_locked": bool(row.armed and float(row.cap) >= resolve_lean_cap_ceiling(float(row.risk_per_trade_pct)) - 1e-6),
             "enabled": row.enabled,
-            "note": "Trading PnL and withdrawals are tracked separately; withdrawals are not trading losses.",
+            "note": (
+                "Lean CAP v2: CAP grows with 30% retain until lean ceiling, then excess is "
+                "swept to eligible (not dead broker capital). Withdrawals are not trading losses."
+            ),
         }
 
     async def _get_row(self, account_id: str, symbol: str | None = None) -> WithdrawalAccount | None:
@@ -235,7 +240,7 @@ class WithdrawalService:
                 to_cap=res.to_cap,
                 equity_after=st.equity,
                 cap_after=st.cap,
-                detail=res.reason,
+                detail=f"{res.reason};dead_freed={getattr(res, "dead_freed", 0)}",
                 created_at=_now(),
             )
         )

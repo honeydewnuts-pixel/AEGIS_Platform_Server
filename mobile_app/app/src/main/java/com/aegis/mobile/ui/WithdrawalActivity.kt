@@ -108,6 +108,7 @@ class WithdrawalActivity : AppCompatActivity() {
                             appendLine("Start equity: ${num(b, "start_equity")}")
                             appendLine("Equity (ledger): ${num(b, "equity", "current_equity")}")
                             appendLine("CAP: ${num(b, "cap")}")
+                            appendLine("Lean ceiling: ${num(b, "lean_cap_ceiling")}  Locked: ${b["lean_locked"]}")
                             appendLine("Armed: ${b["armed"]}  Paused: ${b["paused"]}")
                             appendLine("Eligible balance: ${num(b, "eligible_balance")}")
                             appendLine("Total withdrawn: ${num(b, "total_withdrawn", "cumulative_withdrawals")}")

@@ -98,3 +98,45 @@ def test_starting_equities_matrix_smoke(eng):
         assert st.armed
         eng.apply_realized_trade(st, trade_id=f"{start}-2", realized_pnl=start * 0.1)
         assert st.eligible_balance > 0
+
+
+def test_lean_cap_ceiling_0_5_and_1_0():
+    from app.services.hybrid_ratchet import resolve_lean_cap_ceiling
+    assert resolve_lean_cap_ceiling(0.5) == 83_286.0
+    assert resolve_lean_cap_ceiling(1.0) == 783_300.0
+
+
+def test_lean_cap_locks_and_sweeps_overflow(eng):
+    """When CAP would exceed lean ceiling, overflow goes to eligible and CAP stays at ceiling."""
+    from app.services.hybrid_ratchet import HybridRatchetEngine, RatchetConfig
+    # Small ceiling for unit test
+    eng2 = HybridRatchetEngine(RatchetConfig(lean_cap_ceiling=2500.0))
+    st = eng2.seed("A", 1000.0, risk_per_trade_pct=0.5)
+    eng2.apply_realized_trade(st, trade_id="arm", realized_pnl=1000.0)  # equity 2000, cap 2000
+    assert st.armed and st.cap == 2000.0
+    # Big profit: equity 3000, excess 1000 → 700 eligible, 300 to CAP → cap 2300
+    eng2.apply_realized_trade(st, trade_id="grow", realized_pnl=1000.0)
+    assert st.cap == 2300.0
+    assert abs(st.eligible_balance - 700.0) < 1e-6
+    # Another profit that pushes CAP past 2500
+    # equity was 3000; +500 → 3500; excess 1200 → 840 elig, 360 cap → tent 2660 → overflow 160
+    eng2.apply_realized_trade(st, trade_id="lock", realized_pnl=500.0)
+    assert abs(st.cap - 2500.0) < 1e-6
+    assert st.lean_locked is True
+    # Further profits: 100% to eligible, CAP stays 2500
+    elig_before = st.eligible_balance
+    eng2.apply_realized_trade(st, trade_id="sweep", realized_pnl=100.0)
+    assert abs(st.cap - 2500.0) < 1e-6
+    assert st.eligible_balance > elig_before
+
+
+def test_lean_cap_does_not_treat_sweep_as_trading_loss(eng):
+    from app.services.hybrid_ratchet import HybridRatchetEngine, RatchetConfig
+    eng2 = HybridRatchetEngine(RatchetConfig(lean_cap_ceiling=2100.0))
+    st = eng2.seed("A", 1000.0)
+    eng2.apply_realized_trade(st, trade_id="a", realized_pnl=1000.0)
+    trading = st.realized_trading_pnl
+    eng2.apply_realized_trade(st, trade_id="b", realized_pnl=200.0)
+    # trading pnl still sum of realized; withdrawal entitlement separate
+    assert abs(st.realized_trading_pnl - (trading + 200.0)) < 1e-6
+    assert st.cap <= 2100.0 + 1e-6
