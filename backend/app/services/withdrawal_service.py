@@ -176,8 +176,8 @@ class WithdrawalService:
             "drawdown_from_cap_pct": snap["drawdown_from_cap_pct"],
             "drawdown_from_start_pct": snap["drawdown_from_start_pct"],
             "risk_per_trade_pct": row.risk_per_trade_pct,
-            "lean_cap_ceiling": resolve_lean_cap_ceiling(float(row.risk_per_trade_pct)),
-            "lean_locked": bool(row.armed and float(row.cap) >= resolve_lean_cap_ceiling(float(row.risk_per_trade_pct)) - 1e-6),
+            "lean_cap_ceiling": resolve_lean_cap_ceiling(float(row.risk_per_trade_pct), float(row.start_equity)),
+            "lean_locked": bool(row.armed and float(row.cap) >= resolve_lean_cap_ceiling(float(row.risk_per_trade_pct), float(row.start_equity)) - 1e-6),
             "enabled": row.enabled,
             "note": (
                 "Lean CAP v2: CAP grows with 30% retain until lean ceiling, then excess is "

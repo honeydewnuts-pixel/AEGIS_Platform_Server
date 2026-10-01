@@ -24,26 +24,33 @@ from dataclasses import dataclass, field, asdict
 from typing import Any
 
 
-# Fixed Lean CAP ceilings from 5Y Full Stretch analysis (all start equities).
-LEAN_CAP_CEILING_BY_RISK: dict[float, float] = {
-    0.5: 83_286.0,
-    1.0: 783_300.0,
+# Reference cash-test baseline: $1,000 start equity → absolute ceilings from 5Y stretch.
+# Other start equities scale linearly: ceiling = start_equity * (ref_ceiling / ref_start).
+LEAN_CAP_REF_START_EQUITY: float = 1_000.0
+LEAN_CAP_REF_CEILING_BY_RISK: dict[float, float] = {
+    0.5: 83_286.0,   # $1k @ 0.5% research baseline
+    1.0: 783_300.0,  # $1k @ 1.0% research baseline
 }
 
 
-def resolve_lean_cap_ceiling(risk_per_trade_pct: float) -> float:
-    """Return Lean CAP ceiling for a risk label %.
-
-    Exact matches for 0.5 and 1.0. Other values use nearest known ceiling
-    (does not invent intermediate research levels).
-    """
+def resolve_lean_cap_multiple(risk_per_trade_pct: float) -> float:
+    """CAP multiple of start equity at lean lock (from $1k cash-test reference)."""
     r = float(risk_per_trade_pct)
-    if r in LEAN_CAP_CEILING_BY_RISK:
-        return LEAN_CAP_CEILING_BY_RISK[r]
-    # nearest key
-    keys = sorted(LEAN_CAP_CEILING_BY_RISK.keys())
-    nearest = min(keys, key=lambda k: abs(k - r))
-    return LEAN_CAP_CEILING_BY_RISK[nearest]
+    refs = LEAN_CAP_REF_CEILING_BY_RISK
+    if r not in refs:
+        nearest = min(refs.keys(), key=lambda k: abs(k - r))
+        r = nearest
+    return refs[r] / LEAN_CAP_REF_START_EQUITY
+
+
+def resolve_lean_cap_ceiling(risk_per_trade_pct: float, start_equity: float = 1_000.0) -> float:
+    """Lean CAP ceiling for this account = start_equity × research multiple.
+
+    Example: $500 start @ 0.5% → 500 × 83.286 = $41,643
+             $2,000 start @ 1.0% → 2000 × 783.3 = $1,566,600
+    """
+    se = max(float(start_equity), 1e-9)
+    return round(se * resolve_lean_cap_multiple(risk_per_trade_pct), 2)
 
 
 @dataclass
@@ -103,7 +110,7 @@ class RatchetState:
         d["drawdown_from_start_pct"] = round(
             max(0.0, (self.start_equity - self.equity) / self.start_equity * 100.0), 4
         ) if self.start_equity > 0 else 0.0
-        d["lean_cap_ceiling"] = resolve_lean_cap_ceiling(self.risk_per_trade_pct)
+        d["lean_cap_ceiling"] = resolve_lean_cap_ceiling(self.risk_per_trade_pct, self.start_equity)
         return d
 
 
@@ -126,7 +133,7 @@ class HybridRatchetEngine:
     def lean_ceiling_for(self, state: RatchetState) -> float:
         if self.config.lean_cap_ceiling is not None:
             return float(self.config.lean_cap_ceiling)
-        return resolve_lean_cap_ceiling(state.risk_per_trade_pct)
+        return resolve_lean_cap_ceiling(state.risk_per_trade_pct, state.start_equity)
 
     def seed(
         self,

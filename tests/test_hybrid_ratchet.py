@@ -100,10 +100,15 @@ def test_starting_equities_matrix_smoke(eng):
         assert st.eligible_balance > 0
 
 
-def test_lean_cap_ceiling_0_5_and_1_0():
-    from app.services.hybrid_ratchet import resolve_lean_cap_ceiling
-    assert resolve_lean_cap_ceiling(0.5) == 83_286.0
-    assert resolve_lean_cap_ceiling(1.0) == 783_300.0
+def test_lean_cap_ceiling_scales_with_start_equity():
+    from app.services.hybrid_ratchet import resolve_lean_cap_ceiling, resolve_lean_cap_multiple
+    assert abs(resolve_lean_cap_multiple(0.5) - 83.286) < 1e-6
+    assert abs(resolve_lean_cap_ceiling(0.5, 1000.0) - 83_286.0) < 0.02
+    assert abs(resolve_lean_cap_ceiling(1.0, 1000.0) - 783_300.0) < 0.02
+    # Half start equity → half ceiling
+    assert abs(resolve_lean_cap_ceiling(0.5, 500.0) - 41_643.0) < 0.02
+    # Double start equity → double ceiling
+    assert abs(resolve_lean_cap_ceiling(1.0, 2000.0) - 1_566_600.0) < 0.05
 
 
 def test_lean_cap_locks_and_sweeps_overflow(eng):

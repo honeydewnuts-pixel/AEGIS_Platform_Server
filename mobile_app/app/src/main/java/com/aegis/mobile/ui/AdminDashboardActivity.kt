@@ -96,7 +96,9 @@ class AdminDashboardActivity : AppCompatActivity() {
                     val jo = JSONObject(s.second)
                     val subs = jo.optJSONObject("subscriptions")
                     val devices = jo.optJSONObject("devices")
-                    kpiSubs.text = subs?.opt("total")?.toString() ?: "—"
+                    val paid = subs?.opt("paid_active")
+                    val totalSubs = subs?.opt("total")
+                    kpiSubs.text = if (paid != null) "P$paid/${totalSubs ?: "—"}" else totalSubs?.toString() ?: "—"
                     val online = devices?.opt("online")
                     val total = devices?.opt("total")
                     kpiDevices.text = if (online != null && total != null) "$online/$total" else total?.toString() ?: "—"
@@ -176,20 +178,38 @@ class AdminDashboardActivity : AppCompatActivity() {
             val devices = jo.optJSONObject("devices")
             val subs = jo.optJSONObject("subscriptions")
             val by = subs?.optJSONObject("by_status")
+            val byPlan = subs?.optJSONObject("by_plan")
             buildString {
                 appendLine("Devices   online ${devices?.opt("online") ?: 0} / total ${devices?.opt("total") ?: 0}")
-                appendLine("Subs      total ${subs?.opt("total") ?: 0}")
+                appendLine("Subs      total ${subs?.opt("total") ?: 0}  ·  paid active ${subs?.opt("paid_active") ?: 0}  ·  demo ${subs?.opt("demo_count") ?: 0}")
+                if (byPlan != null) {
+                    appendLine("— By plan —")
+                    val keys = byPlan.keys()
+                    while (keys.hasNext()) {
+                        val k = keys.next()
+                        appendLine("  · $k  ${byPlan.opt(k)}")
+                    }
+                }
                 if (by != null) {
+                    appendLine("— By status —")
                     val keys = by.keys()
                     while (keys.hasNext()) {
                         val k = keys.next()
                         appendLine("  · $k  ${by.opt(k)}")
                     }
                 }
+                val paid = subs?.optJSONArray("paid_accounts")
+                if (paid != null && paid.length() > 0) {
+                    appendLine("— Paid accounts —")
+                    for (i in 0 until minOf(paid.length(), 25)) {
+                        val a = paid.optJSONObject(i) ?: continue
+                        appendLine("  ${a.optString("account_id")}  ${a.optString("plan")}  ${a.optString("status")}")
+                    }
+                }
                 appendLine("Workers   ${jo.opt("active_workers_this_instance")}/${jo.opt("max_concurrent_workers")}")
             }.trim()
         } catch (_: Exception) {
-            body.take(600)
+            body.take(800)
         }
     }
 

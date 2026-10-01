@@ -45,10 +45,13 @@ pytest tests/test_hybrid_ratchet.py -v
 
 After arming, CAP grows via 30% retain until it hits a **lean ceiling** derived from the account risk label:
 
-| Risk label | LEAN_CAP_CEILING |
-|------------|------------------|
-| 0.5% | $83,286 |
-| 1.0% | $783,300 |
+| Risk label | Reference ceiling @ $1,000 start | Multiple of start equity |
+|------------|----------------------------------|--------------------------|
+| 0.5% | $83,286 | ×83.286 |
+| 1.0% | $783,300 | ×783.3 |
+
+**Per-account ceiling** = `start_equity × multiple(risk)`.  
+Example: $500 @ 0.5% → $41,643 · $2,000 @ 1.0% → $1,566,600.
 
 When tentative CAP would exceed the ceiling:
 

@@ -46,9 +46,27 @@ async def get_summary(request: Request, auth: AuthContext = Depends(verify_api_k
     subscriptions = await subscription_service.list_all()
 
     status_counts: dict[str, int] = {}
+    plan_counts: dict[str, int] = {}
+    paid_plans = {"starter", "pro", "business", "enterprise", "live"}
+    paid_accounts: list[dict] = []
+    demo_accounts: list[dict] = []
     for s in subscriptions:
-        status_counts[s["status"]] = status_counts.get(s["status"], 0) + 1
+        st = str(s.get("status") or "unknown").lower()
+        plan = str(s.get("plan") or "unknown").lower()
+        status_counts[st] = status_counts.get(st, 0) + 1
+        plan_counts[plan] = plan_counts.get(plan, 0) + 1
+        row = {
+            "account_id": s.get("account_id"),
+            "plan": plan,
+            "status": st,
+            "expires_at": s.get("expires_at") or s.get("current_period_end"),
+        }
+        if plan in paid_plans and st in ("active", "trialing", "grace", "past_due"):
+            paid_accounts.append(row)
+        elif plan == "demo" or str(s.get("account_id") or "").startswith("DEMO-"):
+            demo_accounts.append(row)
 
+    paid_active = len(paid_accounts)
     return {
         "devices": {
             "total": len(devices),
@@ -58,6 +76,11 @@ async def get_summary(request: Request, auth: AuthContext = Depends(verify_api_k
         "subscriptions": {
             "total": len(subscriptions),
             "by_status": status_counts,
+            "by_plan": plan_counts,
+            "paid_active": paid_active,
+            "demo_count": len(demo_accounts),
+            "paid_accounts": paid_accounts[:100],
+            "demo_accounts": demo_accounts[:50],
         },
         "active_workers_this_instance": worker_pool.active_worker_count(),
         "max_concurrent_workers": settings.MAX_CONCURRENT_WORKERS,
