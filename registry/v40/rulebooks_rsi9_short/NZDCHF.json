@@ -1,0 +1,55 @@
+{
+  "rulebook_id": "AEGIS-RB-TRANSFER-RSI9-SHORT-M5-NZDCHF-20261001",
+  "source_rulebook": "AEGIS-RB-DISC-USDCHF-RSI9-SHORT-M5-20260929",
+  "instrument": "NZDCHF",
+  "timeframe": "M5",
+  "direction": "SHORT_ONLY",
+  "status": "RESEARCH_QUALIFIED_NOT_PRODUCTION",
+  "production_authorized": false,
+  "historical_research_only": true,
+  "fail_closed": true,
+  "entry": {
+    "logic": "SHORT when RSI(9)>70 on bar i",
+    "entry_timing": "next_bar_ask_open"
+  },
+  "exit": {
+    "initial_stop": "entry+1.0*ATR(14)",
+    "break_even": "+1R",
+    "trailing_stop": "0.5*ATR from bid_close after BE",
+    "max_hold_bars": 72,
+    "exit_side": "bid"
+  },
+  "validation_metrics": {
+    "n": 2149,
+    "pf": 10.818,
+    "wr": 0.768,
+    "net_R": 3583.67,
+    "six_block_min_pf": 6.95
+  },
+  "test_metrics": {
+    "n": 2060,
+    "pf": 15.46,
+    "wr": 0.809,
+    "net_R": 3933.06,
+    "six_block_min_pf": 9.964
+  },
+  "train_metrics": {
+    "n": 6284,
+    "pf": 6.917,
+    "wr": 0.73,
+    "net_R": 7591.99
+  },
+  "all_metrics": {
+    "n": 10493,
+    "pf": 8.869,
+    "wr": 0.753,
+    "net_R": 15108.72
+  },
+  "gates": {
+    "val_trades": 350,
+    "val_pf": 1.6,
+    "six_block_min_pf": 1.0
+  },
+  "qualified_strict": true,
+  "qualified_with_test": true
+}

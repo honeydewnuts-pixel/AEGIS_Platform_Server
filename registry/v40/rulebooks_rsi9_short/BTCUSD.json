@@ -1,0 +1,53 @@
+{
+  "rulebook_id": "AEGIS-RB-TRANSFER-RSI9-SHORT-M5-BTCUSD-20261001",
+  "source_rulebook": "AEGIS-RB-DISC-USDCHF-RSI9-SHORT-M5-20260929",
+  "instrument": "BTCUSD",
+  "asset_class": "CRYPTO",
+  "timeframe": "M5",
+  "direction": "SHORT_ONLY",
+  "status": "RESEARCH_QUALIFIED_NOT_PRODUCTION",
+  "production_authorized": false,
+  "historical_research_only": true,
+  "fail_closed": true,
+  "data_note": "OHLC-only; synth spread 0.05*ATR",
+  "validation_metrics": {
+    "n": 3287,
+    "pf": 1.618,
+    "wr": 0.524,
+    "net_R": 862.41,
+    "six_block_min_pf": 1.502
+  },
+  "test_metrics": {
+    "n": 2857,
+    "pf": 1.585,
+    "wr": 0.538,
+    "net_R": 666.53,
+    "six_block_min_pf": 1.311
+  },
+  "train_metrics": {
+    "n": 9353,
+    "pf": 1.633,
+    "wr": 0.515,
+    "net_R": 2619.2
+  },
+  "all_metrics": {
+    "n": 15497,
+    "pf": 1.622,
+    "wr": 0.521,
+    "net_R": 4148.13
+  },
+  "qualified_strict": true,
+  "qualified_with_test": true,
+  "cash_1k_0.5": {
+    "tv": 2766754651.7,
+    "eq": 887778.25,
+    "elig": 2765866873.45,
+    "cap": 83286.0
+  },
+  "cash_1k_1.0": {
+    "tv": 2874061609.76,
+    "eq": 1922114.61,
+    "elig": 2872139495.14,
+    "cap": 783300.0
+  }
+}

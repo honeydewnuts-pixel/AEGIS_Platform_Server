@@ -1,0 +1,55 @@
+{
+  "rulebook_id": "AEGIS-RB-TRANSFER-RSI9-SHORT-M5-EURCHF-20261001",
+  "source_rulebook": "AEGIS-RB-DISC-USDCHF-RSI9-SHORT-M5-20260929",
+  "instrument": "EURCHF",
+  "timeframe": "M5",
+  "direction": "SHORT_ONLY",
+  "status": "RESEARCH_QUALIFIED_NOT_PRODUCTION",
+  "production_authorized": false,
+  "historical_research_only": true,
+  "fail_closed": true,
+  "entry": {
+    "logic": "SHORT when RSI(9)>70 on bar i",
+    "entry_timing": "next_bar_ask_open"
+  },
+  "exit": {
+    "initial_stop": "entry+1.0*ATR(14)",
+    "break_even": "+1R",
+    "trailing_stop": "0.5*ATR from bid_close after BE",
+    "max_hold_bars": 72,
+    "exit_side": "bid"
+  },
+  "validation_metrics": {
+    "n": 2117,
+    "pf": 4.101,
+    "wr": 0.665,
+    "net_R": 1782.87,
+    "six_block_min_pf": 3.377
+  },
+  "test_metrics": {
+    "n": 2208,
+    "pf": 5.004,
+    "wr": 0.683,
+    "net_R": 2174.15,
+    "six_block_min_pf": 4.113
+  },
+  "train_metrics": {
+    "n": 6106,
+    "pf": 4.295,
+    "wr": 0.665,
+    "net_R": 5535.05
+  },
+  "all_metrics": {
+    "n": 10431,
+    "pf": 4.392,
+    "wr": 0.669,
+    "net_R": 9492.07
+  },
+  "gates": {
+    "val_trades": 350,
+    "val_pf": 1.6,
+    "six_block_min_pf": 1.0
+  },
+  "qualified_strict": true,
+  "qualified_with_test": true
+}

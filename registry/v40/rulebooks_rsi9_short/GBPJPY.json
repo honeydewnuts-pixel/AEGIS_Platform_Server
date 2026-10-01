@@ -1,0 +1,55 @@
+{
+  "rulebook_id": "AEGIS-RB-TRANSFER-RSI9-SHORT-M5-GBPJPY-20261001",
+  "source_rulebook": "AEGIS-RB-DISC-USDCHF-RSI9-SHORT-M5-20260929",
+  "instrument": "GBPJPY",
+  "timeframe": "M5",
+  "direction": "SHORT_ONLY",
+  "status": "RESEARCH_QUALIFIED_NOT_PRODUCTION",
+  "production_authorized": false,
+  "historical_research_only": true,
+  "fail_closed": true,
+  "entry": {
+    "logic": "SHORT when RSI(9)>70 on bar i",
+    "entry_timing": "next_bar_ask_open"
+  },
+  "exit": {
+    "initial_stop": "entry+1.0*ATR(14)",
+    "break_even": "+1R",
+    "trailing_stop": "0.5*ATR from bid_close after BE",
+    "max_hold_bars": 72,
+    "exit_side": "bid"
+  },
+  "validation_metrics": {
+    "n": 2340,
+    "pf": 2.061,
+    "wr": 0.55,
+    "net_R": 968.83,
+    "six_block_min_pf": 1.856
+  },
+  "test_metrics": {
+    "n": 2324,
+    "pf": 2.287,
+    "wr": 0.559,
+    "net_R": 1102.77,
+    "six_block_min_pf": 1.854
+  },
+  "train_metrics": {
+    "n": 7042,
+    "pf": 2.206,
+    "wr": 0.585,
+    "net_R": 3084.19
+  },
+  "all_metrics": {
+    "n": 11706,
+    "pf": 2.192,
+    "wr": 0.573,
+    "net_R": 5155.79
+  },
+  "gates": {
+    "val_trades": 350,
+    "val_pf": 1.6,
+    "six_block_min_pf": 1.0
+  },
+  "qualified_strict": true,
+  "qualified_with_test": true
+}

@@ -1,0 +1,14 @@
+# RSI9 SHORT Transfer Registry Update — 2026-10-01
+
+Source: `AEGIS-RB-DISC-USDCHF-RSI9-SHORT-M5-20260929`
+
+## Qualified GOOD (RESEARCH_ELIGIBLE, production_authorized=false)
+
+**Forex:** AUDUSD, EURCHF, EURGBP, EURJPY, EURUSD, GBPJPY, GBPNZD, GBPUSD, NZDCHF, NZDJPY, USDCAD, USDCHF
+
+**Crypto:** BTCUSD, ETHUSD
+
+## Rejected
+USDJPY; GER40, UK100, US100, US500; UKOIL, USOIL; XAGUSD, XAUUSD
+
+JSON packs: `registry/v40/rulebooks_rsi9_short/`
