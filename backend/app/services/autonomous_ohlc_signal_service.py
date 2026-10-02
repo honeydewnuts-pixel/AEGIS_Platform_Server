@@ -60,30 +60,66 @@ class AutonomousOhlcSignalService:
         *,
         methodology: str | None = None,
     ) -> tuple[bool, str]:
-        """Return (allow_publish, reason). Baseline = SHORT-only, no flip."""
+        """
+        Return (allow_publish, reason).
+
+        Direction policy by methodology (strategies stay separate):
+          - v31 / v53.6 / empty → SHORT-only (SELL), no flip
+          - rsi9_transfer → SHORT-only (SELL), binary fire
+          - native_discovery → BUY or SELL per rulebook, no auto-flip
+          - other experimental → confidence threshold + no auto-flip
+        """
         side_u = (side or "").upper()
         meth = (methodology or "").lower()
-        # Cash-test baseline: SHORT only (SELL). Reject BUY.
+        conf = float(confidence or 0.0)
+
+        # --- V31 / V53.6 baseline: SHORT only ---
         if meth in ("v31_short_baseline", "v53_6", "") or "v31" in meth or "v53" in meth:
             if side_u == "BUY":
                 return False, "baseline_short_only_buy_rejected"
             if side_u != "SELL":
                 return False, "not_actionable"
-            # Binary rule fire (conf=1.0) or any positive conf for V31
-            if float(confidence or 0.0) <= 0:
+            if conf <= 0:
                 return False, "no_rule_fire"
             current = self.get_side(account_id, symbol)
             if current == "SELL":
                 return False, "same_direction_open:SELL"
             if current == "BUY":
-                # Do not auto-flip; baseline has no opposite-entry reversal
                 return False, "baseline_no_flip_while_long"
             return True, "open_short_v31"
-        # Experimental paths only
+
+        # --- RSI9 transfer: SHORT only (research design) ---
+        if meth in ("rsi9_transfer", "rsi9_short") or "rsi9" in meth:
+            if side_u == "BUY":
+                return False, "rsi9_short_only_buy_rejected"
+            if side_u != "SELL":
+                return False, "not_actionable"
+            if conf <= 0:
+                return False, "no_rule_fire"
+            current = self.get_side(account_id, symbol)
+            if current == "SELL":
+                return False, "same_direction_open:SELL"
+            if current == "BUY":
+                return False, "rsi9_no_flip_while_long"
+            return True, "open_short_rsi9"
+
+        # --- Native discovery: LONG or SHORT per pair rulebook ---
+        if meth in ("native_discovery", "native") or meth.startswith("native_"):
+            if side_u not in ("BUY", "SELL"):
+                return False, "not_actionable"
+            if conf <= 0:
+                return False, "no_rule_fire"
+            current = self.get_side(account_id, symbol)
+            if current == side_u:
+                return False, f"same_direction_open:{current}"
+            if current is not None and current != side_u:
+                return False, "native_no_auto_flip"
+            return True, f"open_native_{side_u.lower()}"
+
+        # --- Other experimental paths ---
         if side_u not in ("BUY", "SELL"):
             return False, "not_actionable"
         thr = self.min_confidence()
-        conf = float(confidence or 0.0)
         if conf < thr:
             return False, f"confidence_below_threshold:{conf:.2f}<{thr:.2f}"
         current = self.get_side(account_id, symbol)

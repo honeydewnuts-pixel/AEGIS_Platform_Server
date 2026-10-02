@@ -181,6 +181,9 @@ class NotificationService:
         rule_name: str,
         details: str,
         pair: str | None = None,
+        *,
+        executor_published: bool | None = None,
+        analysis_only: bool = False,
     ) -> dict[str, Any] | None:
         sig = (signal or "HOLD").upper()
         # Always inbox for BUY/SELL; HOLD only if confidence high enough to be interesting
@@ -190,12 +193,21 @@ class NotificationService:
         if sig in ("BUY", "SELL"):
             severity = "high"
         title = f"{sig} {pair or ''}".strip()
+        # Distinguish analysis-only (mobile select / screenshot) from executor-bound signals
+        if analysis_only or executor_published is False:
+            title = f"[Analysis only] {title}"
+            severity = "info"
         message = f"{sig} · confidence={confidence:.0%} · rule={rule_name}"
+        if analysis_only or executor_published is False:
+            message = (
+                f"{message}\nNot sent to MT5 Executor — analysis path only. "
+                "Live orders come from OHLC closed-bar autonomous path."
+            )
         if details:
             message = f"{message}\n{details[:500]}"
         return await self.create(
             account_id=account_id,
-            type="SIGNAL_GENERATED",
+            type="SIGNAL_GENERATED" if not (analysis_only or executor_published is False) else "SIGNAL_ANALYSIS_ONLY",
             title=title,
             message=message,
             severity=severity,

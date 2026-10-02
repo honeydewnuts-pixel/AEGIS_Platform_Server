@@ -61,9 +61,15 @@ async def get_summary(request: Request, auth: AuthContext = Depends(verify_api_k
             "status": st,
             "expires_at": s.get("expires_at") or s.get("current_period_end"),
         }
+        aid = str(s.get("account_id") or "")
         if plan in paid_plans and st in ("active", "trialing", "grace", "past_due"):
             paid_accounts.append(row)
-        elif plan == "demo" or str(s.get("account_id") or "").startswith("DEMO-"):
+        elif (
+            plan == "demo"
+            or aid.startswith("DEMO-")
+            or aid.startswith("ACC-")  # mobile demo / research accounts
+            or (plan in ("unknown", "") and st in ("active", "trialing"))
+        ):
             demo_accounts.append(row)
 
     paid_active = len(paid_accounts)

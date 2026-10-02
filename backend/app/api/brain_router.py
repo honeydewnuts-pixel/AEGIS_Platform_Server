@@ -377,7 +377,8 @@ async def analyze_screenshot(
     await signal_history.record(
         account_id, result["signal"], result["confidence"], result["rule_name"], result["details"]
     )
-    # Additive subscriber inbox (does not affect analysis / executor publish)
+    # Additive subscriber inbox — analysis path is NOT executor-bound.
+    # Label clearly so mobile users do not confuse analysis SELL with a live order.
     try:
         notif = getattr(request.app.state, "notifications", None)
         if notif is not None:
@@ -388,6 +389,8 @@ async def analyze_screenshot(
                 str(result.get("rule_name") or ""),
                 str(result.get("details") or ""),
                 pair=(symbol or None),
+                executor_published=False,
+                analysis_only=True,
             )
     except Exception:
         pass

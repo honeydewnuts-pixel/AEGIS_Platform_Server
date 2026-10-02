@@ -148,9 +148,15 @@ class UniversalAnalysisService:
         """
         OHLC evaluation for ROUTABLE_RESEARCH instruments.
 
-        Baseline (cash-test methodology): V31 SHORT entry logic used by V53.6
-        transfer rulebooks and GBPUSD V31 source lineage.
-        Does NOT use demo_ohlc_structure slope BUY/SELL substitute.
+        Strategy priority (separate paths — do not mix signals):
+          1. RSI9 SHORT transfer (pair rulebook in rulebooks_rsi9_short/)
+          2. Native discovery (pair rulebook in rulebooks_native/)
+          3. V31 / V53.6 SHORT baseline (cash-test methodology)
+          4. V2-OPT experimental (flag-gated)
+
+        Each path sets methodology + strategy_id so the autonomous gate and
+        executor can apply direction policy independently. V53.6 remains
+        short-only and is never overridden by RSI9/native config.
         """
         if not isinstance(market_snapshot, dict):
             return None
@@ -170,7 +176,7 @@ class UniversalAnalysisService:
 
         if not isinstance(bars, list) or len(bars) < 5:
             if close_f is not None:
-                detail_bits.append(f"Last close={close_f}. Need bars for V31 evaluation.")
+                detail_bits.append(f"Last close={close_f}. Need bars for evaluation.")
             return {
                 "signal": "HOLD",
                 "confidence": 0.0,
@@ -178,25 +184,68 @@ class UniversalAnalysisService:
                 "details": " ".join(detail_bits),
                 "market_ohlc_close": close_f,
                 "production_authorized": False,
-                "methodology": "v31_short_baseline",
+                "methodology": "awaiting_ohlc",
             }
 
-        # --- Baseline: V53.6 / V31 SHORT (historical cash-test methodology) ---
+        inst_u = (instrument or "").upper().split(".")[0]
+
+        # --- 1. RSI9 SHORT transfer (separate strategy) ---
+        try:
+            from app.rulebooks.evaluators.rsi9_short_transfer import (
+                evaluate_rsi9_short_from_bars,
+                load_rsi9_rulebook,
+            )
+            rsi9_rb = load_rsi9_rulebook(inst_u)
+            if rsi9_rb is not None:
+                out = evaluate_rsi9_short_from_bars(
+                    bars, instrument=inst_u, rulebook=rsi9_rb
+                )
+                out["market_ohlc_close"] = close_f
+                out["rulebook_ids"] = list(ids) or [out.get("rulebook_id")]
+                out["production_authorized"] = False
+                out["methodology"] = "rsi9_transfer"
+                out["strategy_id"] = "rsi9_transfer"
+                # RSI9 transfer is SHORT-only by research design
+                if str(out.get("signal")).upper() == "BUY":
+                    out["signal"] = "HOLD"
+                    out["details"] = (out.get("details") or "") + " BUY suppressed: RSI9 transfer is SHORT-only."
+                return out
+        except Exception as e:
+            detail_bits.append(f"RSI9 evaluator error: {e}")
+
+        # --- 2. Native discovery (pair-specific LONG/SHORT) ---
+        try:
+            from app.rulebooks.evaluators.native_discovery import (
+                evaluate_native_from_bars,
+                load_native_rulebook,
+            )
+            native_rb = load_native_rulebook(inst_u)
+            if native_rb is not None:
+                out = evaluate_native_from_bars(
+                    bars, instrument=inst_u, rulebook=native_rb
+                )
+                out["market_ohlc_close"] = close_f
+                out["rulebook_ids"] = list(ids) or [out.get("rulebook_id")]
+                out["production_authorized"] = False
+                out["methodology"] = "native_discovery"
+                out["strategy_id"] = "native_discovery"
+                return out
+        except Exception as e:
+            detail_bits.append(f"Native discovery evaluator error: {e}")
+
+        # --- 3. Baseline: V53.6 / V31 SHORT (historical cash-test methodology) ---
         v31_ids = [
             rid for rid in ids
             if "V53.6" in rid or "V53_6" in rid or rid.startswith("AEGIS-RB-V31-")
         ]
-        # Prefer explicit V53.6 id, else V31 source, else synthesize from instrument
         if not v31_ids:
-            # Router eligible list may use V39 ids; still apply V31 short if
-            # registry has V53.6 artifact for this instrument
             from pathlib import Path as _P
-            rb_dir = _P(__file__).resolve().parents[3] / "registry" / "v53_6" / instrument.upper()
+            rb_dir = _P(__file__).resolve().parents[3] / "registry" / "v53_6" / inst_u
             if (rb_dir / "rulebook.json").exists():
                 import json as _json
                 meta = _json.loads((rb_dir / "rulebook.json").read_text())
-                v31_ids = [str(meta.get("rulebook_id") or f"AEGIS-RB-V53.6-V31-{instrument.upper()}-5M")]
-            elif instrument.upper() == "GBPUSD":
+                v31_ids = [str(meta.get("rulebook_id") or f"AEGIS-RB-V53.6-V31-{inst_u}-5M")]
+            elif inst_u == "GBPUSD":
                 v31_ids = ["AEGIS-RB-V31-GBPUSD-5M"]
 
         if v31_ids:
@@ -206,13 +255,15 @@ class UniversalAnalysisService:
             out["market_ohlc_close"] = close_f
             out["rulebook_ids"] = list(ids) or [rid]
             out["production_authorized"] = False
+            out["methodology"] = out.get("methodology") or "v31_short_baseline"
+            out["strategy_id"] = "v53_6_short"
             # SHORT only — never promote to BUY
             if str(out.get("signal")).upper() == "BUY":
                 out["signal"] = "HOLD"
                 out["details"] = (out.get("details") or "") + " BUY suppressed: baseline is SHORT-only."
             return out
 
-        # --- Explicit experimental only: V2-OPT sequential (not baseline) ---
+        # --- 4. Explicit experimental only: V2-OPT sequential (not baseline) ---
         try:
             from pathlib import Path as _P
             import json as _json
@@ -240,6 +291,7 @@ class UniversalAnalysisService:
                         out["market_ohlc_close"] = close_f
                         out["rulebook_ids"] = list(ids)
                         out["methodology"] = "v2opt_experimental"
+                        out["strategy_id"] = "v2opt"
                         out["production_authorized"] = False
                         return out
         except Exception as e:
@@ -250,11 +302,11 @@ class UniversalAnalysisService:
             "confidence": 0.0,
             "rule_name": "v40_research_ohlc_hold",
             "details": " ".join(detail_bits + [
-                "No baseline V31/V53.6 rulebook resolved; demo_ohlc_structure is disabled."
+                "No RSI9, native, or V31/V53.6 rulebook resolved; demo_ohlc_structure is disabled."
             ]),
             "market_ohlc_close": close_f,
             "production_authorized": False,
-            "methodology": "v31_short_baseline",
+            "methodology": "no_rulebook",
             "rulebook_ids": list(ids),
         }
 
