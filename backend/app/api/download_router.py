@@ -118,3 +118,77 @@ async def issue_token(
         "download_url": f"{base}/api/download/apk?token={token}",
         "note": "Single-use by default. Share only with the subscriber.",
     }
+
+
+def _release_root() -> Path:
+    roots = [
+        Path(__file__).resolve().parents[3],
+        Path(__file__).resolve().parents[2],
+        Path("."),
+    ]
+    for root in roots:
+        if (root / "release").is_dir():
+            return root
+    return roots[0]
+
+
+@router.get("/desktop/{artifact}")
+async def download_desktop(
+    artifact: str,
+    request: Request,
+    auth: AuthContext = Depends(verify_api_key),
+):
+    """Serve MT5 EA sources (Executor / OHLC Feed) for authenticated clients.
+
+    artifact: executor | ohlc-feed | ohlc-feed-v2
+    """
+    mapping = {
+        "executor": ("release/desktop/AEGIS_Executor.mq5", "AEGIS_Executor.mq5", "text/plain"),
+        "ohlc-feed": ("release/desktop/AEGIS_OHLC_Feed.mq5", "AEGIS_OHLC_Feed.mq5", "text/plain"),
+        "ohlc-feed-v2": ("release/desktop/AEGIS_OHLC_Feed_V2.00.mq5", "AEGIS_OHLC_Feed_V2.00.mq5", "text/plain"),
+        "release-notes": ("release/RELEASE_NOTES_STAGE25.md", "RELEASE_NOTES_STAGE25.md", "text/markdown"),
+    }
+    key = artifact.strip().lower()
+    if key not in mapping:
+        raise HTTPException(status_code=404, detail="Unknown desktop artifact. Use executor|ohlc-feed|ohlc-feed-v2")
+    rel, filename, media = mapping[key]
+    root = _release_root()
+    path = root / rel
+    if not path.is_file():
+        path = Path(rel)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail=f"Artifact not found: {rel}")
+    return FileResponse(path=str(path), media_type=media, filename=filename)
+
+
+@router.get("/bundle-info")
+async def bundle_info(auth: AuthContext = Depends(verify_api_key)):
+    """List current downloadable release artifacts and versions."""
+    root = _release_root()
+    items = []
+    for label, rel in [
+        ("executor", "release/desktop/AEGIS_Executor.mq5"),
+        ("ohlc-feed", "release/desktop/AEGIS_OHLC_Feed.mq5"),
+        ("apk", "release/aegis-mobile.apk"),
+    ]:
+        path = root / rel
+        if not path.is_file():
+            path = Path(rel)
+        items.append({
+            "id": label,
+            "path": rel,
+            "present": path.is_file(),
+            "size_bytes": path.stat().st_size if path.is_file() else 0,
+        })
+    return {
+        "stage": "2.5",
+        "executor_version": "2.20",
+        "ohlc_feed_version": "2.05",
+        "artifacts": items,
+        "download_paths": {
+            "executor": "/api/download/desktop/executor",
+            "ohlc_feed": "/api/download/desktop/ohlc-feed",
+            "apk": "/api/download/apk?token=...",
+        },
+    }
+

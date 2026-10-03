@@ -1,27 +1,15 @@
-# AEGIS_OHLC_Feed.mq5 v2.05
+# AEGIS_OHLC_Feed.mq5 — v2.05
 
-# AEGIS_OHLC_Feed.mq5 v2.02
+Posts closed M5 bars (+ equity / free margin / instrument specs) to `POST /api/mt5/ohlc/stream`.
 
-See `SYMBOL_RESOLUTION_CONTRACT.md` — resolver must match Executor.
+## Required for multi-pair autonomous
 
-## First demo inputs
+- `InpMode = FEED_MODE_MULTI_SYMBOL`
+- `InpSymbolsList` = your pairs, e.g.  
+  `AUDUSD,EURCHF,EURGBP,EURJPY,EURUSD,GBPJPY,GBPNZD,GBPUSD,NZDCHF,NZDJPY,USDCAD,USDCHF`
 
-```
-InpMode = MultiSymbol
-InpSymbolsList = GBPUSD,EURUSD,USDJPY
-InpForceTF = PERIOD_M5
-InpTimerSec = 30
-```
+## Compile
 
-Empty `InpSymbolsList` → chart symbol only (never entire Market Watch).
+MetaEditor → compile → `MQL5/Experts/`. Allow WebRequest to API host.
 
-
-## v2.04
-Posts  and  (SymbolInfo contract data).
-Inputs: , .
-
-
-## v2.05
-- Posts `available_margin_usd` from `AccountInfoDouble(ACCOUNT_MARGIN_FREE)` with equity (never substitutes equity).
-- Posts true `margin_per_lot` via `OrderCalcMargin(..., 1.0 lot)` (not min-lot margin).
-- Server uses these values for fail-closed position sizing.
+`AccountId` must match Executor and the API key account.

@@ -3,42 +3,39 @@ package com.aegis.mobile.data
 /**
  * AEGIS instrument catalog for Settings dropdown.
  *
- * GOOD / research-eligible: non-V2OPT rulebooks (V31/V35/V53.6).
- * NOT GOOD (shown but labeled): V2-OPT-only pairs — insufficient gates
- * (not val_n>300 / PF>1.6 / 6-block); demo/live path disabled on server.
+ * GOOD: Stage 2 research-qualified (RSI9 SHORT transfer and/or Native LONG transfer).
+ * NOT GOOD: not transfer-qualified for autonomous research path (shown for visibility).
+ *
+ * Server remains source of truth for router_status / tradeable flags.
  */
 object AegisInstruments {
-    /** Research-eligible / "Good" pairs (V2-OPT removed). */
+    /** Research-eligible pairs (RSI9 SHORT + Native LONG transfer set). */
     val GOOD: List<String> = listOf(
-        "GBPUSD",
         "AUDUSD",
-        "USDCHF",
-        "NZDUSD",
         "EURCHF",
         "EURGBP",
+        "EURJPY",
+        "EURUSD",
         "GBPJPY",
         "GBPNZD",
+        "GBPUSD",
         "NZDCHF",
         "NZDJPY",
         "USDCAD",
+        "USDCHF",
     )
 
-    /**
-     * V2-OPT-only — server router_status=TRADING_DISABLED.
-     * Kept in list for visibility; not selectable as a "Good" trade pair.
-     */
     val NOT_GOOD: List<String> = listOf(
-        "EURUSD",
+        "NZDUSD",
         "USDJPY",
-        "EURJPY",
         "GBPAUD",
+        "BTCUSD",
+        "ETHUSD",
     )
 
-    /** Display labels for spinner (Good first, then blocked). */
     val ALL_LABELS: List<String> = GOOD.map { "$it  · Good" } +
-        NOT_GOOD.map { "$it  · Not Good (V2-OPT only)" }
+        NOT_GOOD.map { "$it  · Not Good (research)" }
 
-    /** Maps spinner index → symbol. */
     val ALL: List<String> = GOOD + NOT_GOOD
 
     fun isGood(symbol: String?): Boolean {

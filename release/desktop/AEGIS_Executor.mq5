@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| AEGIS_Executor.mq5  v2.19  Position manager (BE/trail/72-bar M5)
+//| AEGIS_Executor.mq5  v2.20  Position manager (BE/trail/72-bar M5)
 //| Partial COMPLETE_REMAINDER = exactly ONE residual OrderSend (not recursive).  PRODUCTION HARDENED                   |
 //| - ResolveBrokerSymbol (suffixes + MW scan)                       |
 //| - MarkHandled only after success / permanent fail                |
@@ -9,9 +9,9 @@
 //| - Fill modes from SYMBOL_TRADE_EXECUTION + SYMBOL_FILLING_MODE   |
 //+------------------------------------------------------------------+
 #property copyright "LeverageFx / Honeydewnuts"
-#property version   "2.19"
+#property version   "2.20"
 #property strict
-#property description "AEGIS multi-pair executor v2.19 PM BE/trail/TIME"
+#property description "AEGIS multi-pair executor v2.20 dual PM BE/trail/TIME Native LONG"
 
 enum ENUM_AEGIS_MODE
   {
