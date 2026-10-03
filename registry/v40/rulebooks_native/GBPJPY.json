@@ -49,5 +49,8 @@
     "val_pf": 1.6,
     "six_block_min_pf": 1.0
   },
-  "qualified_with_test": true
+  "qualified_with_test": true,
+  "integrity": {
+    "execution_audit": "PRESERVED \u2014 not auto-invalidated by USDCHF SHORT defect. Research path used ent_long=bid_open in discovery scripts (optimistic vs ASK). Requires independent broker-correct LONG verification before production. production_authorized remains false."
+  }
 }

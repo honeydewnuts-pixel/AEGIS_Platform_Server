@@ -49,5 +49,8 @@
     "eq": 2033740.89,
     "elig": 3229240841.49,
     "cap": 783300.0
+  },
+  "integrity": {
+    "execution_audit": "PENDING \u2014 same entry_timing next_bar_ask_open as USDCHF; classification C (requires corrected-execution rerun) pending formal re-eval"
   }
 }

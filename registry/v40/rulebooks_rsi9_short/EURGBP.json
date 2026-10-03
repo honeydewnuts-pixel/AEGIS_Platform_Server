@@ -51,5 +51,8 @@
     "six_block_min_pf": 1.0
   },
   "qualified_strict": true,
-  "qualified_with_test": true
+  "qualified_with_test": true,
+  "integrity": {
+    "execution_audit": "PENDING \u2014 same entry_timing next_bar_ask_open as USDCHF; classification C (requires corrected-execution rerun) pending formal re-eval"
+  }
 }
