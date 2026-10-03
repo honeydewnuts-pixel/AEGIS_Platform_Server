@@ -235,15 +235,33 @@ class UniversalAnalysisService:
         def _actionable(o):
             return o is not None and str(o.get("signal") or "").upper() in ("BUY", "SELL")
 
+        def _lift_exit_meta(o: dict) -> dict:
+            """Surface exit_params onto top-level fields used by Executor publish."""
+            if not isinstance(o, dict):
+                return o
+            ep = o.get("exit_params") if isinstance(o.get("exit_params"), dict) else {}
+            if "initial_stop_atr_mult" not in o and ep.get("stop_atr") is not None:
+                o["initial_stop_atr_mult"] = float(ep["stop_atr"])
+            if "trail_atr_mult" not in o and ep.get("trail_atr") is not None:
+                o["trail_atr_mult"] = float(ep["trail_atr"])
+            if "max_hold_bars" not in o and ep.get("max_hold_bars") is not None:
+                o["max_hold_bars"] = int(ep["max_hold_bars"])
+            ind = o.get("indicators") if isinstance(o.get("indicators"), dict) else {}
+            if o.get("atr14") is None and ind.get("atr14") is not None:
+                o["atr14"] = ind.get("atr14")
+            o.setdefault("take_profit", None)
+            return o
+
         # Prefer RSI9 SELL when it fires; else native BUY/SELL; else HOLD from either path
+        # (existing checkpoint policy — do not invent a new conflict rule)
         if _actionable(rsi9_out):
-            return rsi9_out
+            return _lift_exit_meta(rsi9_out)
         if _actionable(native_out):
-            return native_out
+            return _lift_exit_meta(native_out)
         if rsi9_out is not None:
-            return rsi9_out
+            return _lift_exit_meta(rsi9_out)
         if native_out is not None:
-            return native_out
+            return _lift_exit_meta(native_out)
 
         # --- 3. Baseline: V53.6 / V31 SHORT (historical cash-test methodology) ---
         v31_ids = [
