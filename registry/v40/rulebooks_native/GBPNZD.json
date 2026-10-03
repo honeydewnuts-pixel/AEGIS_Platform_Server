@@ -1,7 +1,7 @@
 {
-  "rulebook_id": "AEGIS-RB-NATIVE-TRANSFER-USDJPY-LONG_EMA_PULLBACK-M5-20261003",
+  "rulebook_id": "AEGIS-RB-NATIVE-TRANSFER-GBPNZD-LONG_EMA_PULLBACK-M5-20261003",
   "version": "1.0.0-research",
-  "instrument": "USDJPY",
+  "instrument": "GBPNZD",
   "asset_class": "FOREX",
   "timeframe": "M5",
   "direction": "LONG_ONLY",
@@ -11,6 +11,7 @@
   "fail_closed": true,
   "discovery_date": "2026-10-03",
   "source_transfer": "AEGIS-RB-NATIVE-USDJPY-LONG_EMA_PULLBACK-M5-20261001",
+  "transfer_type": "native_long_ema_pullback_frozen_params",
   "entry": {
     "name": "long_ema_pullback",
     "family": "trend",
@@ -23,24 +24,24 @@
     "max_hold_bars": 72
   },
   "validation_metrics": {
-    "n": 2151,
-    "pf": 1.696,
-    "wr": 0.521,
-    "net_R": 644.72,
-    "six_block_min_pf": 1.49
+    "n": 2352,
+    "pf": 7.889,
+    "wr": 0.774,
+    "net_R": 2734.88,
+    "six_block_min_pf": 5.852
   },
   "test_metrics": {
-    "n": 2451,
-    "pf": 2.075,
-    "wr": 0.561,
-    "net_R": 1039.08,
-    "six_block_min_pf": 1.588
+    "n": 2375,
+    "pf": 8.711,
+    "wr": 0.783,
+    "net_R": 2991.78,
+    "six_block_min_pf": 5.135
   },
   "train_metrics": {
-    "n": 6909,
-    "pf": 1.869,
-    "wr": 0.55,
-    "net_R": 2406.16
+    "n": 7270,
+    "pf": 5.968,
+    "wr": 0.746,
+    "net_R": 7208.58
   },
   "data_mode": "bidask",
   "gates": {

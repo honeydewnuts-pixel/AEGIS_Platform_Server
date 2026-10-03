@@ -226,3 +226,15 @@ def test_empty_bars_hold():
     out = svc._evaluate_research_ohlc("EURUSD", "M5", [], {"close": 1.1, "bars": []})
     assert out["signal"] == "HOLD"
     assert out["confidence"] == 0.0
+
+
+def test_native_long_rulebooks_present():
+    from pathlib import Path
+    import json
+    root = Path(__file__).resolve().parents[1]
+    native = root / "registry" / "v40" / "rulebooks_native"
+    for sym in ["AUDUSD", "EURUSD", "GBPUSD", "USDCHF", "USDJPY"]:
+        p = native / f"{sym}.json"
+        assert p.exists(), f"missing {p}"
+        d = json.loads(p.read_text())
+        assert d.get("production_authorized") is False

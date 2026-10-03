@@ -189,7 +189,10 @@ class UniversalAnalysisService:
 
         inst_u = (instrument or "").upper().split(".")[0]
 
-        # --- 1. RSI9 SHORT transfer (separate strategy) ---
+        # --- 1+2. RSI9 SHORT + Native (independent; actionable wins; HOLD falls through) ---
+        # Both strategies may exist on the same pair. Do not let RSI9 HOLD block native LONG.
+        rsi9_out = None
+        native_out = None
         try:
             from app.rulebooks.evaluators.rsi9_short_transfer import (
                 evaluate_rsi9_short_from_bars,
@@ -197,23 +200,20 @@ class UniversalAnalysisService:
             )
             rsi9_rb = load_rsi9_rulebook(inst_u)
             if rsi9_rb is not None:
-                out = evaluate_rsi9_short_from_bars(
+                rsi9_out = evaluate_rsi9_short_from_bars(
                     bars, instrument=inst_u, rulebook=rsi9_rb
                 )
-                out["market_ohlc_close"] = close_f
-                out["rulebook_ids"] = list(ids) or [out.get("rulebook_id")]
-                out["production_authorized"] = False
-                out["methodology"] = "rsi9_transfer"
-                out["strategy_id"] = "rsi9_transfer"
-                # RSI9 transfer is SHORT-only by research design
-                if str(out.get("signal")).upper() == "BUY":
-                    out["signal"] = "HOLD"
-                    out["details"] = (out.get("details") or "") + " BUY suppressed: RSI9 transfer is SHORT-only."
-                return out
+                rsi9_out["market_ohlc_close"] = close_f
+                rsi9_out["rulebook_ids"] = list(ids) or [rsi9_out.get("rulebook_id")]
+                rsi9_out["production_authorized"] = False
+                rsi9_out["methodology"] = "rsi9_transfer"
+                rsi9_out["strategy_id"] = "rsi9_transfer"
+                if str(rsi9_out.get("signal")).upper() == "BUY":
+                    rsi9_out["signal"] = "HOLD"
+                    rsi9_out["details"] = (rsi9_out.get("details") or "") + " BUY suppressed: RSI9 transfer is SHORT-only."
         except Exception as e:
             detail_bits.append(f"RSI9 evaluator error: {e}")
 
-        # --- 2. Native discovery (pair-specific LONG/SHORT) ---
         try:
             from app.rulebooks.evaluators.native_discovery import (
                 evaluate_native_from_bars,
@@ -221,17 +221,29 @@ class UniversalAnalysisService:
             )
             native_rb = load_native_rulebook(inst_u)
             if native_rb is not None:
-                out = evaluate_native_from_bars(
+                native_out = evaluate_native_from_bars(
                     bars, instrument=inst_u, rulebook=native_rb
                 )
-                out["market_ohlc_close"] = close_f
-                out["rulebook_ids"] = list(ids) or [out.get("rulebook_id")]
-                out["production_authorized"] = False
-                out["methodology"] = "native_discovery"
-                out["strategy_id"] = "native_discovery"
-                return out
+                native_out["market_ohlc_close"] = close_f
+                native_out["rulebook_ids"] = list(ids) or [native_out.get("rulebook_id")]
+                native_out["production_authorized"] = False
+                native_out["methodology"] = "native_discovery"
+                native_out["strategy_id"] = "native_discovery"
         except Exception as e:
             detail_bits.append(f"Native discovery evaluator error: {e}")
+
+        def _actionable(o):
+            return o is not None and str(o.get("signal") or "").upper() in ("BUY", "SELL")
+
+        # Prefer RSI9 SELL when it fires; else native BUY/SELL; else HOLD from either path
+        if _actionable(rsi9_out):
+            return rsi9_out
+        if _actionable(native_out):
+            return native_out
+        if rsi9_out is not None:
+            return rsi9_out
+        if native_out is not None:
+            return native_out
 
         # --- 3. Baseline: V53.6 / V31 SHORT (historical cash-test methodology) ---
         v31_ids = [
