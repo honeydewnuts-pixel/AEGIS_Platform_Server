@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-03  
 **Stage:** Stage 2 — EXECUTION-INTEGRITY HOLD  
-**Commit:** (see git after push)
+**Commit:** 5648d13f7cdcf04baef2d406b2e4b3e0f13e3ab7
 
 ---
 
