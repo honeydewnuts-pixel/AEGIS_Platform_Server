@@ -51,7 +51,7 @@ input bool   EnablePositionManager = true;  // V31/V53.6 BE + trail + 72-bar max
 input int    DefaultMaxHoldBars = 72;
 input double DefaultTrailAtrMult = 0.75;
 input double DefaultStopAtrMult = 1.5;
-input bool   BaselineShortOnly = true;  // reject BUY on baseline
+input bool   BaselineShortOnly = true;  // legacy: short-only when methodology unknown
 input string PosStateFile = "aegis_pos_mgr_state.csv";
 
 
@@ -579,18 +579,15 @@ int ExecuteTradeOn(const string brokerSymbol, const string side, double volume,
      }
    if(OnePositionPerSymbol && HasOpenPositionOn(brokerSymbol))
      {
-      // Same direction → skip; opposite direction → close then open
+      // Stage 2.5: no unauthorized flip — server owns direction policy.
       if(NeedsFlip(brokerSymbol, side))
         {
-         Print("AEGIS: flipping position on ", brokerSymbol, " for ", side);
-         ClosePositionsOn(brokerSymbol);
-         Sleep(300);
-        }
-      else
-        {
-         AckServerFull(signalId,brokerSymbol,side,0,0,0,0,-2,false,"already_open");
+         Print("AEGIS: reject opposite-side signal (no auto-flip) ", brokerSymbol, " ", side);
+         AckServerFull(signalId,brokerSymbol,side,0,0,0,0,-6,false,"no_auto_flip");
          return -1;
         }
+      AckServerFull(signalId,brokerSymbol,side,0,0,0,0,-2,false,"already_open");
+      return -1;
      }
    if(!SpreadOk(brokerSymbol))
      {
@@ -711,11 +708,26 @@ bool HandleSignalJsonObject(const string obj)
    g_lastMaxHoldBars = (int)JsonGetNumber(obj, "max_hold_bars");
    if(g_lastMaxHoldBars <= 0) g_lastMaxHoldBars = DefaultMaxHoldBars;
    g_lastMethodology = JsonGetString(obj, "methodology");
-   if(BaselineShortOnly && side == "BUY")
-     {
-      Print("AEGIS reject BUY — baseline short-only");
-      return false;
-     }
+   // Stage 2.5: methodology-aware direction (not global BUY ban).
+   {
+      string methU = g_lastMethodology;
+      StringToUpper(methU);
+      bool shortOnlyMeth = false;
+      if(StringLen(methU) == 0)
+         shortOnlyMeth = BaselineShortOnly;
+      else if(StringFind(methU, "NATIVE") >= 0)
+         shortOnlyMeth = false;
+      else if(StringFind(methU, "RSI9") >= 0 || StringFind(methU, "V31") >= 0
+              || StringFind(methU, "V53") >= 0 || StringFind(methU, "SHORT") >= 0)
+         shortOnlyMeth = true;
+      else
+         shortOnlyMeth = BaselineShortOnly;
+      if(shortOnlyMeth && side == "BUY")
+        {
+         Print("AEGIS reject BUY — methodology short-only meth=", g_lastMethodology);
+         return false;
+        }
+   }
    string signalId=JsonGetString(obj,"signal_id");
    if(signalId!="" && WasHandled(signalId)) return false;
 
@@ -750,16 +762,18 @@ bool HandleSignalJsonObject(const string obj)
    if(rc==1 || rc==2)
      {
       MarkHandled(signalId);
-      if(side=="SELL" && EnablePositionManager)
+      if(EnablePositionManager)
         {
-         double fillPx = SymbolInfoDouble(brokerSym, SYMBOL_BID);
+         double fillPx = (side=="BUY")
+            ? SymbolInfoDouble(brokerSym, SYMBOL_ASK)
+            : SymbolInfoDouble(brokerSym, SYMBOL_BID);
          ulong pt = FindPositionTicket(brokerSym);
          if(pt != 0 && PositionSelectByTicket(pt))
             fillPx = PositionGetDouble(POSITION_PRICE_OPEN);
          double atrUse = g_lastAtr14;
          if(atrUse <= 0) atrUse = WilderAtr14(brokerSym, PERIOD_M5);
-         RegisterManagedShort(signalId, brokerSym, fillPx, atrUse, g_lastStopAtrMult,
-                              g_lastTrailAtrMult, g_lastMaxHoldBars);
+         RegisterManagedPosition(signalId, brokerSym, side, fillPx, atrUse, g_lastStopAtrMult,
+                                 g_lastTrailAtrMult, g_lastMaxHoldBars);
         }
       return true;
      }
@@ -1114,26 +1128,25 @@ void ClosePositionMarket(const ulong ticket, const string symbol, const string r
       Print("AEGIS PM close ", reason, " ticket=", ticket, " ret=", res.retcode);
   }
 
-void RegisterManagedShort(const string signalId, const string brokerSymbol,
-                          const double fillPrice, const double atr14, const double stopAtrMult,
-                          const double trailMult, const int maxHold)
+void RegisterManagedPosition(const string signalId, const string brokerSymbol,
+                             const string side, const double fillPrice, const double atr14,
+                             const double stopAtrMult, const double trailMult, const int maxHold)
   {
    if(fillPrice <= 0 || atr14 <= 0) return;
    double risk = stopAtrMult * atr14;
-   double stop = fillPrice + risk;
+   // SHORT: stop above entry; LONG: stop below entry
+   double stop = (side == "BUY") ? (fillPrice - risk) : (fillPrice + risk);
    ulong ticket = FindPositionTicket(brokerSymbol);
    double confSl = 0;
    bool ok = false;
    if(ticket != 0)
       ok = ModifyPositionStopConfirmed(ticket, brokerSymbol, stop, confSl);
    if(ok && confSl > 0) stop = confSl;
-   // Persist initial risk even if modify failed — do not invent BE later without confirm
    PosStateSave(signalId, brokerSymbol, fillPrice, risk, atr14, TimeCurrent(), stop, false, maxHold, trailMult, stopAtrMult);
-   Print("AEGIS PM register SHORT ", brokerSymbol, " entry=", fillPrice, " risk=", risk,
-         " stop=", stop, " mod_ok=", ok, " maxHold=", maxHold);
+   Print("AEGIS: registered managed ", side, " ", brokerSymbol, " entry=", fillPrice, " stop=", stop, " risk=", risk);
   }
 
-void ManageAegisShortPositions()
+void ManageAegisPositions()
   {
    if(!EnablePositionManager) return;
    for(int i = PositionsTotal() - 1; i >= 0; i--)
@@ -1143,7 +1156,9 @@ void ManageAegisShortPositions()
       if(!PositionSelectByTicket(ticket)) continue;
       if(PositionGetInteger(POSITION_MAGIC) != MagicNumber) continue;
       long ptype = PositionGetInteger(POSITION_TYPE);
-      if(ptype != POSITION_TYPE_SELL) continue; // baseline short-only
+      bool isLong = (ptype == POSITION_TYPE_BUY);
+      bool isShort = (ptype == POSITION_TYPE_SELL);
+      if(!isLong && !isShort) continue;
 
       string symbol = PositionGetString(POSITION_SYMBOL);
       string cmt = PositionGetString(POSITION_COMMENT);
@@ -1159,124 +1174,94 @@ void ManageAegisShortPositions()
       double trailMult = DefaultTrailAtrMult;
       double stopAtrMult = DefaultStopAtrMult;
       bool haveState = false;
-
       if(signalId != "")
          haveState = PosStateLoad(signalId, fileEntry, risk, atr, entryTime, stop, beActive, maxHold, trailMult, stopAtrMult);
 
-      if(haveState)
+      if(!haveState)
         {
-         if(fileEntry > 0) entry = fileEntry;
-         // Initial risk is frozen from registration — never recompute from widened/changed SL
-         if(risk <= 0)
-           {
-            Print("AEGIS PM incomplete state risk=0 signal=", signalId, " — safe hold, no invent");
-            continue;
-           }
-         // Reconcile beActive with actual broker SL (do not trust file alone)
-         if(beActive && curSl > 0 && entry > 0)
-           {
-            // BE implies stop at/near entry or better (lower for short)
-            if(curSl > entry + 5 * SymbolInfoDouble(symbol, SYMBOL_POINT))
-               beActive = false; // broker never accepted BE
-           }
+         // Bootstrap from current SL / ATR
+         atr = WilderAtr14(symbol, PERIOD_M5);
+         if(atr <= 0) continue;
+         stopAtrMult = DefaultStopAtrMult;
+         risk = stopAtrMult * atr;
+         if(isShort)
+            stop = (curSl > 0) ? curSl : (entry + risk);
+         else
+            stop = (curSl > 0) ? curSl : (entry - risk);
+         entryTime = openTime;
+         trailMult = DefaultTrailAtrMult;
+         maxHold = DefaultMaxHoldBars;
+         beActive = false;
+         if(signalId != "")
+            PosStateSave(signalId, symbol, entry, risk, atr, entryTime, stop, beActive, maxHold, trailMult, stopAtrMult);
         }
       else
         {
-         // Recovery without file: cannot invent original R from current SL if already trailed
-         atr = WilderAtr14(symbol, PERIOD_M5);
-         if(atr <= 0) atr = g_lastAtr14;
-         entryTime = openTime;
-         entry = PositionGetDouble(POSITION_PRICE_OPEN);
-         if(curSl > entry)
-           {
-            // Only use current SL as initial risk if it looks like virgin initial stop
-            // (approx 1.5 ATR). If far from 1.5 ATR, report and use distance as risk with caution.
-            risk = curSl - entry;
-            stop = curSl;
-            Print("AEGIS PM recover from position SL only signal=", signalId, " risk=", risk);
-           }
-         else if(atr > 0)
-           {
-            risk = DefaultStopAtrMult * atr;
-            stop = entry + risk;
-            double confSl = 0;
-            if(ModifyPositionStopConfirmed(ticket, symbol, stop, confSl))
-               stop = confSl;
-            else
-              {
-               Print("AEGIS PM recover: could not set initial stop — skip manage this tick");
-               continue;
-              }
-           }
-         else
-           {
-            Print("AEGIS PM recover: no ATR and no SL — unsafe, skip");
-            continue;
-           }
-         beActive = false;
-         if(signalId != "")
-            PosStateSave(signalId, symbol, entry, risk, atr, entryTime, stop, false, maxHold, trailMult, stopAtrMult);
+         if(fileEntry > 0) entry = fileEntry;
+         if(risk <= 0 && atr > 0) risk = stopAtrMult * atr;
         }
 
       if(risk <= 0) continue;
 
       double bid = SymbolInfoDouble(symbol, SYMBOL_BID);
-      // 1) Stop check — completed bar BidHigh (shift 1), per simulate_short
-      double hi = iHigh(symbol, PERIOD_M5, 1);
-      if(hi <= 0) hi = iHigh(symbol, PERIOD_M5, 0);
-      if(stop > 0 && hi >= stop)
-        {
-         // Broker should have closed; if still open past stop, force close
-         if(bid >= stop - SymbolInfoDouble(symbol, SYMBOL_POINT))
-           {
-            ClosePositionMarket(ticket, symbol, "STOP");
-            continue;
-           }
-        }
+      double ask = SymbolInfoDouble(symbol, SYMBOL_ASK);
+      double close1 = iClose(symbol, PERIOD_M5, 1);
+      if(close1 <= 0) close1 = isShort ? bid : ask;
 
-      // 2) R from BidClose of last completed bar (prefer) / bid
-      double bidClose = iClose(symbol, PERIOD_M5, 1);
-      if(bidClose <= 0) bidClose = bid;
-      double rr = (entry - bidClose) / risk;
+      // R multiple from protective direction
+      double rr = 0;
+      if(isShort)
+         rr = (entry - bid) / risk;
+      else
+         rr = (bid - entry) / risk; // use bid for long mark-to-market
 
-      // 3) Break-even at +1R — only if modification confirmed
-      if(rr >= 1.0 && !beActive)
+      // Break-even at +1R
+      if(!beActive && rr >= 1.0)
         {
+         double beStop = entry;
          double confSl = 0;
-         if(ModifyPositionStopConfirmed(ticket, symbol, entry, confSl))
+         if(ModifyPositionStopConfirmed(ticket, symbol, beStop, confSl))
            {
+            stop = (confSl > 0) ? confSl : beStop;
             beActive = true;
-            stop = confSl;
-            Print("AEGIS PM BE confirmed ", symbol, " ticket=", ticket, " sl=", confSl);
+            if(signalId != "")
+               PosStateSave(signalId, symbol, entry, risk, atr, entryTime, stop, beActive, maxHold, trailMult, stopAtrMult);
+            Print("AEGIS: BE activated ", symbol, " side=", (isLong ? "BUY" : "SELL"));
            }
-         else
-            Print("AEGIS PM BE not confirmed ", symbol, " ticket=", ticket);
         }
 
-      // 4) Trail after confirmed BE only
+      // Trailing after BE
       if(beActive)
         {
          double atrNow = WilderAtr14(symbol, PERIOD_M5);
          if(atrNow <= 0) atrNow = atr;
          if(atrNow > 0)
            {
-            double close1 = iClose(symbol, PERIOD_M5, 1);
-            if(close1 <= 0) close1 = bid;
-            double candidate = close1 + trailMult * atrNow;
-            if(candidate < stop - SymbolInfoDouble(symbol, SYMBOL_POINT))
+            double candidate;
+            if(isShort)
+               candidate = close1 + trailMult * atrNow; // trail down for short
+            else
+               candidate = close1 - trailMult * atrNow; // trail up for long
+            bool improve = false;
+            if(isShort && candidate < stop - SymbolInfoDouble(symbol, SYMBOL_POINT))
+               improve = true;
+            if(isLong && candidate > stop + SymbolInfoDouble(symbol, SYMBOL_POINT))
+               improve = true;
+            if(improve)
               {
                double confSl = 0;
                if(ModifyPositionStopConfirmed(ticket, symbol, candidate, confSl))
                  {
-                  stop = confSl;
+                  stop = confSl > 0 ? confSl : candidate;
+                  if(signalId != "")
+                     PosStateSave(signalId, symbol, entry, risk, atr, entryTime, stop, beActive, maxHold, trailMult, stopAtrMult);
                  }
               }
            }
         }
 
-      // 5) Max hold: completed M5 bars since entry, not wall-clock
+      // 72-bar max hold (M5 bars since entry)
       int holdBars = maxHold > 0 ? maxHold : DefaultMaxHoldBars;
-      // Inclusive holding bars (entry bar counts as 1) — not wall-clock, not off-by-one
       int barsHeld = HoldingM5BarsInclusive(symbol, entryTime);
       if(barsHeld >= holdBars)
         {
@@ -1291,7 +1276,7 @@ void ManageAegisShortPositions()
 
 int OnInit()
   {
-   Print("AEGIS_Executor v2.19 POSITION_MANAGER mode=",EnumToString(ExecMode)," account=",AccountId);
+   Print("AEGIS_Executor v2.20 POSITION_MANAGER mode=",EnumToString(ExecMode)," account=",AccountId);
    EventSetTimer(MathMax(2,PollSeconds));
    return INIT_SUCCEEDED;
   }
@@ -1305,5 +1290,5 @@ void OnTimer()
       else PollChartOnly();
      }
    if(UseLocalFileFallback) PollLocalFallback();
-   ManageAegisShortPositions();
+   ManageAegisPositions();
   }

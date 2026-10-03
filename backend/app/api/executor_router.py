@@ -207,6 +207,19 @@ async def ack_signal(
         side=body.side,
         volume=body.volume,
     )
+    # Stage 2.5: connect open-risk ledger on successful non-idempotent ACK
+    try:
+        ok_flag = bool(body.ok if body.ok is not None else result.get("ok", True))
+        if ok_flag and not result.get("idempotent"):
+            pr = getattr(request.app.state, "portfolio_risk", None)
+            if pr is not None:
+                risk_usd = result.get("risk_usd_at_open")
+                if risk_usd is None:
+                    risk_usd = result.get("estimated_monetary_risk")
+                if risk_usd is not None:
+                    await pr.record_open_risk(body.account_id, float(risk_usd))
+    except Exception:
+        pass
     # Additive: subscriber notification inbox (does not change ack semantics)
     try:
         notif = getattr(request.app.state, "notifications", None)

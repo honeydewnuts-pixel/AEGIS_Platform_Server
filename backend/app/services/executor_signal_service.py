@@ -59,6 +59,7 @@ class ExecutorSignalService:
         max_hold_bars: int | None = 72,
         trail_atr_mult: float | None = 0.75,
         methodology: str | None = None,
+        risk_usd_at_open: float | None = None,
     ) -> str | None:
         side_u = (side or "").strip().upper()
         if side_u not in ("BUY", "SELL"):
@@ -86,6 +87,7 @@ class ExecutorSignalService:
             "max_hold_bars": max_hold_bars if max_hold_bars is not None else 72,
             "trail_atr_mult": trail_atr_mult if trail_atr_mult is not None else 0.75,
             "methodology": methodology or "",
+            "risk_usd_at_open": float(risk_usd_at_open) if risk_usd_at_open is not None else None,
         }
         with self._lock:
             self._pending[self._key(account_id, sym)] = payload
@@ -183,6 +185,7 @@ class ExecutorSignalService:
                 "symbol": symbol or (row or {}).get("symbol", ""),
                 "side": side or (row or {}).get("side", ""),
                 "volume": volume,
+                "risk_usd_at_open": (row or {}).get("risk_usd_at_open"),
                 "completed_at": time.time(),
                 "completed_at_ms": int(time.time() * 1000),
             }
