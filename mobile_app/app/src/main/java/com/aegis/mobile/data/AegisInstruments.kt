@@ -1,19 +1,24 @@
 package com.aegis.mobile.data
 
 /**
- * AEGIS instrument catalog for Settings dropdown.
+ * AEGIS instrument catalog for Settings dropdown (display labels only).
  *
- * GOOD / research-eligible: non-V2OPT rulebooks (V31/V35/V53.6).
- * NOT GOOD (shown but labeled): V2-OPT-only pairs — insufficient gates
- * (not val_n>300 / PF>1.6 / 6-block); demo/live path disabled on server.
+ * Source of truth for execution is the server registry:
+ *   GET /api/registry/pairs
+ *
+ * GOOD = research-eligible on server (V53.6 / RSI9 transfer / native discovery).
+ * NOT GOOD = no qualified research rulebook (kept visible for operators).
+ *
+ * Updated 2026-10-03 to match V40 registry after RSI9 + native Stage 2.
  */
 object AegisInstruments {
-    /** Research-eligible / "Good" pairs (V2-OPT removed). */
+    /** Research-eligible / "Good" pairs (server router RESEARCH_ELIGIBLE). */
     val GOOD: List<String> = listOf(
+        // V53.6 short baseline + RSI9 SHORT transfer
         "GBPUSD",
         "AUDUSD",
         "USDCHF",
-        "NZDUSD",
+        "NZDUSD",   // V53.6 only (no RSI9 rulebook; still research-eligible)
         "EURCHF",
         "EURGBP",
         "GBPJPY",
@@ -21,22 +26,36 @@ object AegisInstruments {
         "NZDCHF",
         "NZDJPY",
         "USDCAD",
+        // RSI9 SHORT transfer (were V2-OPT-only before Stage 2 registry merge)
+        "EURUSD",
+        "EURJPY",
+        // Native discovery LONG (Stage 2)
+        "USDJPY",
+        // RSI9 crypto transfer
+        "BTCUSD",
+        "ETHUSD",
+        // Native discovery indices / commodities (research)
+        "GER40",
+        "UK100",
+        "US100",
+        "UKOIL",
+        "XAGUSD",
     )
 
     /**
-     * V2-OPT-only — server router_status=TRADING_DISABLED.
-     * Kept in list for visibility; not selectable as a "Good" trade pair.
+     * No qualified research rulebook for demo/live autonomous path.
+     * Still listed so operators can see status; not treated as Good.
      */
     val NOT_GOOD: List<String> = listOf(
-        "EURUSD",
-        "USDJPY",
-        "EURJPY",
         "GBPAUD",
+        "XAUUSD",
+        "US500",
+        "USOIL",
     )
 
     /** Display labels for spinner (Good first, then blocked). */
     val ALL_LABELS: List<String> = GOOD.map { "$it  · Good" } +
-        NOT_GOOD.map { "$it  · Not Good (V2-OPT only)" }
+        NOT_GOOD.map { "$it  · Not Good" }
 
     /** Maps spinner index → symbol. */
     val ALL: List<String> = GOOD + NOT_GOOD

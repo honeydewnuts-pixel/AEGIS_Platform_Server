@@ -1,7 +1,0 @@
-{
-  "rulebook_version": "registry",
-  "registry_version": "v40",
-  "indicators_required": false,
-  "activated_at": "2026-09-10T12:00:00Z",
-  "notes": "Indicator templates retired. MT5 charts are plain price only. Rulebook registry + tradeable pairs registry are authoritative."
-}

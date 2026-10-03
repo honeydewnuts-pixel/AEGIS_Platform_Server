@@ -1,5 +1,0 @@
--keep class com.aegis.mobile.models.** { *; }
--keep class okhttp3.** { *; }
--keep class retrofit2.** { *; }
--keepattributes Signature
--keepattributes *Annotation*
