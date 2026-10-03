@@ -161,7 +161,14 @@ def test_live_short_manager_stop_on_bid_high():
     """Historical/live short manager stops on BidHigh (V53.6 reconstruction)."""
     from app.rulebooks.live_short_position_manager import BarOHLC, ShortPositionState, step_short_bar
 
-    st = ShortPositionState(entry_price=1.1000, initial_risk=0.0010, entry_bar_index=0)
+    st = ShortPositionState(
+        signal_id="t1",
+        symbol="USDCHF",
+        entry_price=1.1000,
+        initial_risk=0.0010,
+        atr_at_signal=0.0005,
+        entry_bar_index=0,
+    )
     # BidHigh pierces stop 1.1010
     bar = BarOHLC(high=1.1015, low=1.0990, close=1.1005, atr=0.0005)
     out = step_short_bar(st, bar, 1)
