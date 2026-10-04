@@ -36,6 +36,13 @@ class AutonomousOhlcSignalService:
         return f"{account_id}|{(symbol or '').upper().split('.')[0]}"
 
     def get_side(self, account_id: str, symbol: str) -> str | None:
+        try:
+            from app.services.position_lifecycle_service import get_lifecycle_service
+            bs = get_lifecycle_service().broker_side(account_id, symbol)
+            if bs:
+                return bs
+        except Exception:
+            pass
         return self._side.get(self._key(account_id, symbol))
 
     def set_side(self, account_id: str, symbol: str, side: str | None) -> None:
@@ -44,6 +51,34 @@ class AutonomousOhlcSignalService:
             self._side[k] = side
         elif k in self._side:
             del self._side[k]
+
+
+    def replace_sides_from_broker(self, account_id: str, positions: list) -> None:
+        """Authoritative sides from broker positions (restart-safe). Clears stale memory."""
+        aid = (account_id or "").strip()
+        # Clear all sides for this account
+        stale = [k for k in self._side if k.startswith(aid + "|") or k.startswith(aid + ":")]
+        # keys may be from _key()
+        prefix_candidates = []
+        for k in list(self._side.keys()):
+            if aid in k:
+                prefix_candidates.append(k)
+        for k in prefix_candidates:
+            del self._side[k]
+        for p in positions or []:
+            if not isinstance(p, dict):
+                continue
+            sym = str(p.get("symbol") or "").upper().split(".")[0]
+            side = str(p.get("side") or p.get("type") or "").upper()
+            if side in ("BUY", "LONG"):
+                side = "BUY"
+            elif side in ("SELL", "SHORT"):
+                side = "SELL"
+            else:
+                continue
+            if sym:
+                self.set_side(aid, sym, side)
+
 
     def min_confidence(self) -> float:
         try:
@@ -378,7 +413,8 @@ class AutonomousOhlcSignalService:
                 methodology=str(result.get("methodology") or "v31_short_baseline"),
                 risk_usd_at_open=risk_usd,
             )
-            self.set_side(account_id, sym, side)
+            # Do not set position side on publish — broker confirmation is authoritative
+            pass  # was set_side(publish)
             out["published"] = True
             out["lifecycle"] = "SIGNAL_QUEUED"
             out["reason"] = reason
