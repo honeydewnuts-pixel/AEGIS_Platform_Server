@@ -139,9 +139,14 @@ def finalize_trades(
     out["cost_model_version"] = cost_model_version
     out["event_i"] = out["event_i"].astype(int)
     out["exit_i"] = out["exit_i"].astype(int)
-    out["signal_datetime"] = df.loc[out.event_i, "datetime"].to_numpy()
-    out["entry_datetime"] = df.loc[out.event_i + 1, "datetime"].to_numpy()
-    out["exit_datetime"] = df.loc[out.exit_i, "datetime"].to_numpy()
+    if "datetime" in df.columns:
+        out["signal_datetime"] = df.loc[out.event_i.to_numpy(), "datetime"].to_numpy()
+        out["entry_datetime"] = df.loc[(out.event_i + 1).to_numpy(), "datetime"].to_numpy()
+        out["exit_datetime"] = df.loc[out.exit_i.to_numpy(), "datetime"].to_numpy()
+    else:
+        out["signal_datetime"] = pd.NaT
+        out["entry_datetime"] = pd.NaT
+        out["exit_datetime"] = pd.NaT
     out["duration_bars"] = out["exit_i"] - out["event_i"]
     return out
 

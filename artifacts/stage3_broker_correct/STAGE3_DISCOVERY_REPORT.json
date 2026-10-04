@@ -1,0 +1,251 @@
+{
+  "stage": "3_broker_correct_discovery",
+  "gates": {
+    "val_min_trades": 200,
+    "val_min_pf": 1.6,
+    "val_min_block_pf": 1.0,
+    "test_min_pf": 1.0,
+    "test_min_block_pf": 1.0
+  },
+  "n_winners_raw": 0,
+  "n_selected": 0,
+  "selected": [],
+  "nearmiss_best_per_symbol": [
+    {
+      "symbol": "AUDUSD",
+      "side": "LONG",
+      "family": "rsi_os",
+      "params": {
+        "period": 14,
+        "thr": 25
+      },
+      "stop_atr": 1.5,
+      "trail_atr": 0.75,
+      "val_pf": 0.7460721187368762,
+      "val_n": 318.0,
+      "val_blk": 0.43130775478279476,
+      "test_pf": 0.8603212446772631,
+      "test_n": 294.0,
+      "test_blk": 0.6333797401484325,
+      "pass": false
+    },
+    {
+      "symbol": "EURCHF",
+      "side": "LONG",
+      "family": "zscore_os",
+      "params": {
+        "win": 60,
+        "thr": 2.0
+      },
+      "stop_atr": 1.5,
+      "trail_atr": 0.75,
+      "val_pf": 0.5747416222977068,
+      "val_n": 987.0,
+      "val_blk": 0.4977944899428959,
+      "test_pf": 0.47004349935941075,
+      "test_n": 987.0,
+      "test_blk": 0.32733027774164486,
+      "pass": false
+    },
+    {
+      "symbol": "EURGBP",
+      "side": "LONG",
+      "family": "rsi_os",
+      "params": {
+        "period": 14,
+        "thr": 25
+      },
+      "stop_atr": 1.5,
+      "trail_atr": 0.75,
+      "val_pf": 0.7036455106837943,
+      "val_n": 282.0,
+      "val_blk": 0.4511166371754419,
+      "test_pf": 0.5238881739222007,
+      "test_n": 230.0,
+      "test_blk": 0.3809536518916905,
+      "pass": false
+    },
+    {
+      "symbol": "EURJPY",
+      "side": "LONG",
+      "family": "rsi_os",
+      "params": {
+        "period": 14,
+        "thr": 25
+      },
+      "stop_atr": 1.5,
+      "trail_atr": 0.75,
+      "val_pf": 0.8895082994514507,
+      "val_n": 304.0,
+      "val_blk": 0.6000708339299878,
+      "test_pf": 0.8365230414876048,
+      "test_n": 315.0,
+      "test_blk": 0.6599619289689483,
+      "pass": false
+    },
+    {
+      "symbol": "EURUSD",
+      "side": "LONG",
+      "family": "zscore_os",
+      "params": {
+        "win": 60,
+        "thr": 2.0
+      },
+      "stop_atr": 1.5,
+      "trail_atr": 0.75,
+      "val_pf": 1.0555502221933093,
+      "val_n": 988.0,
+      "val_blk": 0.8349819551893619,
+      "test_pf": 0.8778211433135922,
+      "test_n": 985.0,
+      "test_blk": 0.7843711077714706,
+      "pass": false
+    },
+    {
+      "symbol": "GBPJPY",
+      "side": "LONG",
+      "family": "rsi_os",
+      "params": {
+        "period": 7,
+        "thr": 30
+      },
+      "stop_atr": 1.5,
+      "trail_atr": 0.75,
+      "val_pf": 0.7312665983697525,
+      "val_n": 1807.0,
+      "val_blk": 0.6612465654767956,
+      "test_pf": 0.684932939669292,
+      "test_n": 1738.0,
+      "test_blk": 0.5897981898849747,
+      "pass": false
+    },
+    {
+      "symbol": "GBPNZD",
+      "side": "LONG",
+      "family": "ema_pb_l",
+      "params": {
+        "f": 10,
+        "s": 30
+      },
+      "stop_atr": 1.5,
+      "trail_atr": 0.75,
+      "val_pf": 0.37305894088316205,
+      "val_n": 2081.0,
+      "val_blk": 0.2939031242536272,
+      "test_pf": 0.35372925270152666,
+      "test_n": 1972.0,
+      "test_blk": 0.2991694072308494,
+      "pass": false
+    },
+    {
+      "symbol": "GBPUSD",
+      "side": "LONG",
+      "family": "rsi_os",
+      "params": {
+        "period": 9,
+        "thr": 25
+      },
+      "stop_atr": 1.5,
+      "trail_atr": 0.75,
+      "val_pf": 0.9209978920507325,
+      "val_n": 809.0,
+      "val_blk": 0.7470801409244118,
+      "test_pf": 0.7211302113867899,
+      "test_n": 860.0,
+      "test_blk": 0.5629457695185011,
+      "pass": false
+    },
+    {
+      "symbol": "NZDCHF",
+      "side": "SHORT",
+      "family": "rsi_ob",
+      "params": {
+        "period": 14,
+        "thr": 75
+      },
+      "stop_atr": 1.5,
+      "trail_atr": 0.75,
+      "val_pf": 0.3739859736396843,
+      "val_n": 282.0,
+      "val_blk": 0.2391923284675394,
+      "test_pf": 0.16829581240957617,
+      "test_n": 254.0,
+      "test_blk": 0.06524638344717662,
+      "pass": false
+    },
+    {
+      "symbol": "NZDJPY",
+      "side": "SHORT",
+      "family": "rsi_ob",
+      "params": {
+        "period": 9,
+        "thr": 65
+      },
+      "stop_atr": 1.5,
+      "trail_atr": 0.75,
+      "val_pf": 0.6990683179101839,
+      "val_n": 2070.0,
+      "val_blk": 0.5483227582006811,
+      "test_pf": 0.6450892555909841,
+      "test_n": 2044.0,
+      "test_blk": 0.5348178414004268,
+      "pass": false
+    },
+    {
+      "symbol": "USDCAD",
+      "side": "SHORT",
+      "family": "rsi_ob",
+      "params": {
+        "period": 14,
+        "thr": 75
+      },
+      "stop_atr": 1.5,
+      "trail_atr": 0.75,
+      "val_pf": 0.8725547113793187,
+      "val_n": 338.0,
+      "val_blk": 0.6356538150804419,
+      "test_pf": 0.6822244598235518,
+      "test_n": 311.0,
+      "test_blk": 0.39102099944890445,
+      "pass": false
+    },
+    {
+      "symbol": "USDCHF",
+      "side": "SHORT",
+      "family": "rsi_ob",
+      "params": {
+        "period": 14,
+        "thr": 75
+      },
+      "stop_atr": 1.0,
+      "trail_atr": 0.5,
+      "val_pf": 0.7444120714207246,
+      "val_n": 278.0,
+      "val_blk": 0.30739992100136193,
+      "test_pf": 0.4702708746765868,
+      "test_n": 305.0,
+      "test_blk": 0.17343293972559792,
+      "pass": false
+    },
+    {
+      "symbol": "USDJPY",
+      "side": "LONG",
+      "family": "rsi_os",
+      "params": {
+        "period": 14,
+        "thr": 35
+      },
+      "stop_atr": 1.5,
+      "trail_atr": 0.75,
+      "val_pf": 0.9546507719506728,
+      "val_n": 1357.0,
+      "val_blk": 0.7842656428329152,
+      "test_pf": 1.0879609403354413,
+      "test_n": 1212.0,
+      "test_blk": 0.7516696352658553,
+      "pass": false
+    }
+  ],
+  "rulebooks": [],
+  "production_authorized": false
+}
