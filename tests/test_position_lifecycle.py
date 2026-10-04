@@ -82,10 +82,10 @@ def test_close_releases_once():
         volume=0.1, risk_usd=8.0, idempotent=False,
     )
     life.mark_open_risk_recorded("A1", "S3", 8.0)
-    r1 = life.on_broker_close(account_id="A1", signal_id="S3", position_ticket=100, symbol="EURUSD", risk_usd=None)
-    assert r1 == 8.0
-    r2 = life.on_broker_close(account_id="A1", signal_id="S3", position_ticket=100, symbol="EURUSD", risk_usd=None)
-    assert r2 is None
+    r1, s1 = life.on_broker_close(account_id="A1", signal_id="S3", position_ticket=100, symbol="EURUSD", risk_usd=None)
+    assert r1 == 8.0 and s1 == "RISK_RELEASED"
+    r2, s2 = life.on_broker_close(account_id="A1", signal_id="S3", position_ticket=100, symbol="EURUSD", risk_usd=None)
+    assert r2 is None and s2 == "ALREADY_RELEASED"
 
 
 def test_reconcile_clears_stale_and_sets_sides():
@@ -101,3 +101,10 @@ def test_reconcile_clears_stale_and_sets_sides():
     assert "GBPUSD" in summary["symbols"]
     assert life.broker_side("A1", "GBPUSD") == "BUY"
     assert summary["stale_tickets_cleared"] >= 1
+
+
+def test_client_risk_ignored_without_server_record():
+    life = PositionLifecycleService()
+    r, s = life.on_broker_close(account_id="A1", signal_id="NONE", position_ticket=1, symbol="EURUSD", risk_usd=99.0)
+    assert r is None
+    assert s == "RECONCILIATION_REQUIRED"

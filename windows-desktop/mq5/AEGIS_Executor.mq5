@@ -1098,11 +1098,63 @@ bool ModifyPositionStopConfirmed(const ulong ticket, const string symbol, const 
    return true;
   }
 
+void NotifyServerPositionClosed(const string signalId, const ulong ticket, const string symbol,
+                                const string side, const string reason)
+  {
+   // Only after MT5 confirms position is gone
+   if(PositionSelectByTicket(ticket))
+     {
+      Sleep(50);
+      if(PositionSelectByTicket(ticket))
+        {
+         Print("AEGIS: skip position-closed notify; ticket still open ", ticket);
+         return;
+        }
+     }
+   string url = ServerUrl + "/api/executor/position-closed";
+   string payload = StringFormat(
+      "{\"account_id\":\"%s\",\"signal_id\":\"%s\",\"position_ticket\":%I64u,\"symbol\":\"%s\",\"side\":\"%s\",\"reason\":\"%s\"}",
+      AccountId, signalId, ticket, symbol, side, reason);
+   int code = HttpPostJson(url, payload);
+   Print("AEGIS: position-closed notify code=", code, " ticket=", ticket, " reason=", reason);
+  }
+
+void ReconcileBrokerPositionsOnStartup()
+  {
+   string parts = "";
+   int n = 0;
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+     {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0) continue;
+      if(!PositionSelectByTicket(ticket)) continue;
+      if(PositionGetInteger(POSITION_MAGIC) != MagicNumber) continue;
+      string symbol = PositionGetString(POSITION_SYMBOL);
+      long ptype = PositionGetInteger(POSITION_TYPE);
+      string side = (ptype == POSITION_TYPE_BUY) ? "BUY" : "SELL";
+      string cmt = PositionGetString(POSITION_COMMENT);
+      string signalId = ExtractSignalIdFromComment(cmt);
+      double vol = PositionGetDouble(POSITION_VOLUME);
+      if(n > 0) parts += ",";
+      parts += StringFormat(
+         "{\"symbol\":\"%s\",\"side\":\"%s\",\"position_ticket\":%I64u,\"volume\":%.4f,\"signal_id\":\"%s\"}",
+         symbol, side, ticket, vol, signalId);
+      n++;
+     }
+   string url = ServerUrl + "/api/executor/reconcile-positions";
+   string payload = StringFormat("{\"account_id\":\"%s\",\"positions\":[%s]}", AccountId, parts);
+   int code = HttpPostJson(url, payload);
+   Print("AEGIS: reconcile-positions code=", code, " positions=", n);
+  }
+
 void ClosePositionMarket(const ulong ticket, const string symbol, const string reason)
   {
    if(!PositionSelectByTicket(ticket)) return;
    double vol = PositionGetDouble(POSITION_VOLUME);
    long ptype = PositionGetInteger(POSITION_TYPE);
+   string side = (ptype == POSITION_TYPE_BUY) ? "BUY" : "SELL";
+   string cmt = PositionGetString(POSITION_COMMENT);
+   string signalId = ExtractSignalIdFromComment(cmt);
    MqlTradeRequest req; MqlTradeResult res;
    ZeroMemory(req); ZeroMemory(res);
    req.action = TRADE_ACTION_DEAL;
@@ -1125,7 +1177,11 @@ void ClosePositionMarket(const ulong ticket, const string symbol, const string r
    if(!OrderSend(req, res))
       Print("AEGIS PM close fail ", reason, " err=", GetLastError());
    else
+     {
       Print("AEGIS PM close ", reason, " ticket=", ticket, " ret=", res.retcode);
+      if(res.retcode == TRADE_RETCODE_DONE || res.retcode == TRADE_RETCODE_DONE_PARTIAL)
+         NotifyServerPositionClosed(signalId, ticket, symbol, side, reason);
+     }
   }
 
 void RegisterManagedPosition(const string signalId, const string brokerSymbol,
@@ -1277,6 +1333,9 @@ void ManageAegisPositions()
 int OnInit()
   {
    Print("AEGIS_Executor v2.20 POSITION_MANAGER mode=",EnumToString(ExecMode)," account=",AccountId);
+   // Broker is authoritative: reconcile before autonomous work
+   if(StringLen(AccountId) > 0 && StringLen(ApiKey) > 0)
+      ReconcileBrokerPositionsOnStartup();
    EventSetTimer(MathMax(2,PollSeconds));
    return INIT_SUCCEEDED;
   }

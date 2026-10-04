@@ -237,8 +237,22 @@ async def ack_signal(
                     await pr.record_open_risk(body.account_id, float(risk_usd))
                     life.mark_open_risk_recorded(body.account_id, body.signal_id, float(risk_usd))
         result = {**result, "lifecycle": life.get_signal_state(body.account_id, body.signal_id)}
-    except Exception:
-        pass
+    except Exception as exc:
+        result = {
+            **result,
+            "lifecycle_accounting_error": str(exc)[:300],
+            "reconciliation_required": True,
+        }
+        try:
+            from app.services.position_lifecycle_service import get_lifecycle_service
+            get_lifecycle_service().record_accounting_failure({
+                "type": "ack_lifecycle_exception",
+                "account_id": body.account_id,
+                "signal_id": body.signal_id,
+                "error": str(exc)[:300],
+            })
+        except Exception:
+            pass
     # Additive: subscriber notification inbox (does not change ack semantics)
     try:
         notif = getattr(request.app.state, "notifications", None)
@@ -280,7 +294,7 @@ async def position_closed(
     require_account_match(auth, body.account_id)
     from app.services.position_lifecycle_service import get_lifecycle_service
     life = get_lifecycle_service()
-    risk_to_release = life.on_broker_close(
+    risk_to_release, status = life.on_broker_close(
         account_id=body.account_id,
         signal_id=body.signal_id,
         position_ticket=int(body.position_ticket or 0),
@@ -288,15 +302,16 @@ async def position_closed(
         risk_usd=body.risk_usd_at_open,
     )
     released = 0.0
-    if risk_to_release and risk_to_release > 0:
+    if status == "RISK_RELEASED" and risk_to_release and risk_to_release > 0:
         pr = getattr(request.app.state, "portfolio_risk", None)
         if pr is not None:
             await pr.release_open_risk(body.account_id, float(risk_to_release))
             released = float(risk_to_release)
     return {
-        "ok": True,
-        "lifecycle": "RISK_RELEASED" if released else life.get_signal_state(body.account_id, body.signal_id),
+        "ok": status in ("RISK_RELEASED", "ALREADY_RELEASED"),
+        "lifecycle": status,
         "released_risk_usd": released,
+        "reconciliation_required": status == "RECONCILIATION_REQUIRED",
     }
 
 
@@ -316,7 +331,18 @@ async def reconcile_positions(
     from app.services.position_lifecycle_service import get_lifecycle_service
     life = get_lifecycle_service()
     summary = life.reconcile_from_broker(account_id, positions)
-    # Sync autonomous directional gate from broker, not memory
+    pr = getattr(request.app.state, "portfolio_risk", None)
+    if pr is not None:
+        # Apply stale release
+        stale = float(summary.get("stale_risk_released") or 0.0)
+        if stale > 0:
+            await pr.release_open_risk(account_id, stale)
+        # Align ledger to target if shortfall (positions with known risk)
+        delta = float(summary.get("risk_delta_usd") or 0.0)
+        if delta > 0.01:
+            await pr.record_open_risk(account_id, delta)
+        elif delta < -0.01:
+            await pr.release_open_risk(account_id, abs(delta))
     auto = getattr(request.app.state, "autonomous_ohlc", None)
     if auto is None:
         try:

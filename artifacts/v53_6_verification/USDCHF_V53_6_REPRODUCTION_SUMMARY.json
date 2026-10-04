@@ -1,0 +1,42 @@
+{
+  "dataset_sha256": "f93d6440dafb3427f7ceffd0ed9265d7bc02a6434864cba4ce288533d805ff97",
+  "dataset_sha_match": true,
+  "rows": 373551,
+  "event_count": 5386,
+  "legacy_metrics": {
+    "trades": 4957.0,
+    "wins": 2979.0,
+    "losses": 1978.0,
+    "win_rate": 0.6009683276175106,
+    "PF": 2.3265145671306704,
+    "avg_R": 0.5726383971202262,
+    "total_R": 2838.5685345249613,
+    "max_DD": 13.936616181118552
+  },
+  "bidask_metrics": {
+    "trades": 4957.0,
+    "wins": 2982.0,
+    "losses": 1975.0,
+    "win_rate": 0.6015735323784547,
+    "PF": 2.6532010137181823,
+    "avg_R": 0.6576383971202262,
+    "total_R": 3259.913534524961,
+    "max_DD": 11.386616181118825
+  },
+  "operational_ledger_trades": 4957,
+  "both_matched_event_i": 4957,
+  "only_reproduced": 0,
+  "only_artifact": 0,
+  "rulebook_qualification": {
+    "validation_trades": 729,
+    "validation_profit_factor": 2.387,
+    "final_test_trades": 735,
+    "final_test_profit_factor": 2.375,
+    "minimum_six_block_profit_factor": 1.953,
+    "validation_gate": true,
+    "final_test_gate": true,
+    "six_block_robustness_gate": true,
+    "final_test_locked": true
+  },
+  "classification_note": "Compare reproduced V31-on-USDCHF path to operational_replay_ledger and rulebook quals"
+}
