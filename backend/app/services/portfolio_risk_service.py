@@ -746,7 +746,20 @@ class PortfolioRiskService:
             row.open_risk_usd = max(0.0, float(row.open_risk_usd or 0.0) + float(delta_usd))
             await session.commit()
 
-    async def portfolio_summary(self, account_id: str, universe: list[str] | None = None) -> dict[str, Any]:
+    
+    async def release_open_risk(self, account_id: str, delta_usd: float) -> None:
+        """Release open risk on broker-confirmed close (idempotent floor at 0)."""
+        if delta_usd is None:
+            return
+        d = abs(float(delta_usd))
+        async with async_session_factory() as session:
+            row = await session.get(Subscription, account_id)
+            if row is None:
+                return
+            row.open_risk_usd = max(0.0, float(row.open_risk_usd or 0.0) - d)
+            await session.commit()
+
+async def portfolio_summary(self, account_id: str, universe: list[str] | None = None) -> dict[str, Any]:
         state = await self.get_state(account_id)
         if not state:
             return {"error": "account_not_found"}

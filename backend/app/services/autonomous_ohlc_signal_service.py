@@ -129,7 +129,21 @@ class AutonomousOhlcSignalService:
             return True, "open_new"
         return False, "experimental_flip_disabled_on_baseline_server"
 
+    def _execution_authorization(self, result: dict) -> tuple[bool, str]:
+        """Fail-closed production gate. Research methodologies never auto-execute."""
+        if not isinstance(result, dict):
+            return False, "auth_missing_result"
+        pa = result.get("production_authorized")
+        if pa is True:
+            sid = str(result.get("strategy_id") or "").lower()
+            if any(x in sid for x in ("rsi9", "native", "transfer", "research")):
+                return False, "research_strategy_id_blocked"
+            return True, "authorized"
+        meth = str(result.get("methodology") or "").lower()
+        return False, "production_authorized_false_or_research"
+
     async def process_closed_bar(
+
         self,
         *,
         app: Any,
@@ -182,6 +196,19 @@ class AutonomousOhlcSignalService:
             except Exception:
                 pass
 
+        try:
+            from app.services.ohlc_bar_utils import closed_bars_only
+            current = stream_payload.get("current_bar") or stream_payload.get("bar_current")
+            snapshot["bars"] = closed_bars_only(
+                list(snapshot.get("bars") or []),
+                closed_bar=closed if isinstance(closed, dict) else None,
+                current_bar=current if isinstance(current, dict) else None,
+            )
+            snapshot["bar_status"] = "CLOSED"
+            snapshot["forming_bar_excluded"] = True
+        except Exception:
+            pass
+
         # Dedupe: do not re-fire autonomous logic on the same closed bar (weekend re-posts)
         bar_t = 0
         try:
@@ -217,6 +244,13 @@ class AutonomousOhlcSignalService:
         out["gate"] = reason
         if not allow:
             out["reason"] = reason
+            return out
+
+        auth_ok, auth_reason = self._execution_authorization(result)
+        out["authorization"] = auth_reason
+        if not auth_ok:
+            out["reason"] = auth_reason
+            out["lifecycle"] = "SIGNAL_GENERATED"
             return out
 
         # Registry / risk / publish (shared with screenshot path intent)
@@ -346,6 +380,7 @@ class AutonomousOhlcSignalService:
             )
             self.set_side(account_id, sym, side)
             out["published"] = True
+            out["lifecycle"] = "SIGNAL_QUEUED"
             out["reason"] = reason
             out["volume"] = sized_vol
             # Inbox notification (non-blocking)

@@ -230,3 +230,106 @@ def simulate_short_operational(df: pd.DataFrame, atr: np.ndarray, events: np.nda
     Does not invent commission or slippage.
     """
     return simulate_short(df, atr, events, cost_mode=COST_MODE_BID_ASK)
+
+def simulate_short_broker_correct(
+    df: pd.DataFrame,
+    atr: np.ndarray,
+    events: np.ndarray,
+    *,
+    stop_atr_mult: float = 1.5,
+    trail_atr_mult: float = 0.75,
+    max_hold: int = 72,
+) -> pd.DataFrame:
+    """Broker-correct SHORT (NOT frozen V53.6): OPEN=BidOpen, stop/close on Ask. No 0.085R."""
+    bo = df["BidOpen"].to_numpy(float)
+    ah = df["AskHigh"].to_numpy(float)
+    ac = df["AskClose"].to_numpy(float)
+    n = len(df)
+    trades: list[tuple] = []
+    next_allowed = 0
+    for i in events:
+        if i <= next_allowed or i + 1 >= n:
+            continue
+        A = atr[i]
+        if A is None or not np.isfinite(A) or A <= 0:
+            continue
+        entry = float(bo[i + 1])
+        risk = float(stop_atr_mult) * float(A)
+        if risk <= 0:
+            continue
+        stop = entry + risk
+        be = False
+        end = min(n - 1, i + int(max_hold))
+        exit_i = exit_px = reason = None
+        for j in range(i + 1, end + 1):
+            if ah[j] >= stop:
+                exit_i, exit_px, reason = j, stop, "STOP"
+                break
+            rr = (entry - ac[j]) / risk
+            if rr >= 1.0 and not be:
+                stop = entry
+                be = True
+            if be:
+                candidate = ac[j] + float(trail_atr_mult) * float(atr[j] if np.isfinite(atr[j]) else A)
+                if candidate < stop:
+                    stop = candidate
+            if j == end:
+                exit_i, exit_px, reason = j, float(ac[j]), "TIME"
+        if exit_i is None:
+            continue
+        gross = (entry - float(exit_px)) / risk
+        trades.append((i, exit_i, entry, float(exit_px), gross, reason, gross, 0.0))
+        next_allowed = exit_i
+    return finalize_trades(df, trades, cost_model_version="broker_correct_short_v1")
+
+
+def simulate_long_broker_correct(
+    df: pd.DataFrame,
+    atr: np.ndarray,
+    events: np.ndarray,
+    *,
+    stop_atr_mult: float = 1.0,
+    trail_atr_mult: float = 0.5,
+    max_hold: int = 72,
+) -> pd.DataFrame:
+    """Broker-correct LONG: OPEN=AskOpen, stop/close on Bid. No 0.085R."""
+    ao = df["AskOpen"].to_numpy(float)
+    bl = df["BidLow"].to_numpy(float)
+    bc = df["BidClose"].to_numpy(float)
+    n = len(df)
+    trades: list[tuple] = []
+    next_allowed = 0
+    for i in events:
+        if i <= next_allowed or i + 1 >= n:
+            continue
+        A = atr[i]
+        if A is None or not np.isfinite(A) or A <= 0:
+            continue
+        entry = float(ao[i + 1])
+        risk = float(stop_atr_mult) * float(A)
+        if risk <= 0:
+            continue
+        stop = entry - risk
+        be = False
+        end = min(n - 1, i + int(max_hold))
+        exit_i = exit_px = reason = None
+        for j in range(i + 1, end + 1):
+            if bl[j] <= stop:
+                exit_i, exit_px, reason = j, stop, "STOP"
+                break
+            rr = (bc[j] - entry) / risk
+            if rr >= 1.0 and not be:
+                stop = entry
+                be = True
+            if be:
+                candidate = bc[j] - float(trail_atr_mult) * float(atr[j] if np.isfinite(atr[j]) else A)
+                if candidate > stop:
+                    stop = candidate
+            if j == end:
+                exit_i, exit_px, reason = j, float(bc[j]), "TIME"
+        if exit_i is None:
+            continue
+        gross = (float(exit_px) - entry) / risk
+        trades.append((i, exit_i, entry, float(exit_px), gross, reason, gross, 0.0))
+        next_allowed = exit_i
+    return finalize_trades(df, trades, cost_model_version="broker_correct_long_v1")
