@@ -1,26 +1,18 @@
 # AEGIS Execution Authority
 
-## Rules (fail-closed)
+## Fail-closed
+- Registry unavailable → reject
+- production_authorized must be explicit true for autonomous queue
+- Research (RSI9, Native, V53.6 research candidates) remain unauthorized
 
-1. `production_authorized` must be explicitly true or the autonomous path will not queue Executor work.
-2. Registry unavailable → reject symbol authorization (`registry_unavailable_fail_closed`). Never fail-open.
-3. Research methodologies (RSI9, Native, V31/V53 research candidates) remain `production_authorized=false`.
-4. Signal publication is not a position open.
+## Lifecycle (durable + memory mirror)
+States: SIGNAL_QUEUED → ORDER_SENT → BROKER_CONFIRMED_OPEN → POSITION_OPEN → RISK_RELEASED
 
-## Lifecycle
-
-SIGNAL_GENERATED → SIGNAL_QUEUED → ORDER_SENT → BROKER_CONFIRMED_OPEN
-→ POSITION_OPEN → POSITION_CLOSED → BROKER_CONFIRMED_CLOSE → RISK_RELEASED
-
-APIs:
-- POST /api/executor/ack
-- POST /api/executor/position-closed
-- POST /api/executor/reconcile-positions
-
-## Position side authority
-
-In-memory side is a cache. Authoritative side after restart comes from broker positions via reconcile.
+- Open risk only when position_ticket > 0 and risk_usd known (durable row)
+- Close: server risk only; client amount cannot invent release
+- Disappearance detection (EA): SL/BE/trail/manual → POST /position-closed
+- Restart: EA reconcile-positions; durable DB rows vs broker tickets
+- Idempotent: account_id+signal_id / account_id+position_ticket
 
 ## V53.6
-
-Historical reconstruction (AskOpen SHORT, optional 0.085R) is separate from broker-correct operational path. Never mixed.
+REPRODUCTION VERIFIED against stored operational ledger — not ORIGINAL RESEARCH INDEPENDENTLY VERIFIED; not production.

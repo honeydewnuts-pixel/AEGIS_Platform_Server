@@ -207,36 +207,62 @@ async def ack_signal(
         side=body.side,
         volume=body.volume,
     )
-    # Stage 2.5 lifecycle: ACK is not a position. Only broker-confirmed open records risk.
+    # Durable lifecycle: ACK is not open risk unless position_ticket > 0 and risk known
     try:
+        from app.db.base import async_session_factory
+        from app.services.durable_lifecycle_service import DurableLifecycleService
         from app.services.position_lifecycle_service import get_lifecycle_service
-        life = get_lifecycle_service()
-        life.on_ack(
+        life_mem = get_lifecycle_service()
+        ok_flag = bool(body.ok if body.ok is not None else result.get("ok", True))
+        pos_ticket = int(body.position_ticket or 0)
+        risk_usd = result.get("risk_usd_at_open")
+        if risk_usd is None:
+            risk_usd = result.get("estimated_monetary_risk")
+        if not result.get("idempotent"):
+            async with async_session_factory() as session:
+                dur = DurableLifecycleService()
+                row, should_risk = await dur.on_ack(
+                    session,
+                    account_id=body.account_id,
+                    signal_id=body.signal_id,
+                    ok=ok_flag,
+                    position_ticket=pos_ticket,
+                    order_ticket=int(body.order_ticket or body.ticket or 0),
+                    deal_ticket=int(body.deal_ticket or 0),
+                    symbol=str(body.symbol or result.get("symbol") or ""),
+                    side=str(body.side or result.get("side") or ""),
+                    volume=float(body.volume or 0.0) if body.volume is not None else None,
+                    risk_usd=float(risk_usd) if risk_usd is not None else None,
+                )
+                if should_risk and risk_usd is not None:
+                    pr = getattr(request.app.state, "portfolio_risk", None)
+                    if pr is not None:
+                        await pr.record_open_risk(body.account_id, float(risk_usd))
+                    await dur.mark_risk_recorded(
+                        session, account_id=body.account_id, signal_id=body.signal_id, risk_usd=float(risk_usd)
+                    )
+                await session.commit()
+                result = {
+                    **result,
+                    "lifecycle": (row.state if row else "UNKNOWN"),
+                    "reconciliation_required": bool(row and row.state == "BROKER_CONFIRMED_OPEN" and row.risk_usd_at_open is None),
+                }
+        # Mirror in-memory for gates (non-authoritative)
+        life_mem.on_ack(
             account_id=body.account_id,
             signal_id=body.signal_id,
-            ok=bool(body.ok if body.ok is not None else result.get("ok", True)),
-            position_ticket=int(body.position_ticket or 0),
+            ok=ok_flag,
+            position_ticket=pos_ticket,
             order_ticket=int(body.order_ticket or body.ticket or 0),
             deal_ticket=int(body.deal_ticket or 0),
             symbol=str(body.symbol or result.get("symbol") or ""),
             side=str(body.side or result.get("side") or ""),
             volume=float(body.volume or 0.0),
-            risk_usd=float(result.get("risk_usd_at_open") or 0.0) or None,
+            risk_usd=float(risk_usd) if risk_usd is not None else None,
             idempotent=bool(result.get("idempotent")),
         )
-        ok_flag = bool(body.ok if body.ok is not None else result.get("ok", True))
-        pos_ticket = int(body.position_ticket or 0)
-        # Only broker-confirmed open (position ticket) creates open risk — once
-        if ok_flag and not result.get("idempotent") and pos_ticket > 0:
-            pr = getattr(request.app.state, "portfolio_risk", None)
-            if pr is not None and life.should_record_open_risk(body.account_id, body.signal_id):
-                risk_usd = result.get("risk_usd_at_open")
-                if risk_usd is None:
-                    risk_usd = result.get("estimated_monetary_risk")
-                if risk_usd is not None:
-                    await pr.record_open_risk(body.account_id, float(risk_usd))
-                    life.mark_open_risk_recorded(body.account_id, body.signal_id, float(risk_usd))
-        result = {**result, "lifecycle": life.get_signal_state(body.account_id, body.signal_id)}
+        if ok_flag and pos_ticket > 0 and risk_usd is not None and not result.get("idempotent"):
+            life_mem.mark_open_risk_recorded(body.account_id, body.signal_id, float(risk_usd))
     except Exception as exc:
         result = {
             **result,
@@ -253,7 +279,7 @@ async def ack_signal(
             })
         except Exception:
             pass
-    # Additive: subscriber notification inbox (does not change ack semantics)
+        # Additive: subscriber notification inbox (does not change ack semantics)
     try:
         notif = getattr(request.app.state, "notifications", None)
         if notif is not None and not result.get("idempotent"):
@@ -292,21 +318,35 @@ async def position_closed(
 ) -> dict[str, Any]:
     """Broker-confirmed close → release open risk (idempotent)."""
     require_account_match(auth, body.account_id)
+    from app.db.base import async_session_factory
+    from app.services.durable_lifecycle_service import DurableLifecycleService
     from app.services.position_lifecycle_service import get_lifecycle_service
-    life = get_lifecycle_service()
-    risk_to_release, status = life.on_broker_close(
+    released = 0.0
+    status = "RECONCILIATION_REQUIRED"
+    async with async_session_factory() as session:
+        dur = DurableLifecycleService()
+        risk_to_release, status = await dur.on_close(
+            session,
+            account_id=body.account_id,
+            signal_id=body.signal_id,
+            position_ticket=int(body.position_ticket or 0),
+            symbol=str(body.symbol or ""),
+            close_reason=str(body.reason or ""),
+        )
+        if status == "RISK_RELEASED" and risk_to_release and risk_to_release > 0:
+            pr = getattr(request.app.state, "portfolio_risk", None)
+            if pr is not None:
+                await pr.release_open_risk(body.account_id, float(risk_to_release))
+            released = float(risk_to_release)
+        await session.commit()
+    # Mirror memory (idempotent)
+    get_lifecycle_service().on_broker_close(
         account_id=body.account_id,
         signal_id=body.signal_id,
         position_ticket=int(body.position_ticket or 0),
         symbol=str(body.symbol or ""),
-        risk_usd=body.risk_usd_at_open,
+        risk_usd=None,
     )
-    released = 0.0
-    if status == "RISK_RELEASED" and risk_to_release and risk_to_release > 0:
-        pr = getattr(request.app.state, "portfolio_risk", None)
-        if pr is not None:
-            await pr.release_open_risk(body.account_id, float(risk_to_release))
-            released = float(risk_to_release)
     return {
         "ok": status in ("RISK_RELEASED", "ALREADY_RELEASED"),
         "lifecycle": status,
@@ -321,28 +361,23 @@ async def reconcile_positions(
     request: Request,
     auth: AuthContext = Depends(verify_api_key),
 ) -> dict[str, Any]:
-    """Restart-safe: client/Executor posts broker positions; server rebuilds side + risk keys.
-
-    Body: {account_id, positions: [{symbol, side, position_ticket, volume, risk_usd?}]}
-    """
+    """Restart-safe: broker positions vs durable lifecycle; release closed risk once."""
     account_id = str(body.get("account_id") or "")
     require_account_match(auth, account_id)
     positions = body.get("positions") or []
+    from app.db.base import async_session_factory
+    from app.services.durable_lifecycle_service import DurableLifecycleService
     from app.services.position_lifecycle_service import get_lifecycle_service
-    life = get_lifecycle_service()
-    summary = life.reconcile_from_broker(account_id, positions)
-    pr = getattr(request.app.state, "portfolio_risk", None)
-    if pr is not None:
-        # Apply stale release
+    async with async_session_factory() as session:
+        dur = DurableLifecycleService()
+        summary = await dur.reconcile(session, account_id, positions)
         stale = float(summary.get("stale_risk_released") or 0.0)
         if stale > 0:
-            await pr.release_open_risk(account_id, stale)
-        # Align ledger to target if shortfall (positions with known risk)
-        delta = float(summary.get("risk_delta_usd") or 0.0)
-        if delta > 0.01:
-            await pr.record_open_risk(account_id, delta)
-        elif delta < -0.01:
-            await pr.release_open_risk(account_id, abs(delta))
+            pr = getattr(request.app.state, "portfolio_risk", None)
+            if pr is not None:
+                await pr.release_open_risk(account_id, stale)
+        await session.commit()
+    get_lifecycle_service().reconcile_from_broker(account_id, positions)
     auto = getattr(request.app.state, "autonomous_ohlc", None)
     if auto is None:
         try:

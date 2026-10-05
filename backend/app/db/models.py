@@ -519,3 +519,29 @@ class WithdrawalRequest(Base):
     detail: Mapped[str | None] = mapped_column(String(512), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class AegisPositionLifecycle(Base):
+    """Durable AEGIS execution lifecycle — account-scoped; survives server restart."""
+
+    __tablename__ = "aegis_position_lifecycle"
+    __table_args__ = (
+        UniqueConstraint("account_id", "signal_id", name="uq_lifecycle_account_signal"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    account_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    signal_id: Mapped[str] = mapped_column(String, nullable=False)
+    position_ticket: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    order_ticket: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    deal_ticket: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    symbol: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    side: Mapped[str] = mapped_column(String(16), nullable=False, default="")
+    volume: Mapped[float | None] = mapped_column(Float, nullable=True)
+    risk_usd_at_open: Mapped[float | None] = mapped_column(Float, nullable=True)
+    state: Mapped[str] = mapped_column(String(48), nullable=False, default="SIGNAL_QUEUED")
+    opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    close_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

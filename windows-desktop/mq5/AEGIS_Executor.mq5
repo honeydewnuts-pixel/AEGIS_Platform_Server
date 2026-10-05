@@ -63,6 +63,16 @@ int    g_retryBroker[];
 string g_ackPendingId[];
 string g_ackPendingPayload[];  // prebuilt JSON body
 int    g_ackPendingTries[];
+// Known AEGIS positions for disappearance detection (SL/BE/trail/manual)
+ulong  g_knownTickets[];
+string g_knownSymbols[];
+string g_knownSides[];
+string g_knownSignalIds[];
+// Pending close notifications (retry if HTTP fails)
+string g_closePendingPayload[];
+int    g_closePendingTries[];
+string g_closeNotifiedKey[];  // account|ticket already notified
+
 
 string lastLocalSig = "";
 double g_lastAtr14 = 0;
@@ -1098,9 +1108,70 @@ bool ModifyPositionStopConfirmed(const ulong ticket, const string symbol, const 
    return true;
   }
 
+bool CloseAlreadyNotified(const ulong ticket)
+  {
+   string key = AccountId + "|" + IntegerToString((int)ticket);
+   for(int i = 0; i < ArraySize(g_closeNotifiedKey); i++)
+      if(g_closeNotifiedKey[i] == key) return true;
+   return false;
+  }
+
+void MarkCloseNotified(const ulong ticket)
+  {
+   string key = AccountId + "|" + IntegerToString((int)ticket);
+   int n = ArraySize(g_closeNotifiedKey);
+   ArrayResize(g_closeNotifiedKey, n + 1);
+   g_closeNotifiedKey[n] = key;
+  }
+
+void QueueCloseNotify(const string payload)
+  {
+   int n = ArraySize(g_closePendingPayload);
+   ArrayResize(g_closePendingPayload, n + 1);
+   ArrayResize(g_closePendingTries, n + 1);
+   g_closePendingPayload[n] = payload;
+   g_closePendingTries[n] = 0;
+  }
+
+void FlushCloseNotifyRetries()
+  {
+   string url = ServerUrl + "/api/executor/position-closed";
+   for(int i = ArraySize(g_closePendingPayload) - 1; i >= 0; i--)
+     {
+      int code = HttpPostJson(url, g_closePendingPayload[i]);
+      if(code >= 200 && code < 300)
+        {
+         // remove i
+         for(int j = i; j < ArraySize(g_closePendingPayload) - 1; j++)
+           {
+            g_closePendingPayload[j] = g_closePendingPayload[j + 1];
+            g_closePendingTries[j] = g_closePendingTries[j + 1];
+           }
+         ArrayResize(g_closePendingPayload, ArraySize(g_closePendingPayload) - 1);
+         ArrayResize(g_closePendingTries, ArraySize(g_closePendingTries) - 1);
+        }
+      else
+        {
+         g_closePendingTries[i]++;
+         if(g_closePendingTries[i] > 30)
+           {
+            Print("AEGIS: close notify dropped after retries");
+            for(int j = i; j < ArraySize(g_closePendingPayload) - 1; j++)
+              {
+               g_closePendingPayload[j] = g_closePendingPayload[j + 1];
+               g_closePendingTries[j] = g_closePendingTries[j + 1];
+              }
+            ArrayResize(g_closePendingPayload, ArraySize(g_closePendingPayload) - 1);
+            ArrayResize(g_closePendingTries, ArraySize(g_closePendingTries) - 1);
+           }
+        }
+     }
+  }
+
 void NotifyServerPositionClosed(const string signalId, const ulong ticket, const string symbol,
                                 const string side, const string reason)
   {
+   if(CloseAlreadyNotified(ticket)) return;
    // Only after MT5 confirms position is gone
    if(PositionSelectByTicket(ticket))
      {
@@ -1117,6 +1188,70 @@ void NotifyServerPositionClosed(const string signalId, const ulong ticket, const
       AccountId, signalId, ticket, symbol, side, reason);
    int code = HttpPostJson(url, payload);
    Print("AEGIS: position-closed notify code=", code, " ticket=", ticket, " reason=", reason);
+   if(code >= 200 && code < 300)
+      MarkCloseNotified(ticket);
+   else
+      QueueCloseNotify(payload);
+  }
+
+void TrackKnownPosition(const ulong ticket, const string symbol, const string side, const string signalId)
+  {
+   for(int i = 0; i < ArraySize(g_knownTickets); i++)
+      if(g_knownTickets[i] == ticket) return;
+   int n = ArraySize(g_knownTickets);
+   ArrayResize(g_knownTickets, n + 1);
+   ArrayResize(g_knownSymbols, n + 1);
+   ArrayResize(g_knownSides, n + 1);
+   ArrayResize(g_knownSignalIds, n + 1);
+   g_knownTickets[n] = ticket;
+   g_knownSymbols[n] = symbol;
+   g_knownSides[n] = side;
+   g_knownSignalIds[n] = signalId;
+  }
+
+void DetectDisappearedPositions()
+  {
+   // Compare known set to live AEGIS positions; notify closes (SL/BE/trail/manual)
+   for(int i = ArraySize(g_knownTickets) - 1; i >= 0; i--)
+     {
+      ulong ticket = g_knownTickets[i];
+      bool live = false;
+      if(PositionSelectByTicket(ticket))
+        {
+         if(PositionGetInteger(POSITION_MAGIC) == MagicNumber)
+            live = true;
+        }
+      if(!live)
+        {
+         NotifyServerPositionClosed(g_knownSignalIds[i], ticket, g_knownSymbols[i], g_knownSides[i], "DISAPPEARED");
+         // remove from known
+         for(int j = i; j < ArraySize(g_knownTickets) - 1; j++)
+           {
+            g_knownTickets[j] = g_knownTickets[j + 1];
+            g_knownSymbols[j] = g_knownSymbols[j + 1];
+            g_knownSides[j] = g_knownSides[j + 1];
+            g_knownSignalIds[j] = g_knownSignalIds[j + 1];
+           }
+         ArrayResize(g_knownTickets, ArraySize(g_knownTickets) - 1);
+         ArrayResize(g_knownSymbols, ArraySize(g_knownSymbols) - 1);
+         ArrayResize(g_knownSides, ArraySize(g_knownSides) - 1);
+         ArrayResize(g_knownSignalIds, ArraySize(g_knownSignalIds) - 1);
+        }
+     }
+   // Refresh known from live positions
+   for(int k = PositionsTotal() - 1; k >= 0; k--)
+     {
+      ulong ticket = PositionGetTicket(k);
+      if(ticket == 0) continue;
+      if(!PositionSelectByTicket(ticket)) continue;
+      if(PositionGetInteger(POSITION_MAGIC) != MagicNumber) continue;
+      string symbol = PositionGetString(POSITION_SYMBOL);
+      long ptype = PositionGetInteger(POSITION_TYPE);
+      string side = (ptype == POSITION_TYPE_BUY) ? "BUY" : "SELL";
+      string cmt = PositionGetString(POSITION_COMMENT);
+      string signalId = ExtractSignalIdFromComment(cmt);
+      TrackKnownPosition(ticket, symbol, side, signalId);
+     }
   }
 
 void ReconcileBrokerPositionsOnStartup()
@@ -1200,10 +1335,13 @@ void RegisterManagedPosition(const string signalId, const string brokerSymbol,
    if(ok && confSl > 0) stop = confSl;
    PosStateSave(signalId, brokerSymbol, fillPrice, risk, atr14, TimeCurrent(), stop, false, maxHold, trailMult, stopAtrMult);
    Print("AEGIS: registered managed ", side, " ", brokerSymbol, " entry=", fillPrice, " stop=", stop, " risk=", risk);
+   if(ticket != 0)
+      TrackKnownPosition(ticket, brokerSymbol, side, signalId);
   }
 
 void ManageAegisPositions()
   {
+   DetectDisappearedPositions();
    if(!EnablePositionManager) return;
    for(int i = PositionsTotal() - 1; i >= 0; i--)
      {
@@ -1343,6 +1481,7 @@ void OnDeinit(const int reason){ EventKillTimer(); }
 void OnTimer()
   {
    FlushAckRetries();
+   FlushCloseNotifyRetries();
    if(UseServerSignals)
      {
       if(ExecMode==AEGIS_MODE_MULTI_PAIR) PollMultiPair();
