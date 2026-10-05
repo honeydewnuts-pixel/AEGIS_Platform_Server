@@ -16,3 +16,8 @@ States: SIGNAL_QUEUED → ORDER_SENT → BROKER_CONFIRMED_OPEN → POSITION_OPEN
 
 ## V53.6
 REPRODUCTION VERIFIED against stored operational ledger — not ORIGINAL RESEARCH INDEPENDENTLY VERIFIED; not production.
+
+## Portfolio open_risk_usd
+- `record_open_risk` / `release_open_risk` use `SELECT … FOR UPDATE` on the subscription row.
+- Concurrent releases both apply (no lost update).
+- Lifecycle row lock (Stage 3.1) remains the authority for *which* risk amount is released; portfolio aggregate is updated under its own lock.

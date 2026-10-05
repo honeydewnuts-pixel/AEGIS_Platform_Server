@@ -749,27 +749,44 @@ class PortfolioRiskService:
         return out
 
     async def record_open_risk(self, account_id: str, delta_usd: float) -> None:
+        """Increment open risk under row lock (concurrent-safe)."""
+        if delta_usd is None:
+            return
+        d = float(delta_usd)
+        if d == 0.0:
+            return
         async with async_session_factory() as session:
-            row = await session.get(Subscription, account_id)
+            q = await session.execute(
+                select(Subscription)
+                .where(Subscription.account_id == account_id)
+                .with_for_update()
+            )
+            row = q.scalar_one_or_none()
             if row is None:
                 return
-            row.open_risk_usd = max(0.0, float(row.open_risk_usd or 0.0) + float(delta_usd))
+            row.open_risk_usd = max(0.0, float(row.open_risk_usd or 0.0) + d)
             await session.commit()
 
-    
     async def release_open_risk(self, account_id: str, delta_usd: float) -> None:
-        """Release open risk on broker-confirmed close (idempotent floor at 0)."""
+        """Release open risk on broker-confirmed close (floor at 0, row-locked)."""
         if delta_usd is None:
             return
         d = abs(float(delta_usd))
+        if d == 0.0:
+            return
         async with async_session_factory() as session:
-            row = await session.get(Subscription, account_id)
+            q = await session.execute(
+                select(Subscription)
+                .where(Subscription.account_id == account_id)
+                .with_for_update()
+            )
+            row = q.scalar_one_or_none()
             if row is None:
                 return
             row.open_risk_usd = max(0.0, float(row.open_risk_usd or 0.0) - d)
             await session.commit()
 
-async def portfolio_summary(self, account_id: str, universe: list[str] | None = None) -> dict[str, Any]:
+    async def portfolio_summary(self, account_id: str, universe: list[str] | None = None) -> dict[str, Any]:
         state = await self.get_state(account_id)
         if not state:
             return {"error": "account_not_found"}
