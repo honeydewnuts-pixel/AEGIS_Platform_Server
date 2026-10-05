@@ -53,6 +53,7 @@ input double DefaultTrailAtrMult = 0.75;
 input double DefaultStopAtrMult = 1.5;
 input bool   BaselineShortOnly = true;  // legacy: short-only when methodology unknown
 input string PosStateFile = "aegis_pos_mgr_state.csv";
+input string CloseQueueFile = "aegis_close_notify_queue.csv";
 
 
 string g_handledIds[];
@@ -1131,6 +1132,7 @@ void QueueCloseNotify(const string payload)
    ArrayResize(g_closePendingTries, n + 1);
    g_closePendingPayload[n] = payload;
    g_closePendingTries[n] = 0;
+   SaveCloseQueueToFile();
   }
 
 void FlushCloseNotifyRetries()
@@ -1166,6 +1168,41 @@ void FlushCloseNotifyRetries()
            }
         }
      }
+  }
+
+   SaveCloseQueueToFile();
+
+void SaveCloseQueueToFile()
+  {
+   int h = FileOpen(CloseQueueFile, FILE_WRITE|FILE_CSV|FILE_COMMON, ',');
+   if(h == INVALID_HANDLE) return;
+   for(int i = 0; i < ArraySize(g_closePendingPayload); i++)
+     {
+      FileWrite(h, g_closePendingPayload[i], IntegerToString(g_closePendingTries[i]));
+     }
+   FileClose(h);
+  }
+
+void LoadCloseQueueFromFile()
+  {
+   ArrayResize(g_closePendingPayload, 0);
+   ArrayResize(g_closePendingTries, 0);
+   int h = FileOpen(CloseQueueFile, FILE_READ|FILE_CSV|FILE_COMMON, ',');
+   if(h == INVALID_HANDLE) return;
+   while(!FileIsEnding(h))
+     {
+      string payload = FileReadString(h);
+      string tries_s = FileReadString(h);
+      if(StringLen(payload) < 8) continue;
+      int n = ArraySize(g_closePendingPayload);
+      ArrayResize(g_closePendingPayload, n + 1);
+      ArrayResize(g_closePendingTries, n + 1);
+      g_closePendingPayload[n] = payload;
+      g_closePendingTries[n] = (int)StringToInteger(tries_s);
+     }
+   FileClose(h);
+   if(ArraySize(g_closePendingPayload) > 0)
+      Print("AEGIS: loaded ", ArraySize(g_closePendingPayload), " pending close notifications");
   }
 
 void NotifyServerPositionClosed(const string signalId, const ulong ticket, const string symbol,
@@ -1471,6 +1508,7 @@ void ManageAegisPositions()
 int OnInit()
   {
    Print("AEGIS_Executor v2.20 POSITION_MANAGER mode=",EnumToString(ExecMode)," account=",AccountId);
+   LoadCloseQueueFromFile();
    // Broker is authoritative: reconcile before autonomous work
    if(StringLen(AccountId) > 0 && StringLen(ApiKey) > 0)
       ReconcileBrokerPositionsOnStartup();
