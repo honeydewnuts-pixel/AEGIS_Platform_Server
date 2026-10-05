@@ -88,6 +88,8 @@ def test_postgres_concurrent_release_no_lost_update():
                 text("DELETE FROM subscriptions WHERE account_id = :a"),
                 {"a": account_id},
             )
+            # CI runs alembic upgrade after pytest — do not leave a pre-created table
+            await conn.execute(text("DROP TABLE IF EXISTS subscriptions CASCADE"))
 
         await engine.dispose()
 
