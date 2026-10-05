@@ -187,24 +187,51 @@ class DurableLifecycleService:
         await session.flush()
         return amount, "RISK_RELEASED"
 
+    _OPEN_STATES = (
+        "BROKER_CONFIRMED_OPEN",
+        "POSITION_OPEN",
+        "ORDER_SENT",
+        "RECONCILIATION_REQUIRED",
+    )
+
     async def list_open(self, session: AsyncSession, account_id: str) -> list[AegisPositionLifecycle]:
         q = await session.execute(
             select(AegisPositionLifecycle).where(
                 and_(
                     AegisPositionLifecycle.account_id == account_id,
-                    AegisPositionLifecycle.state.in_(
-                        ["BROKER_CONFIRMED_OPEN", "POSITION_OPEN", "ORDER_SENT", "RECONCILIATION_REQUIRED"]
-                    ),
+                    AegisPositionLifecycle.state.in_(list(self._OPEN_STATES)),
                 )
             )
+        )
+        return list(q.scalars().all())
+
+    async def list_open_for_update(
+        self, session: AsyncSession, account_id: str
+    ) -> list[AegisPositionLifecycle]:
+        """Same as list_open but locks rows until the transaction ends."""
+        q = await session.execute(
+            select(AegisPositionLifecycle)
+            .where(
+                and_(
+                    AegisPositionLifecycle.account_id == account_id,
+                    AegisPositionLifecycle.state.in_(list(self._OPEN_STATES)),
+                )
+            )
+            .with_for_update()
         )
         return list(q.scalars().all())
 
     async def reconcile(
         self, session: AsyncSession, account_id: str, broker_positions: list[dict[str, Any]]
     ) -> dict[str, Any]:
-        """Broker authoritative for existence; durable records hold risk amounts."""
-        open_rows = await self.list_open(session, account_id)
+        """Broker authoritative for existence; durable records hold risk amounts.
+
+        Concurrent-safe: open lifecycle rows are locked with SELECT FOR UPDATE.
+        Only the transaction that transitions a row to RISK_RELEASED contributes
+        its risk_usd_at_open to stale_risk_released. A second concurrent reconcile
+        waits on the lock, then observes RISK_RELEASED and contributes zero.
+        """
+        open_rows = await self.list_open_for_update(session, account_id)
         live_tickets: set[int] = set()
         broker_by_ticket: dict[int, dict] = {}
         for p in broker_positions or []:
@@ -221,16 +248,18 @@ class DurableLifecycleService:
         confirmed = 0
         now = _utcnow()
         for row in open_rows:
+            # Re-check under lock — another txn may have released while we waited
+            if row.state == "RISK_RELEASED":
+                continue
             pt = int(row.position_ticket or 0)
             if pt > 0 and pt not in live_tickets:
-                # Broker closed
-                if row.risk_usd_at_open is not None and row.state != "RISK_RELEASED":
+                if row.risk_usd_at_open is not None:
                     released += abs(float(row.risk_usd_at_open))
                     row.state = "RISK_RELEASED"
                     row.closed_at = now
                     row.close_reason = row.close_reason or "broker_absent_on_reconcile"
                     row.updated_at = now
-                elif row.state != "RISK_RELEASED":
+                else:
                     row.state = "RECONCILIATION_REQUIRED"
                     row.updated_at = now
                     recon_required += 1
@@ -240,22 +269,35 @@ class DurableLifecycleService:
                     row.state = "POSITION_OPEN"
                     row.updated_at = now
             elif pt == 0 and row.state in ("ORDER_SENT", "SIGNAL_QUEUED"):
-                # No ticket yet — leave
                 pass
 
-        # Broker open without durable risk → flag, do not invent
-        durable_tickets = {int(r.position_ticket or 0) for r in open_rows if r.position_ticket}
+        durable_tickets = {
+            int(r.position_ticket or 0)
+            for r in open_rows
+            if r.position_ticket and r.state != "RISK_RELEASED"
+        }
         for t, p in broker_by_ticket.items():
             if t not in durable_tickets:
-                # Try signal_id from payload
                 sid = str(p.get("signal_id") or "")
                 if sid:
-                    existing = await self._get(session, account_id, sid)
+                    # Lock the candidate row if present
+                    q = await session.execute(
+                        select(AegisPositionLifecycle)
+                        .where(
+                            and_(
+                                AegisPositionLifecycle.account_id == account_id,
+                                AegisPositionLifecycle.signal_id == sid,
+                            )
+                        )
+                        .with_for_update()
+                    )
+                    existing = q.scalar_one_or_none()
                     if existing and existing.risk_usd_at_open is not None:
-                        existing.position_ticket = t
-                        existing.state = "POSITION_OPEN"
-                        existing.updated_at = now
-                        confirmed += 1
+                        if existing.state != "RISK_RELEASED":
+                            existing.position_ticket = t
+                            existing.state = "POSITION_OPEN"
+                            existing.updated_at = now
+                            confirmed += 1
                         continue
                 recon_required += 1
 
