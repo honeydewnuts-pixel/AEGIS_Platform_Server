@@ -38,19 +38,25 @@ def test_postgres_concurrent_reconcile_single_release():
         from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
         from sqlalchemy.orm import sessionmaker
 
-        from app.db.models import AegisPositionLifecycle, Base
+        from app.db.models import AegisPositionLifecycle
         from app.services.durable_lifecycle_service import DurableLifecycleService
 
         url = db.replace("postgresql://", "postgresql+asyncpg://", 1)
         engine = create_async_engine(url, pool_size=5)
         Session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
+        # Schema is provided by CI Alembic migrations; do not create_all
+        # (conflicts with existing tables). Verify table is reachable.
         try:
-            async with engine.begin() as conn:
-                await conn.run_sync(Base.metadata.create_all)
+            async with engine.connect() as conn:
+                await conn.execute(
+                    __import__("sqlalchemy", fromlist=["text"]).text(
+                        "SELECT 1 FROM aegis_position_lifecycle LIMIT 0"
+                    )
+                )
         except Exception as e:
             await engine.dispose()
-            pytest.skip(f"NOT RUN — cannot create tables: {e}")
+            pytest.skip(f"NOT RUN — lifecycle table unavailable: {e}")
 
         account_id = "CONC-TEST-ACC"
         signal_id = "CONC-SIG-1"
