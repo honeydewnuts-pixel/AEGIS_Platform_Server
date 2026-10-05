@@ -109,6 +109,14 @@ def test_postgres_concurrent_reconcile_single_release():
             final = q.scalar_one()
             assert final.state == "RISK_RELEASED"
 
+        # Leave DB clean for CI Alembic step (runs after pytest)
+        async with engine.begin() as conn:
+            await conn.execute(
+                __import__("sqlalchemy", fromlist=["text"]).text(
+                    "DROP TABLE IF EXISTS aegis_position_lifecycle CASCADE"
+                )
+            )
+
         await engine.dispose()
 
     asyncio.run(_run())
