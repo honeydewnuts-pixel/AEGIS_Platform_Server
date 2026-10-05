@@ -28,12 +28,18 @@ def test_research_eligible_pairs():
 
 
 def test_v2opt_only_pairs_disabled():
-    """V2-OPT-only pairs are TRADING_DISABLED (insufficient qualification gates)."""
+    """Former V2-OPT-only pairs may be RESEARCH_ELIGIBLE via RSI9/Native transfers.
+
+    They remain production_authorized=False (not live/demo executable).
+    """
     ur = _router()
     for inst in ("EURUSD", "USDJPY", "EURJPY", "GBPAUD"):
         d = ur.resolve(inst, "M5")
-        assert d.state == RouteState.TRADING_DISABLED, (inst, d)
-        assert d.production_authorized is False
+        assert d.production_authorized is False, (inst, d)
+        assert d.state in (
+            RouteState.TRADING_DISABLED,
+            RouteState.ROUTABLE_RESEARCH,
+        ), (inst, d)
 
 
 def test_production_authorization_required():

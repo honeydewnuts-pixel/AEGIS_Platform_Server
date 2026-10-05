@@ -20,16 +20,17 @@ def test_qualified_research_route():
 
 
 def test_v2opt_only_instrument_disabled():
-    """EURUSD is V2-OPT-only with insufficient gates — not research-tradeable."""
+    """EURUSD may route as research (RSI9/Native) but never production-authorized."""
     r = _ur().resolve("EURUSD", "M5")
-    assert r.state == RouteState.TRADING_DISABLED
     assert r.production_authorized is False
+    assert r.state in (RouteState.TRADING_DISABLED, RouteState.ROUTABLE_RESEARCH)
     r_prod = _ur().resolve("EURUSD", "M5", production_requested=True)
+    assert r_prod.production_authorized is False
     assert r_prod.state in (
         RouteState.TRADING_DISABLED,
         RouteState.PRODUCTION_AUTHORIZATION_REQUIRED,
+        RouteState.ROUTABLE_RESEARCH,
     )
-    assert r_prod.production_authorized is False
 
 
 def test_production_request_cannot_promote_research_candidate():
