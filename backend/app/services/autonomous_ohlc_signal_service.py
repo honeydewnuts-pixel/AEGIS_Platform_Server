@@ -360,6 +360,13 @@ class AutonomousOhlcSignalService:
                         atr_for_risk = float(atr)
                 except (TypeError, ValueError):
                     atr_for_risk = None
+                acct_ccy = "USD"
+                try:
+                    st_ccy = await pr.get_state(account_id)
+                    if isinstance(st_ccy, dict) and st_ccy.get("account_currency"):
+                        acct_ccy = str(st_ccy["account_currency"]).upper()
+                except Exception:
+                    acct_ccy = "USD"
                 risk_meta = await pr.size_order(
                     account_id,
                     sym,
@@ -368,6 +375,7 @@ class AutonomousOhlcSignalService:
                     stop_loss=float(sl) if sl else None,
                     side=side,
                     atr14=atr_for_risk,
+                    account_currency=acct_ccy,
                 )
                 out["portfolio_risk"] = risk_meta
                 if not risk_meta.get("allow"):
@@ -408,6 +416,7 @@ class AutonomousOhlcSignalService:
                 details=f"autonomous_ohlc gate={reason} conf={conf:.2f}"[:500],
                 atr14=atr_pub_f,
                 initial_stop_atr_mult=float(result.get("initial_stop_atr_mult") or 1.5),
+                production_authorized=(result.get("production_authorized") is True),
                 max_hold_bars=int(result.get("max_hold_bars") or 72),
                 trail_atr_mult=float(result.get("trail_atr_mult") or 0.75),
                 methodology=str(result.get("methodology") or "v31_short_baseline"),

@@ -445,6 +445,16 @@ class PortfolioRiskService:
         if state is None:
             return {"allow": False, "volume": 0.0, "reason": "account_not_found"}
 
+        # Authoritative account currency from profile (do not silently assume USD)
+        stored_ccy = str(state.get("account_currency") or "USD").upper()
+        if account_currency is None or (account_currency == "USD" and stored_ccy and stored_ccy != "USD"):
+            # Caller omitted or left default while profile is non-USD
+            if account_currency == "USD" and stored_ccy != "USD":
+                account_currency = stored_ccy
+            elif not account_currency:
+                account_currency = stored_ccy
+        account_currency = (account_currency or stored_ccy or "USD").upper()
+
         if state.get("trading_halted"):
             return {
                 "allow": False,

@@ -135,7 +135,8 @@ async def get_pending_signal(
         "take_profit": row.get("take_profit"),
         "created_at_ms": row.get("created_at_ms"),
         "details": row.get("details"),
-        "authorized": True,
+        "authorized": (row.get("production_authorized") is True),
+        "production_authorized": (row.get("production_authorized") is True),
     }
 
 
@@ -173,6 +174,10 @@ async def get_pending_batch(
             blocked.append({"symbol": s, "reason": reason})
 
     pending = svc.get_pending_many(account_id, authorized)
+    pending = [
+        s for s in pending
+        if getattr(svc, "is_execution_authorized", lambda r: r.get("production_authorized") is True)(s)
+    ]
     return {
         "account_id": account_id,
         "polled": authorized,

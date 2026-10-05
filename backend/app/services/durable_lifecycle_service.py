@@ -133,12 +133,38 @@ class DurableLifecycleService:
         symbol: str,
         close_reason: str | None,
     ) -> tuple[float | None, str]:
-        """Release using server risk only. Returns (amount, status)."""
+        """Release using server risk only. Returns (amount, status).
+
+        Concurrent-safe: SELECT ... FOR UPDATE then conditional state transition.
+        Only the first transition to RISK_RELEASED returns the risk amount.
+        """
+        from sqlalchemy import select, and_
+
         row = None
         if signal_id:
-            row = await self._get(session, account_id, signal_id)
+            q = await session.execute(
+                select(AegisPositionLifecycle)
+                .where(
+                    and_(
+                        AegisPositionLifecycle.account_id == account_id,
+                        AegisPositionLifecycle.signal_id == signal_id,
+                    )
+                )
+                .with_for_update()
+            )
+            row = q.scalar_one_or_none()
         if row is None and position_ticket:
-            row = await self._get_by_ticket(session, account_id, position_ticket)
+            q = await session.execute(
+                select(AegisPositionLifecycle)
+                .where(
+                    and_(
+                        AegisPositionLifecycle.account_id == account_id,
+                        AegisPositionLifecycle.position_ticket == int(position_ticket),
+                    )
+                )
+                .with_for_update()
+            )
+            row = q.scalar_one_or_none()
         if row is None:
             return None, "RECONCILIATION_REQUIRED"
         if row.state == "RISK_RELEASED":
@@ -148,6 +174,7 @@ class DurableLifecycleService:
             row.updated_at = _utcnow()
             await session.flush()
             return None, "RECONCILIATION_REQUIRED"
+        # Atomic logical transition under row lock
         amount = abs(float(row.risk_usd_at_open))
         row.state = "RISK_RELEASED"
         row.closed_at = _utcnow()

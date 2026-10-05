@@ -60,6 +60,7 @@ class ExecutorSignalService:
         trail_atr_mult: float | None = 0.75,
         methodology: str | None = None,
         risk_usd_at_open: float | None = None,
+        production_authorized: bool = False,
     ) -> str | None:
         side_u = (side or "").strip().upper()
         if side_u not in ("BUY", "SELL"):
@@ -88,6 +89,7 @@ class ExecutorSignalService:
             "trail_atr_mult": trail_atr_mult if trail_atr_mult is not None else 0.75,
             "methodology": methodology or "",
             "risk_usd_at_open": float(risk_usd_at_open) if risk_usd_at_open is not None else None,
+            "production_authorized": production_authorized is True,
         }
         with self._lock:
             self._pending[self._key(account_id, sym)] = payload
@@ -101,6 +103,20 @@ class ExecutorSignalService:
             extra={"volume": volume, "stop_loss": stop_loss},
         )
         return signal_id
+
+    @staticmethod
+    def is_execution_authorized(row: dict[str, Any] | None) -> bool:
+        """Defense-in-depth: only explicit production_authorized=True may reach Executor."""
+        if not row or not isinstance(row, dict):
+            return False
+        if row.get("production_authorized") is not True:
+            return False
+        meth = str(row.get("methodology") or "").lower()
+        rule = str(row.get("rule_name") or "").lower()
+        for token in ("rsi9", "native", "stage3b", "research", "transfer"):
+            if token in meth or token in rule:
+                return False
+        return True
 
     def get_pending(self, account_id: str, symbol: str) -> dict[str, Any] | None:
         key = self._key(account_id, symbol)
@@ -120,6 +136,10 @@ class ExecutorSignalService:
                 self._pending.pop(key, None)
                 return None
             if row.get("acked"):
+                return None
+            if not self.is_execution_authorized(row):
+                # Drop unauthorized from queue so it cannot be polled
+                self._pending.pop(key, None)
                 return None
             return dict(row)
 
