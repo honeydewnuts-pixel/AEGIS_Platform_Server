@@ -338,6 +338,13 @@ double NormalizeVolume(const string symbol, double vol)
 //| There is NO SYMBOL_FILLING_RETURN symbol flag.                   |
 //| ORDER_FILLING_RETURN is only valid for Instant/Request execution.|
 //+------------------------------------------------------------------+
+
+string TicketToString(const ulong ticket)
+  {
+   // 64-bit safe decimal string (do not cast to 32-bit int)
+   return IntegerToString((long)ticket);
+  }
+
 string FillingPolicyName(const ENUM_ORDER_TYPE_FILLING f)
   {
    if(f == ORDER_FILLING_FOK) return "FOK";
@@ -383,15 +390,10 @@ int GetSupportedFillModes(const string symbol, ENUM_ORDER_TYPE_FILLING &modes[])
 
    if(isMarketOrExchange)
      {
-      // RETURN is invalid for Market/Exchange execution → never select it
+      // RETURN is invalid for Market/Exchange. Fail closed if no explicit flags.
       if(allowIoc) tmp[n++] = ORDER_FILLING_IOC;
       if(allowFok) tmp[n++] = ORDER_FILLING_FOK;
-      // Some brokers report filling=0 but still accept IOC/FOK under Market
-      if(n == 0 && filling == 0)
-        {
-         tmp[n++] = ORDER_FILLING_IOC;
-         tmp[n++] = ORDER_FILLING_FOK;
-        }
+      // Do NOT invent IOC/FOK when filling flags are 0.
      }
    else if(isInstantOrRequest)
      {
@@ -1216,7 +1218,7 @@ bool ModifyPositionStopConfirmed(const ulong ticket, const string symbol, const 
 
 bool CloseAlreadyNotified(const ulong ticket)
   {
-   string key = AccountId + "|" + IntegerToString((int)ticket);
+   string key = AccountId + "|" + TicketToString(ticket);
    for(int i = 0; i < ArraySize(g_closeNotifiedKey); i++)
       if(g_closeNotifiedKey[i] == key) return true;
    return false;
@@ -1224,7 +1226,7 @@ bool CloseAlreadyNotified(const ulong ticket)
 
 void MarkCloseNotified(const ulong ticket)
   {
-   string key = AccountId + "|" + IntegerToString((int)ticket);
+   string key = AccountId + "|" + TicketToString(ticket);
    int n = ArraySize(g_closeNotifiedKey);
    ArrayResize(g_closeNotifiedKey, n + 1);
    g_closeNotifiedKey[n] = key;
