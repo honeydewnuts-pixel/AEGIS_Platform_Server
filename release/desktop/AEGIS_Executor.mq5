@@ -11,7 +11,7 @@
 #property copyright "LeverageFx / Honeydewnuts"
 #property version   "2.20"
 #property strict
-#property description "AEGIS multi-pair executor v2.20 dual PM BE/trail/TIME Native LONG"
+#property description "AEGIS multi-pair executor v2.20 broker-correct fill + lifecycle"
 
 enum ENUM_AEGIS_MODE
   {
@@ -245,7 +245,11 @@ bool ClosePositionsOn(const string symbol)
          req.price=SymbolInfoDouble(symbol,SYMBOL_ASK);
         }
       ENUM_ORDER_TYPE_FILLING modes[];
-      GetSupportedFillModes(symbol,modes);
+      if(GetSupportedFillModes(symbol,modes) <= 0)
+        {
+         Print("AEGIS: close blocked no filling ", symbol);
+         continue;
+        }
       bool done=false;
       for(int m=0;m<ArraySize(modes) && !done;m++)
         {
@@ -324,46 +328,142 @@ double NormalizeVolume(const string symbol, double vol)
    return NormalizeDouble(vol,digits);
   }
 
-// Safe fill modes: respect trade execution mode + filling flags
-void GetSupportedFillModes(const string symbol, ENUM_ORDER_TYPE_FILLING &modes[])
+//+------------------------------------------------------------------+
+//| Broker-aware filling resolver (single authority for all market  |
+//| OrderSend paths).                                                |
+//|                                                                  |
+//| SYMBOL_FILLING_MODE flags (MQL5):                                |
+//|   SYMBOL_FILLING_FOK = 1                                         |
+//|   SYMBOL_FILLING_IOC = 2                                         |
+//| There is NO SYMBOL_FILLING_RETURN symbol flag.                   |
+//| ORDER_FILLING_RETURN is only valid for Instant/Request execution.|
+//+------------------------------------------------------------------+
+string FillingPolicyName(const ENUM_ORDER_TYPE_FILLING f)
   {
-   int filling = (int)SymbolInfoInteger(symbol, SYMBOL_FILLING_MODE);
-   ENUM_SYMBOL_TRADE_EXECUTION exec = (ENUM_SYMBOL_TRADE_EXECUTION)SymbolInfoInteger(symbol, SYMBOL_TRADE_EXEMODE);
-   int n=0;
-   ArrayResize(modes, 3);
+   if(f == ORDER_FILLING_FOK) return "FOK";
+   if(f == ORDER_FILLING_IOC) return "IOC";
+   if(f == ORDER_FILLING_RETURN) return "RETURN";
+   return "UNKNOWN";
+  }
 
-   // Exchange / market: prefer IOC then FOK; avoid RETURN unless only option
-   bool allowReturn = ((filling & SYMBOL_FILLING_RETURN) == SYMBOL_FILLING_RETURN);
-   bool allowIoc = ((filling & SYMBOL_FILLING_IOC) == SYMBOL_FILLING_IOC);
-   bool allowFok = ((filling & SYMBOL_FILLING_FOK) == SYMBOL_FILLING_FOK);
+string ExecModeName(const ENUM_SYMBOL_TRADE_EXECUTION e)
+  {
+   if(e == SYMBOL_TRADE_EXECUTION_REQUEST) return "REQUEST";
+   if(e == SYMBOL_TRADE_EXECUTION_INSTANT) return "INSTANT";
+   if(e == SYMBOL_TRADE_EXECUTION_MARKET) return "MARKET";
+   if(e == SYMBOL_TRADE_EXECUTION_EXCHANGE) return "EXCHANGE";
+   return IntegerToString((int)e);
+  }
 
-   if(exec == SYMBOL_TRADE_EXECUTION_EXCHANGE || exec == SYMBOL_TRADE_EXECUTION_MARKET)
+// Populate modes[] with only policies valid for this symbol/execution.
+// Returns count (0 = fail closed — do not OrderSend).
+int GetSupportedFillModes(const string symbol, ENUM_ORDER_TYPE_FILLING &modes[])
+  {
+   ArrayResize(modes, 0);
+   if(!SymbolSelect(symbol, true))
      {
-      if(allowIoc) modes[n++]=ORDER_FILLING_IOC;
-      if(allowFok) modes[n++]=ORDER_FILLING_FOK;
-      // RETURN often invalid for pure market execution
+      Print("AEGIS FILL: cannot select symbol ", symbol);
+      return 0;
+     }
+
+   const int filling = (int)SymbolInfoInteger(symbol, SYMBOL_FILLING_MODE);
+   const ENUM_SYMBOL_TRADE_EXECUTION exec =
+      (ENUM_SYMBOL_TRADE_EXECUTION)SymbolInfoInteger(symbol, SYMBOL_TRADE_EXEMODE);
+
+   // Official symbol flags: FOK=1, IOC=2 only (no RETURN flag on symbol)
+   const bool allowFok = ((filling & SYMBOL_FILLING_FOK) == SYMBOL_FILLING_FOK);
+   const bool allowIoc = ((filling & SYMBOL_FILLING_IOC) == SYMBOL_FILLING_IOC);
+   const bool isMarketOrExchange =
+      (exec == SYMBOL_TRADE_EXECUTION_MARKET || exec == SYMBOL_TRADE_EXECUTION_EXCHANGE);
+   const bool isInstantOrRequest =
+      (exec == SYMBOL_TRADE_EXECUTION_INSTANT || exec == SYMBOL_TRADE_EXECUTION_REQUEST);
+
+   ENUM_ORDER_TYPE_FILLING tmp[3];
+   int n = 0;
+
+   if(isMarketOrExchange)
+     {
+      // RETURN is invalid for Market/Exchange execution → never select it
+      if(allowIoc) tmp[n++] = ORDER_FILLING_IOC;
+      if(allowFok) tmp[n++] = ORDER_FILLING_FOK;
+      // Some brokers report filling=0 but still accept IOC/FOK under Market
+      if(n == 0 && filling == 0)
+        {
+         tmp[n++] = ORDER_FILLING_IOC;
+         tmp[n++] = ORDER_FILLING_FOK;
+        }
+     }
+   else if(isInstantOrRequest)
+     {
+      // Instant/Request: RETURN is the traditional policy when flags allow
+      // or when no FOK/IOC flags are advertised
+      if(allowIoc) tmp[n++] = ORDER_FILLING_IOC;
+      if(allowFok) tmp[n++] = ORDER_FILLING_FOK;
+      // RETURN allowed only here — not via a non-existent SYMBOL_FILLING_RETURN
+      if(n == 0 || filling == 0)
+         tmp[n++] = ORDER_FILLING_RETURN;
      }
    else
      {
-      // Instant / Request — RETURN more common
-      if(allowReturn) modes[n++]=ORDER_FILLING_RETURN;
-      if(allowIoc) modes[n++]=ORDER_FILLING_IOC;
-      if(allowFok) modes[n++]=ORDER_FILLING_FOK;
+      // Unknown execution mode: only use explicitly advertised flags
+      if(allowIoc) tmp[n++] = ORDER_FILLING_IOC;
+      if(allowFok) tmp[n++] = ORDER_FILLING_FOK;
      }
 
-   if(n==0)
+   if(n == 0)
      {
-      if(allowIoc) modes[n++]=ORDER_FILLING_IOC;
-      if(allowFok) modes[n++]=ORDER_FILLING_FOK;
-      if(allowReturn) modes[n++]=ORDER_FILLING_RETURN;
+      Print("AEGIS FILL FAIL-CLOSED symbol=", symbol,
+            " exec=", ExecModeName(exec),
+            " filling_flags=", filling,
+            " (no compatible ORDER_FILLING policy)");
+      return 0;
      }
-   if(n==0)
-     {
-      modes[0]=ORDER_FILLING_IOC;
-      modes[1]=ORDER_FILLING_FOK;
-      n=2;
-     }
+
    ArrayResize(modes, n);
+   for(int i = 0; i < n; i++)
+      modes[i] = tmp[i];
+   return n;
+  }
+
+// Resolve a single preferred filling policy (first compatible).
+// Returns false → caller must not submit the order.
+bool ResolveOrderFilling(const string symbol, ENUM_ORDER_TYPE_FILLING &out_fill)
+  {
+   ENUM_ORDER_TYPE_FILLING modes[];
+   int n = GetSupportedFillModes(symbol, modes);
+   if(n <= 0)
+      return false;
+   out_fill = modes[0];
+   return true;
+  }
+
+// Build a market deal request (open or close). Returns false if filling cannot be resolved.
+bool BuildMarketDealRequest(
+   MqlTradeRequest &req,
+   const string symbol,
+   const ENUM_ORDER_TYPE order_type,
+   const double volume,
+   const double price,
+   const ulong position_ticket,   // 0 for open; ticket for close
+   const string comment)
+  {
+   ZeroMemory(req);
+   ENUM_ORDER_TYPE_FILLING fill;
+   if(!ResolveOrderFilling(symbol, fill))
+      return false;
+
+   req.action   = TRADE_ACTION_DEAL;
+   req.symbol   = symbol;
+   req.volume   = volume;
+   req.type     = order_type;
+   req.price    = price;
+   req.deviation= Slippage;
+   req.magic    = MagicNumber;
+   req.comment  = comment;
+   req.type_filling = fill;
+   if(position_ticket > 0)
+      req.position = position_ticket;
+   return true;
   }
 
 //+------------------------------------------------------------------+
@@ -609,7 +709,12 @@ int ExecuteTradeOn(const string brokerSymbol, const string side, double volume,
    double vol=NormalizeVolume(brokerSymbol,volume);
    int digits=(int)SymbolInfoInteger(brokerSymbol,SYMBOL_DIGITS);
    ENUM_ORDER_TYPE_FILLING modes[];
-   GetSupportedFillModes(brokerSymbol,modes);
+   int nModes = GetSupportedFillModes(brokerSymbol,modes);
+   if(nModes <= 0)
+     {
+      Print("AEGIS OrderSend blocked: no compatible filling for ", brokerSymbol);
+      return -1;
+     }
 
    MqlTradeRequest req;
    MqlTradeResult  res;
@@ -1321,39 +1426,97 @@ void ReconcileBrokerPositionsOnStartup()
 
 void ClosePositionMarket(const ulong ticket, const string symbol, const string reason)
   {
-   if(!PositionSelectByTicket(ticket)) return;
-   double vol = PositionGetDouble(POSITION_VOLUME);
-   long ptype = PositionGetInteger(POSITION_TYPE);
-   string side = (ptype == POSITION_TYPE_BUY) ? "BUY" : "SELL";
-   string cmt = PositionGetString(POSITION_COMMENT);
-   string signalId = ExtractSignalIdFromComment(cmt);
-   MqlTradeRequest req; MqlTradeResult res;
-   ZeroMemory(req); ZeroMemory(res);
-   req.action = TRADE_ACTION_DEAL;
-   req.position = ticket;
-   req.symbol = symbol;
-   req.volume = vol;
-   req.deviation = Slippage;
-   req.magic = MagicNumber;
-   req.comment = "AEGIS exit " + reason;
+   if(!PositionSelectByTicket(ticket))
+     {
+      Print("AEGIS PM CLOSE skip: ticket not found ", ticket, " reason=", reason);
+      return;
+     }
+
+   const double vol = PositionGetDouble(POSITION_VOLUME);
+   const long ptype = PositionGetInteger(POSITION_TYPE);
+   const string side = (ptype == POSITION_TYPE_BUY) ? "BUY" : "SELL";
+   const string cmt = PositionGetString(POSITION_COMMENT);
+   const string signalId = ExtractSignalIdFromComment(cmt);
+   const double bid = SymbolInfoDouble(symbol, SYMBOL_BID);
+   const double ask = SymbolInfoDouble(symbol, SYMBOL_ASK);
+   const ENUM_SYMBOL_TRADE_EXECUTION exec =
+      (ENUM_SYMBOL_TRADE_EXECUTION)SymbolInfoInteger(symbol, SYMBOL_TRADE_EXEMODE);
+   const int filling_flags = (int)SymbolInfoInteger(symbol, SYMBOL_FILLING_MODE);
+
+   // Broker-correct close prices: BUY→SELL@BID, SELL→BUY@ASK
+   ENUM_ORDER_TYPE close_type;
+   double close_price;
    if(ptype == POSITION_TYPE_BUY)
-     { req.type = ORDER_TYPE_SELL; req.price = SymbolInfoDouble(symbol, SYMBOL_BID); }
-   else
-     { req.type = ORDER_TYPE_BUY; req.price = SymbolInfoDouble(symbol, SYMBOL_ASK); }
-   ENUM_ORDER_TYPE_FILLING fill = ORDER_FILLING_IOC;
-   long fm = SymbolInfoInteger(symbol, SYMBOL_FILLING_MODE);
-   if((fm & SYMBOL_FILLING_IOC) == SYMBOL_FILLING_IOC) fill = ORDER_FILLING_IOC;
-   else if((fm & SYMBOL_FILLING_FOK) == SYMBOL_FILLING_FOK) fill = ORDER_FILLING_FOK;
-   else fill = ORDER_FILLING_RETURN;
-   req.type_filling = fill;
-   if(!OrderSend(req, res))
-      Print("AEGIS PM close fail ", reason, " err=", GetLastError());
+     {
+      close_type = ORDER_TYPE_SELL;
+      close_price = bid;
+     }
    else
      {
-      Print("AEGIS PM close ", reason, " ticket=", ticket, " ret=", res.retcode);
-      if(res.retcode == TRADE_RETCODE_DONE || res.retcode == TRADE_RETCODE_DONE_PARTIAL)
-         NotifyServerPositionClosed(signalId, ticket, symbol, side, reason);
+      close_type = ORDER_TYPE_BUY;
+      close_price = ask;
      }
+
+   MqlTradeRequest req;
+   MqlTradeResult  res;
+   ZeroMemory(res);
+   if(!BuildMarketDealRequest(req, symbol, close_type, vol, close_price, ticket, "AEGIS exit " + reason))
+     {
+      Print("AEGIS PM CLOSE FAIL reason=", reason,
+            " symbol=", symbol,
+            " ticket=", ticket,
+            " side=", side,
+            " volume=", vol,
+            " order_type=", EnumToString(close_type),
+            " bid=", bid, " ask=", ask,
+            " execution_mode=", ExecModeName(exec),
+            " symbol_filling_mode=", filling_flags,
+            " requested_filling=NONE",
+            " ordersend=false",
+            " terminal_error=", GetLastError(),
+            " broker_retcode=0",
+            " broker_comment=no_compatible_filling");
+      return;
+     }
+
+   ResetLastError();
+   const bool sent = OrderSend(req, res);
+   const int term_err = GetLastError();
+
+   if(!sent || (res.retcode != TRADE_RETCODE_DONE && res.retcode != TRADE_RETCODE_DONE_PARTIAL))
+     {
+      Print("AEGIS PM CLOSE FAIL reason=", reason,
+            " symbol=", symbol,
+            " ticket=", ticket,
+            " side=", side,
+            " volume=", vol,
+            " order_type=", EnumToString(close_type),
+            " bid=", bid, " ask=", ask,
+            " execution_mode=", ExecModeName(exec),
+            " symbol_filling_mode=", filling_flags,
+            " requested_filling=", FillingPolicyName(req.type_filling),
+            " ordersend=", (sent ? "true" : "false"),
+            " terminal_error=", term_err,
+            " broker_retcode=", res.retcode,
+            " broker_comment=", res.comment);
+      return;
+     }
+
+   // Verify position actually gone (or reduced for partial)
+   Sleep(50);
+   if(PositionSelectByTicket(ticket))
+     {
+      const double rem = PositionGetDouble(POSITION_VOLUME);
+      Print("AEGIS PM CLOSE PARTIAL reason=", reason, " ticket=", ticket,
+            " remaining_volume=", rem, " retcode=", res.retcode);
+      // Do NOT notify server of full close — disappearance detection handles full exit
+      return;
+     }
+
+   Print("AEGIS PM CLOSE OK reason=", reason, " ticket=", ticket,
+         " filling=", FillingPolicyName(req.type_filling),
+         " retcode=", res.retcode);
+   NotifyServerPositionClosed(signalId, ticket, symbol, side, reason);
   }
 
 void RegisterManagedPosition(const string signalId, const string brokerSymbol,
