@@ -45,18 +45,17 @@ def test_postgres_concurrent_reconcile_single_release():
         engine = create_async_engine(url, pool_size=5)
         Session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-        # Schema is provided by CI Alembic migrations; do not create_all
-        # (conflicts with existing tables). Verify table is reachable.
+        # Ensure lifecycle table exists without touching unrelated schema.
         try:
-            async with engine.connect() as conn:
-                await conn.execute(
-                    __import__("sqlalchemy", fromlist=["text"]).text(
-                        "SELECT 1 FROM aegis_position_lifecycle LIMIT 0"
+            async with engine.begin() as conn:
+                await conn.run_sync(
+                    lambda sync_conn: AegisPositionLifecycle.__table__.create(
+                        sync_conn, checkfirst=True
                     )
                 )
         except Exception as e:
             await engine.dispose()
-            pytest.skip(f"NOT RUN — lifecycle table unavailable: {e}")
+            pytest.skip(f"NOT RUN — cannot ensure lifecycle table: {e}")
 
         account_id = "CONC-TEST-ACC"
         signal_id = "CONC-SIG-1"
