@@ -54,6 +54,8 @@ class Settings(BaseSettings):
     EXEC_MIN_CONFIDENCE: float = 0.75  # entry + flip only at/above this
     AUTONOMOUS_EXECUTION_ENABLED: bool = True
     AUTONOMOUS_DEMO_ONLY: bool = True
+    # Hard governance: never default true. Stage 6 fails closed.
+    PRODUCTION_AUTHORIZED: bool = False
     AUTONOMOUS_DEFAULT_VOLUME: float = 0.01
     # Experimental only — not cash-test baseline
     ALLOW_V2OPT_LIVE_SIGNALS: bool = False

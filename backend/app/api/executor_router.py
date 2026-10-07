@@ -130,6 +130,23 @@ async def get_pending_signal(
             "account_id": account_id,
             "authorized": True,
         }
+    # Stage 6: emergency stop blocks NEW order delivery to Executor
+    try:
+        from app.db.base import async_session_factory
+        from app.services.operational_control_service import get_operational_control_service
+        async with async_session_factory() as session:
+            if await get_operational_control_service().is_emergency_stop_on(session):
+                return {
+                    "has_signal": False,
+                    "signal": "HOLD",
+                    "symbol": base,
+                    "account_id": account_id,
+                    "authorized": True,
+                    "reason": "emergency_stop",
+                    "emergency_stop": True,
+                }
+    except Exception:
+        pass
     return {
         "has_signal": True,
         "signal": row["side"],

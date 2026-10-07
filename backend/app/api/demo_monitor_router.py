@@ -120,6 +120,17 @@ async def publish_controlled_test_signal(
         raise HTTPException(400, "side must be BUY or SELL")
     # Demo-only engineering path: controlled_demo_authorized=True,
     # production_authorized remains False (never promotes production).
+    # Stage 6: emergency stop blocks new controlled-demo publishes
+    try:
+        from app.db.base import async_session_factory
+        from app.services.operational_control_service import get_operational_control_service
+        async with async_session_factory() as session:
+            if await get_operational_control_service().is_emergency_stop_on(session):
+                raise HTTPException(status_code=423, detail="emergency_stop: new orders blocked")
+    except HTTPException:
+        raise
+    except Exception:
+        pass
     sid = svc.publish(
         account_id=body.account_id,
         symbol=body.symbol,

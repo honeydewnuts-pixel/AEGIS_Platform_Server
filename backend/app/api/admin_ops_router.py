@@ -237,3 +237,47 @@ async def ops_dashboard(
             "DEGRADED_MARKET_DATA": "Need OHLC Feed",
         },
     }
+
+
+# --- Stage 6 operational controls ---
+from pydantic import BaseModel as _BM
+
+
+class _EmergencyBody(_BM):
+    enabled: bool
+    reason: str = ""
+
+
+@router.get("/operational/status")
+async def operational_status(
+    request: Request,
+    auth: AuthContext = Depends(verify_api_key),
+) -> dict:
+    """Emergency stop + production governance status (read)."""
+    from app.db.base import async_session_factory
+    from app.services.operational_control_service import get_operational_control_service
+    from app.config import settings
+    async with async_session_factory() as session:
+        st = await get_operational_control_service().status(session)
+    st["production_authorized"] = bool(getattr(settings, "PRODUCTION_AUTHORIZED", False))
+    st["engineering_ready_note"] = "ENGINEERING READY != PRODUCTION AUTHORIZED"
+    return st
+
+
+@router.post("/operational/emergency-stop")
+async def set_emergency_stop(
+    body: _EmergencyBody,
+    request: Request,
+    auth: AuthContext = Depends(require_admin),
+) -> dict:
+    """Enable/disable emergency stop (blocks NEW orders only). Audited. Survives restart."""
+    from app.db.base import async_session_factory
+    from app.services.operational_control_service import get_operational_control_service
+    actor = getattr(auth, "key_id", None) or getattr(auth, "account_id", None) or "admin"
+    async with async_session_factory() as session:
+        out = await get_operational_control_service().set_emergency_stop(
+            session, enabled=bool(body.enabled), actor=str(actor),
+            ip=request.client.host if request.client else None,
+        )
+        await session.commit()
+    return out

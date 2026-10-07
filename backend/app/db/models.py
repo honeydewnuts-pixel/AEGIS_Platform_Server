@@ -591,3 +591,19 @@ class AegisExecutionQueue(Base):
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+
+class AegisOperationalControl(Base):
+    """Durable platform controls that survive API restart (Stage 6).
+
+    Key examples: emergency_stop
+    Values are string-encoded; boolean flags use "true"/"false".
+    """
+
+    __tablename__ = "aegis_operational_control"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(String(256), nullable=False, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
