@@ -833,6 +833,8 @@ bool HandleSignalJsonObject(const string obj)
       bool shortOnlyMeth = false;
       if(StringLen(methU) == 0)
          shortOnlyMeth = BaselineShortOnly;
+      else if(StringFind(methU, "CONTROLLED_DEMO") >= 0)
+         shortOnlyMeth = false;  // engineering Demo: both BUY and SELL allowed
       else if(StringFind(methU, "NATIVE") >= 0)
          shortOnlyMeth = false;
       else if(StringFind(methU, "RSI9") >= 0 || StringFind(methU, "V31") >= 0
