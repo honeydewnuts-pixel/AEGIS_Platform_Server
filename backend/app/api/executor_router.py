@@ -109,6 +109,20 @@ async def get_pending_signal(
         }
     row = svc.get_pending(account_id, base) or svc.get_pending(account_id, raw.upper())
     if not row:
+        # Stage 5: durable queue survives API restart
+        try:
+            from app.db.base import async_session_factory
+            from app.services.durable_execution_queue import get_durable_execution_queue
+            async with async_session_factory() as session:
+                row = await get_durable_execution_queue().get_pending(session, account_id, base)
+                if row:
+                    await session.commit()
+                    # hydrate memory so subsequent polls are fast
+                    with svc._lock:
+                        svc._pending[svc._key(account_id, base)] = dict(row)
+        except Exception:
+            row = None
+    if not row:
         return {
             "has_signal": False,
             "signal": "HOLD",
@@ -174,6 +188,24 @@ async def get_pending_batch(
             blocked.append({"symbol": s, "reason": reason})
 
     pending = svc.get_pending_many(account_id, authorized)
+    # Stage 5: fill gaps from durable queue after restart
+    try:
+        from app.db.base import async_session_factory
+        from app.services.durable_execution_queue import get_durable_execution_queue
+        have = {str(s.get("symbol") or "").upper() for s in pending}
+        missing = [s for s in authorized if s.upper() not in have]
+        if missing:
+            async with async_session_factory() as session:
+                dq = get_durable_execution_queue()
+                for sym in missing:
+                    drow = await dq.get_pending(session, account_id, sym)
+                    if drow:
+                        pending.append(drow)
+                        with svc._lock:
+                            svc._pending[svc._key(account_id, sym)] = dict(drow)
+                await session.commit()
+    except Exception:
+        pass
     pending = [
         s for s in pending
         if getattr(svc, "is_execution_authorized", lambda r: r.get("production_authorized") is True)(s)
@@ -212,6 +244,24 @@ async def ack_signal(
         side=body.side,
         volume=body.volume,
     )
+    # Stage 5: durable queue terminal state (idempotent)
+    try:
+        from app.db.base import async_session_factory
+        from app.services.durable_execution_queue import get_durable_execution_queue
+        async with async_session_factory() as session:
+            await get_durable_execution_queue().ack(
+                session,
+                account_id=body.account_id,
+                signal_id=body.signal_id,
+                ok=bool(body.ok),
+                position_ticket=int(body.position_ticket or body.ticket or 0),
+                order_ticket=int(body.order_ticket or 0),
+                deal_ticket=int(body.deal_ticket or 0),
+                message=body.message or "",
+            )
+            await session.commit()
+    except Exception:
+        pass
     # Durable lifecycle: ACK is not open risk unless position_ticket > 0 and risk known
     try:
         from app.db.base import async_session_factory

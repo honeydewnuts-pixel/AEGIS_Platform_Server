@@ -545,3 +545,49 @@ class AegisPositionLifecycle(Base):
     close_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+
+class AegisExecutionQueue(Base):
+    """Durable authorized execution queue — survives API restart (Stage 5).
+
+    Only already-authorized controlled_demo (or future production_authorized)
+    rows may be inserted. Research methodologies must never appear here.
+    """
+
+    __tablename__ = "aegis_execution_queue"
+    __table_args__ = (
+        UniqueConstraint("signal_id", name="uq_exec_queue_signal_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    signal_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    account_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    symbol: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    side: Mapped[str] = mapped_column(String(16), nullable=False, default="")
+    volume: Mapped[float | None] = mapped_column(Float, nullable=True)
+    stop_loss: Mapped[float | None] = mapped_column(Float, nullable=True)
+    take_profit: Mapped[float | None] = mapped_column(Float, nullable=True)
+    atr14: Mapped[float | None] = mapped_column(Float, nullable=True)
+    initial_stop_atr_mult: Mapped[float | None] = mapped_column(Float, nullable=True)
+    max_hold_bars: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    trail_atr_mult: Mapped[float | None] = mapped_column(Float, nullable=True)
+    methodology: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    rule_name: Mapped[str] = mapped_column(String(128), nullable=False, default="")
+    risk_usd_at_open: Mapped[float | None] = mapped_column(Float, nullable=True)
+    production_authorized: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    controlled_demo_authorized: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # PENDING | CLAIMED | ACKED | REJECTED | EXPIRED
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="PENDING", index=True)
+    claim_token: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    position_ticket: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    order_ticket: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    deal_ticket: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    ack_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    ack_message: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    details: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

@@ -132,6 +132,33 @@ async def publish_controlled_test_signal(
         production_authorized=False,
         controlled_demo_authorized=True,
     )
+    # Stage 5: persist authorized controlled_demo to durable queue
+    try:
+        from app.db.base import async_session_factory
+        from app.services.durable_execution_queue import get_durable_execution_queue
+        row = svc.get_pending(body.account_id, body.symbol) if hasattr(svc, "get_pending") else None
+        # reconstruct payload from publish args if pending already set
+        async with async_session_factory() as session:
+            payload = {
+                "signal_id": sid,
+                "account_id": body.account_id,
+                "symbol": body.symbol,
+                "side": (body.side or "SELL").upper(),
+                "volume": body.volume,
+                "methodology": "controlled_demo_test",
+                "rule_name": body.rule_name or "controlled_demo_test",
+                "production_authorized": False,
+                "controlled_demo_authorized": True,
+                "confidence": 0.0,
+                "details": "controlled_demo_test",
+            }
+            if row:
+                payload.update(row)
+                payload["signal_id"] = sid
+            await get_durable_execution_queue().enqueue(session, payload)
+            await session.commit()
+    except Exception:
+        pass
     if not sid:
         raise HTTPException(400, "publish failed")
     log = getattr(request.app.state, "trade_event_log", None)
