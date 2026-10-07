@@ -276,6 +276,7 @@ class DurableLifecycleService:
             for r in open_rows
             if r.position_ticket and r.state != "RISK_RELEASED"
         }
+        unknown_broker_tickets: list[int] = []
         for t, p in broker_by_ticket.items():
             if t not in durable_tickets:
                 sid = str(p.get("signal_id") or "")
@@ -299,6 +300,8 @@ class DurableLifecycleService:
                             existing.updated_at = now
                             confirmed += 1
                         continue
+                # Broker ticket not linked to durable AEGIS lifecycle → exception, do not auto-adopt
+                unknown_broker_tickets.append(t)
                 recon_required += 1
 
         await session.flush()
@@ -308,6 +311,8 @@ class DurableLifecycleService:
             "stale_risk_released": released,
             "confirmed_open": confirmed,
             "reconciliation_required_count": recon_required,
+            "unknown_broker_tickets": unknown_broker_tickets,
+            "unknown_positions_not_auto_adopted": True,
         }
 
     async def _get(
