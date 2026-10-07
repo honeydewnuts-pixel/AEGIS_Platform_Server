@@ -55,6 +55,14 @@ def test_good_tradeable_alone_insufficient():
     assert ExecutorSignalService.is_execution_authorized(
         {"production_authorized": False, "methodology": ""}
     ) is False
+    # Neutral non-research methodology with production flag may pass the signal gate
+    assert ExecutorSignalService.is_execution_authorized(
+        {"production_authorized": True, "methodology": "baseline_demo"}
+    ) is True
+    # V31/V53 remain blocked even if production_authorized is wrongly True
     assert ExecutorSignalService.is_execution_authorized(
         {"production_authorized": True, "methodology": "v31_short_baseline"}
-    ) is True
+    ) is False
+    assert ExecutorSignalService.is_execution_authorized(
+        {"production_authorized": True, "methodology": "v53_6"}
+    ) is False

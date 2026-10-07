@@ -12,9 +12,12 @@ def test_source_uses_for_update_on_open_risk():
     src = Path("backend/app/services/portfolio_risk_service.py").read_text()
     assert "async def record_open_risk" in src
     assert "async def release_open_risk" in src
-    # Both paths must lock the subscription row
-    assert src.count("with_for_update") >= 2
+    assert "async def _apply_open_risk_delta" in src
+    # Stage 3.3: single helper applies FOR UPDATE for both record and release
+    assert "with_for_update" in src
     assert "Subscription.account_id == account_id" in src
+    # Both public methods must be able to share a caller session
+    assert "session=None" in src or "session: " in src or "session =" in src
 
 
 def test_postgres_concurrent_release_no_lost_update():
