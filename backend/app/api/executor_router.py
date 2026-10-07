@@ -242,7 +242,10 @@ async def ack_signal(
                 if should_risk and risk_usd is not None:
                     pr = getattr(request.app.state, "portfolio_risk", None)
                     if pr is not None:
-                        await pr.record_open_risk(body.account_id, float(risk_usd))
+                        # Stage 3.3: same session as lifecycle (atomic with commit below)
+                        await pr.record_open_risk(
+                            body.account_id, float(risk_usd), session=session
+                        )
                     await dur.mark_risk_recorded(
                         session, account_id=body.account_id, signal_id=body.signal_id, risk_usd=float(risk_usd)
                     )
@@ -341,7 +344,10 @@ async def position_closed(
         if status == "RISK_RELEASED" and risk_to_release and risk_to_release > 0:
             pr = getattr(request.app.state, "portfolio_risk", None)
             if pr is not None:
-                await pr.release_open_risk(body.account_id, float(risk_to_release))
+                # Stage 3.3: same session as lifecycle transition
+                await pr.release_open_risk(
+                    body.account_id, float(risk_to_release), session=session
+                )
             released = float(risk_to_release)
         await session.commit()
     # Mirror memory (idempotent)
@@ -380,7 +386,8 @@ async def reconcile_positions(
         if stale > 0:
             pr = getattr(request.app.state, "portfolio_risk", None)
             if pr is not None:
-                await pr.release_open_risk(account_id, stale)
+                # Stage 3.3: same session as reconcile lifecycle updates
+                await pr.release_open_risk(account_id, stale, session=session)
         await session.commit()
     get_lifecycle_service().reconcile_from_broker(account_id, positions)
     auto = getattr(request.app.state, "autonomous_ohlc", None)

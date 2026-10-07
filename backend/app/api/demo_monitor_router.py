@@ -118,15 +118,19 @@ async def publish_controlled_test_signal(
     side = body.side.strip().upper()
     if side not in ("BUY", "SELL"):
         raise HTTPException(400, "side must be BUY or SELL")
+    # Demo-only engineering path: controlled_demo_authorized=True,
+    # production_authorized remains False (never promotes production).
     sid = svc.publish(
         account_id=body.account_id,
         symbol=body.symbol,
         side=side,
         confidence=body.confidence,
-        rule_name=body.rule_name,
+        rule_name=body.rule_name or "controlled_demo_test",
         volume=body.volume,
         details=body.details,
         methodology="controlled_demo_test",
+        production_authorized=False,
+        controlled_demo_authorized=True,
     )
     if not sid:
         raise HTTPException(400, "publish failed")

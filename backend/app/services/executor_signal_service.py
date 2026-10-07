@@ -61,6 +61,7 @@ class ExecutorSignalService:
         methodology: str | None = None,
         risk_usd_at_open: float | None = None,
         production_authorized: bool = False,
+        controlled_demo_authorized: bool = False,
     ) -> str | None:
         side_u = (side or "").strip().upper()
         if side_u not in ("BUY", "SELL"):
@@ -90,6 +91,8 @@ class ExecutorSignalService:
             "methodology": methodology or "",
             "risk_usd_at_open": float(risk_usd_at_open) if risk_usd_at_open is not None else None,
             "production_authorized": production_authorized is True,
+            # Separate from production: one-shot Demo engineering test only
+            "controlled_demo_authorized": controlled_demo_authorized is True,
         }
         with self._lock:
             self._pending[self._key(account_id, sym)] = payload
@@ -106,14 +109,32 @@ class ExecutorSignalService:
 
     @staticmethod
     def is_execution_authorized(row: dict[str, Any] | None) -> bool:
-        """Defense-in-depth: only explicit production_authorized=True may reach Executor."""
+        """Defense-in-depth execution gate.
+
+        Allowed only if:
+          A) production_authorized is True AND methodology is not research, OR
+          B) controlled_demo_authorized is True AND methodology is exactly
+             controlled_demo_test (engineering Demo path — never production).
+
+        Never promotes RSI9 / Native / V53.6 / research to executable status.
+        """
         if not row or not isinstance(row, dict):
-            return False
-        if row.get("production_authorized") is not True:
             return False
         meth = str(row.get("methodology") or "").lower()
         rule = str(row.get("rule_name") or "").lower()
-        for token in ("rsi9", "native", "stage3b", "research", "transfer"):
+        research_tokens = ("rsi9", "native", "stage3b", "research", "transfer", "v53", "v31")
+        # Path B: controlled Demo engineering signal only
+        if row.get("controlled_demo_authorized") is True:
+            if meth != "controlled_demo_test" and "controlled_demo" not in rule:
+                return False
+            for token in research_tokens:
+                if token in meth or token in rule:
+                    return False
+            return True
+        # Path A: production
+        if row.get("production_authorized") is not True:
+            return False
+        for token in research_tokens:
             if token in meth or token in rule:
                 return False
         return True

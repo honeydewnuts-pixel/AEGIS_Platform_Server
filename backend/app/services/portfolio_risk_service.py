@@ -748,43 +748,79 @@ class PortfolioRiskService:
         out["account_currency"] = acct_ccy
         return out
 
-    async def record_open_risk(self, account_id: str, delta_usd: float) -> None:
-        """Increment open risk under row lock (concurrent-safe)."""
+    async def _apply_open_risk_delta(
+        self,
+        session,
+        account_id: str,
+        delta_usd: float,
+        *,
+        release: bool = False,
+    ) -> None:
+        """Row-lock Subscription and apply open_risk_usd delta. Caller owns commit."""
+        from sqlalchemy import select
+        d = abs(float(delta_usd)) if release else float(delta_usd)
+        if d == 0.0:
+            return
+        q = await session.execute(
+            select(Subscription)
+            .where(Subscription.account_id == account_id)
+            .with_for_update()
+        )
+        row = q.scalar_one_or_none()
+        if row is None:
+            return
+        cur = float(row.open_risk_usd or 0.0)
+        if release:
+            row.open_risk_usd = max(0.0, cur - d)
+        else:
+            row.open_risk_usd = max(0.0, cur + d)
+        await session.flush()
+
+    async def record_open_risk(
+        self,
+        account_id: str,
+        delta_usd: float,
+        session=None,
+    ) -> None:
+        """Increment open risk under row lock (concurrent-safe).
+
+        If *session* is provided, use it and flush only (caller commits).
+        If omitted, open a standalone session and commit (backward compatible).
+        """
         if delta_usd is None:
             return
         d = float(delta_usd)
         if d == 0.0:
             return
-        async with async_session_factory() as session:
-            q = await session.execute(
-                select(Subscription)
-                .where(Subscription.account_id == account_id)
-                .with_for_update()
-            )
-            row = q.scalar_one_or_none()
-            if row is None:
-                return
-            row.open_risk_usd = max(0.0, float(row.open_risk_usd or 0.0) + d)
-            await session.commit()
+        if session is not None:
+            await self._apply_open_risk_delta(session, account_id, d, release=False)
+            return
+        async with async_session_factory() as own:
+            await self._apply_open_risk_delta(own, account_id, d, release=False)
+            await own.commit()
 
-    async def release_open_risk(self, account_id: str, delta_usd: float) -> None:
-        """Release open risk on broker-confirmed close (floor at 0, row-locked)."""
+    async def release_open_risk(
+        self,
+        account_id: str,
+        delta_usd: float,
+        session=None,
+    ) -> None:
+        """Release open risk on broker-confirmed close (floor at 0, row-locked).
+
+        If *session* is provided, use it and flush only (caller commits).
+        If omitted, open a standalone session and commit (backward compatible).
+        """
         if delta_usd is None:
             return
         d = abs(float(delta_usd))
         if d == 0.0:
             return
-        async with async_session_factory() as session:
-            q = await session.execute(
-                select(Subscription)
-                .where(Subscription.account_id == account_id)
-                .with_for_update()
-            )
-            row = q.scalar_one_or_none()
-            if row is None:
-                return
-            row.open_risk_usd = max(0.0, float(row.open_risk_usd or 0.0) - d)
-            await session.commit()
+        if session is not None:
+            await self._apply_open_risk_delta(session, account_id, d, release=True)
+            return
+        async with async_session_factory() as own:
+            await self._apply_open_risk_delta(own, account_id, d, release=True)
+            await own.commit()
 
     async def portfolio_summary(self, account_id: str, universe: list[str] | None = None) -> dict[str, Any]:
         state = await self.get_state(account_id)
