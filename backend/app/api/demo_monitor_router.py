@@ -144,6 +144,7 @@ async def publish_controlled_test_signal(
         controlled_demo_authorized=True,
     )
     # Stage 5: persist authorized controlled_demo to durable queue
+    durable_ok = False
     try:
         from app.db.base import async_session_factory
         from app.services.durable_execution_queue import get_durable_execution_queue
@@ -168,8 +169,16 @@ async def publish_controlled_test_signal(
                 payload["signal_id"] = sid
             await get_durable_execution_queue().enqueue(session, payload)
             await session.commit()
-    except Exception:
-        pass
+            durable_ok = True
+    except Exception as exc:
+        # Observability only: do not change trading outcome; API still returns ok
+        # after memory publish. Operator diagnostics need this failure visible in logs.
+        import logging
+        logging.getLogger(__name__).warning(
+            "controlled_demo durable enqueue failed signal_id=%s account=%s: %s",
+            sid, body.account_id, exc,
+        )
+        durable_ok = False
     if not sid:
         raise HTTPException(400, "publish failed")
     log = getattr(request.app.state, "trade_event_log", None)
@@ -190,4 +199,5 @@ async def publish_controlled_test_signal(
         "side": side,
         "volume": body.volume,
         "note": "Signal is pending. Attach Executor with UseServerSignals=true and poll /api/executor/pending-batch.",
+        "durable_persisted": durable_ok,
     }

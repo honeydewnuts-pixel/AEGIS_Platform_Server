@@ -281,3 +281,78 @@ async def set_emergency_stop(
         )
         await session.commit()
     return out
+
+
+@router.get("/ops/execution-diagnostic/{signal_id}")
+async def execution_diagnostic(
+    signal_id: str,
+    request: Request,
+    auth: AuthContext = Depends(verify_api_key),
+) -> dict[str, Any]:
+    """READ-ONLY: inspect one durable execution-queue row by signal_id.
+
+    SELECT only. Does not claim, ACK, reject, expire, execute, or mutate state.
+    Requires admin API key. Available while production_authorized=false.
+    """
+    require_admin(auth)
+    sid = (signal_id or "").strip()
+    if not sid or len(sid) > 64:
+        return {"ok": True, "signal_id": sid, "exists": False}
+
+    from sqlalchemy import select
+    from app.db.base import async_session_factory
+    from app.db.models import AegisExecutionQueue
+
+    def _iso(dt: Any) -> str | None:
+        if dt is None:
+            return None
+        try:
+            return dt.isoformat()
+        except Exception:
+            return str(dt)
+
+    try:
+        async with async_session_factory() as session:
+            result = await session.execute(
+                select(AegisExecutionQueue).where(AegisExecutionQueue.signal_id == sid)
+            )
+            row = result.scalar_one_or_none()
+            # Explicitly no commit / no flush — pure read
+            if row is None:
+                return {"ok": True, "signal_id": sid, "exists": False}
+            return {
+                "ok": True,
+                "signal_id": row.signal_id,
+                "exists": True,
+                "status": row.status,
+                "account_id": row.account_id,
+                "symbol": row.symbol,
+                "side": row.side,
+                "volume": row.volume,
+                "methodology": row.methodology,
+                "rule_name": row.rule_name,
+                "production_authorized": bool(row.production_authorized),
+                "controlled_demo_authorized": bool(row.controlled_demo_authorized),
+                "created_at": _iso(row.created_at),
+                "updated_at": _iso(row.updated_at),
+                "claimed_at": _iso(row.claimed_at),
+                "attempt_count": int(row.attempt_count or 0),
+                "claim_token_present": bool(row.claim_token),
+                "ack_ok": row.ack_ok,
+                "ack_message": row.ack_message,
+                "position_ticket": row.position_ticket,
+                "order_ticket": row.order_ticket,
+                "deal_ticket": row.deal_ticket,
+                "stop_loss": row.stop_loss,
+                "take_profit": row.take_profit,
+                "confidence": row.confidence,
+                "details": row.details,
+            }
+    except Exception:
+        # Do not expose raw DB errors; fail closed as not-found for diagnostics
+        return {
+            "ok": False,
+            "signal_id": sid,
+            "exists": False,
+            "error": "diagnostic_query_failed",
+        }
