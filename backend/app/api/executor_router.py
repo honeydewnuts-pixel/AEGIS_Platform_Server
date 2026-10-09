@@ -166,8 +166,11 @@ async def get_pending_signal(
         "take_profit": row.get("take_profit"),
         "created_at_ms": row.get("created_at_ms"),
         "details": row.get("details"),
-        "authorized": (row.get("production_authorized") is True),
+        "authorized": bool(
+            getattr(svc, "is_execution_authorized", lambda r: r.get("production_authorized") is True)(row)
+        ),
         "production_authorized": (row.get("production_authorized") is True),
+        "controlled_demo_authorized": (row.get("controlled_demo_authorized") is True),
     }
 
 
@@ -243,10 +246,41 @@ async def ack_signal(
     request: Request,
     auth: AuthContext = Depends(verify_api_key),
 ) -> dict[str, Any]:
+    """Terminal ACK: durable queue is authoritative; memory mirrors only after durable success.
+
+    Stage 6.3: do not mark in-memory complete if durable ACK fails (prevents false
+    success and lost durable PENDING rows while memory hides the signal).
+    """
     require_account_match(auth, body.account_id)
     svc = getattr(request.app.state, "executor_signals", None)
     if svc is None:
         raise HTTPException(status_code=503, detail="Executor signal service not ready")
+
+    # Stage 6.3: durable first (authoritative)
+    durable_meta: dict[str, Any] = {"durable_ack": False}
+    try:
+        from app.db.base import async_session_factory
+        from app.services.durable_execution_queue import get_durable_execution_queue
+        async with async_session_factory() as session:
+            durable_meta = await get_durable_execution_queue().ack(
+                session,
+                account_id=body.account_id,
+                signal_id=body.signal_id,
+                ok=bool(body.ok),
+                position_ticket=int(body.position_ticket or body.ticket or 0),
+                order_ticket=int(body.order_ticket or 0),
+                deal_ticket=int(body.deal_ticket or 0),
+                message=body.message or "",
+            )
+            await session.commit()
+        durable_meta = {**durable_meta, "durable_ack": True}
+    except Exception as exc:
+        # Do not advance in-memory terminal state; EA may retry ACK.
+        raise HTTPException(
+            status_code=503,
+            detail=f"durable_ack_failed:{type(exc).__name__}",
+        ) from exc
+
     result = svc.ack(
         body.account_id,
         body.signal_id,
@@ -261,24 +295,7 @@ async def ack_signal(
         side=body.side,
         volume=body.volume,
     )
-    # Stage 5: durable queue terminal state (idempotent)
-    try:
-        from app.db.base import async_session_factory
-        from app.services.durable_execution_queue import get_durable_execution_queue
-        async with async_session_factory() as session:
-            await get_durable_execution_queue().ack(
-                session,
-                account_id=body.account_id,
-                signal_id=body.signal_id,
-                ok=bool(body.ok),
-                position_ticket=int(body.position_ticket or body.ticket or 0),
-                order_ticket=int(body.order_ticket or 0),
-                deal_ticket=int(body.deal_ticket or 0),
-                message=body.message or "",
-            )
-            await session.commit()
-    except Exception:
-        pass
+    result = {**result, **{k: durable_meta.get(k) for k in ("durable_ack", "found", "status", "idempotent") if k in durable_meta}}
     # Durable lifecycle: ACK is not open risk unless position_ticket > 0 and risk known
     try:
         from app.db.base import async_session_factory
