@@ -1,7 +1,7 @@
 """Reconcile risk release must be transactionally idempotent.
 
-DATABASE-BACKED tests use an isolated schema only — never DROP the
-application's aegis_position_lifecycle table.
+DATABASE-BACKED tests use schema aegis_test_isolation_conc only.
+They never DROP, TRUNCATE, or mutate public.aegis_position_lifecycle.
 """
 from __future__ import annotations
 
@@ -10,39 +10,96 @@ import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlparse
 
 import pytest
 
-# Isolation schema for disposable concurrent tests (not the app table)
 _ISOLATION_SCHEMA = "aegis_test_isolation_conc"
+
+# CI Backend workflow uses: postgresql://postgres:postgres@localhost:5432/aegis_test
+_ALLOWED_TEST_DB_NAMES = frozenset(
+    {
+        "aegis_test",
+        "aegis_test_db",
+        "test",
+        "aegis_ci",
+    }
+)
 
 
 def _db_url() -> str:
     return os.environ.get("DATABASE_URL", "")
 
 
+def _database_name(url: str) -> str:
+    """Extract DB name without logging credentials."""
+    try:
+        # strip driver prefix for urlparse
+        u = url.replace("postgresql+asyncpg://", "postgresql://", 1)
+        path = urlparse(u).path or ""
+        name = path.lstrip("/").split("?")[0]
+        return name.lower()
+    except Exception:
+        return ""
+
+
 def _is_safe_test_database(url: str) -> bool:
-    """Refuse production / shared unrecognized hosts."""
-    u = (url or "").lower()
+    """Fail closed unless positively identified as a disposable test DB.
+
+    Order: deny production-like patterns first, then require an allow rule.
+    Host alone (localhost) is never sufficient.
+    """
+    u = (url or "").lower().strip()
     if not u.startswith("postgresql"):
         return False
-    # Explicit denials
-    denied = (
-        "prod",
+
+    # --- deny first ---
+    deny_substrings = (
         "production",
-        "neon.tech",  # AEGIS production often on Neon — require test DB name
+        "/prod",
+        "_prod",
+        "prod_",
+        "aegis_prod",
+        "neon.tech",
         "render.com",
         "amazonaws.com",
+        "supabase.co",
+        "azure.com",
+        "cloud.google",
     )
-    # Allow localhost / 127.0.0.1 / docker service names used in CI
-    if any(h in u for h in ("localhost", "127.0.0.1", "@postgres:", "@postgres/")):
+    if any(s in u for s in deny_substrings):
+        return False
+
+    db_name = _database_name(u)
+    if not db_name:
+        return False
+    if db_name in ("postgres", "template0", "template1", "aegis", "aegis_platform"):
+        return False
+    if "prod" in db_name:
+        return False
+
+    # --- allow: explicit test DB names on local/CI hosts only ---
+    host = ""
+    try:
+        host = (urlparse(u.replace("postgresql+asyncpg://", "postgresql://", 1)).hostname or "").lower()
+    except Exception:
+        host = ""
+
+    local_or_ci_host = host in (
+        "localhost",
+        "127.0.0.1",
+        "postgres",  # docker compose service name in CI
+        "::1",
+    )
+    if not local_or_ci_host:
+        return False
+
+    if db_name in _ALLOWED_TEST_DB_NAMES:
         return True
-    # CI-style: database name must contain test
-    if re.search(r"/[a-z0-9_]*test[a-z0-9_]*(\?|$)", u):
-        # still block neon/render unless name is clearly test-only and not prod keyword
-        if "neon.tech" in u or "render.com" in u:
-            return "test" in u and "prod" not in u
-        return "prod" not in u
+    # Also accept names that start with aegis_test or end with _test
+    if db_name.startswith("aegis_test") or db_name.endswith("_test"):
+        return True
+
     return False
 
 
@@ -60,22 +117,57 @@ def test_sequential_reconcile_state_recheck_in_source():
     assert "stale_risk_released" in src
 
 
+def test_pg_guard_refuses_unsafe_urls():
+    """Static guard: production-like and non-test names are rejected."""
+    # CI / local test DB — allowed
+    assert _is_safe_test_database(
+        "postgresql://postgres:postgres@localhost:5432/aegis_test"
+    )
+    assert _is_safe_test_database(
+        "postgresql://postgres:postgres@postgres:5432/aegis_test"
+    )
+    assert _is_safe_test_database(
+        "postgresql://u:p@127.0.0.1:5432/myapp_test"
+    )
+
+    # localhost alone is NOT enough if DB name is production-like
+    assert not _is_safe_test_database(
+        "postgresql://postgres:postgres@localhost:5432/aegis_prod"
+    )
+    assert not _is_safe_test_database(
+        "postgresql://postgres:postgres@localhost:5432/aegis"
+    )
+    assert not _is_safe_test_database(
+        "postgresql://postgres:postgres@localhost:5432/postgres"
+    )
+
+    # remote / managed
+    assert not _is_safe_test_database(
+        "postgresql://user:pass@ep-x.neon.tech/aegis_test"
+    )
+    assert not _is_safe_test_database(
+        "postgresql://user:pass@db.render.com/aegis_test"
+    )
+    assert not _is_safe_test_database("sqlite:///x.db")
+
+
 def test_postgres_concurrent_reconcile_single_release():
     """Two concurrent reconciles on the same stale row → one release only.
 
-    DATABASE-BACKED: uses schema aegis_test_isolation_conc only.
-    Does NOT drop public.aegis_position_lifecycle.
+    DATABASE-BACKED. Every connection is bound to schema
+    aegis_test_isolation_conc via a connect event listener.
+    public.aegis_position_lifecycle is never targeted.
     """
     db = _db_url()
     if not _is_safe_test_database(db):
         pytest.skip(
-            "NOT RUN — DATABASE_URL is not a recognized safe test PostgreSQL "
-            f"(refusing shared/production). url_prefix={db[:32]!r}..."
+            "NOT RUN — DATABASE_URL is not a recognized disposable test PostgreSQL "
+            f"(db_name={_database_name(db)!r}; host redacted)"
         )
 
     async def _run():
-        from sqlalchemy import select, text
-        from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+        from sqlalchemy import MetaData, event, select, text
+        from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
         from sqlalchemy.orm import sessionmaker
 
         from app.db.models import AegisPositionLifecycle
@@ -83,6 +175,14 @@ def test_postgres_concurrent_reconcile_single_release():
 
         url = db.replace("postgresql://", "postgresql+asyncpg://", 1)
         engine = create_async_engine(url, pool_size=5)
+
+        # Bind EVERY pooled connection to the isolation schema (not session-local only)
+        @event.listens_for(engine.sync_engine, "connect")
+        def _set_search_path(dbapi_conn, connection_record):  # noqa: ARG001
+            cursor = dbapi_conn.cursor()
+            cursor.execute(f'SET search_path TO "{_ISOLATION_SCHEMA}"')
+            cursor.close()
+
         Session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
         account_id = "CONC-TEST-ACC"
@@ -90,85 +190,106 @@ def test_postgres_concurrent_reconcile_single_release():
         ticket = 9_000_000_001
         risk = 12.5
 
+        # Schema-qualified copy so create never targets public even if
+        # public.aegis_position_lifecycle already exists.
+        isolated_table = AegisPositionLifecycle.__table__.to_metadata(
+            MetaData(), schema=_ISOLATION_SCHEMA
+        )
+
         try:
             async with engine.begin() as conn:
-                await conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{_ISOLATION_SCHEMA}"'))
-                await conn.execute(text(f'SET search_path TO "{_ISOLATION_SCHEMA}", public'))
-                # Create lifecycle table only inside isolation schema
-                await conn.execute(text(f'DROP TABLE IF EXISTS "{_ISOLATION_SCHEMA}".aegis_position_lifecycle CASCADE'))
+                await conn.execute(
+                    text(f'CREATE SCHEMA IF NOT EXISTS "{_ISOLATION_SCHEMA}"')
+                )
                 await conn.run_sync(
-                    lambda sync_conn: AegisPositionLifecycle.__table__.create(
-                        sync_conn, checkfirst=True
+                    lambda sync_conn: isolated_table.create(sync_conn, checkfirst=True)
+                )
+
+            # Prove public table is not the test target: count isolation schema only
+            async with Session() as session:
+                schema_check = await session.execute(
+                    text(
+                        "SELECT table_schema FROM information_schema.tables "
+                        "WHERE table_name = 'aegis_position_lifecycle' "
+                        "AND table_schema = :s"
+                    ),
+                    {"s": _ISOLATION_SCHEMA},
+                )
+                assert schema_check.scalar_one() == _ISOLATION_SCHEMA
+
+                # search_path on this connection (listener already set it)
+                sp = await session.execute(text("SHOW search_path"))
+                sp_val = sp.scalar_one()
+                assert _ISOLATION_SCHEMA in str(sp_val)
+
+                await session.execute(
+                    text("DELETE FROM aegis_position_lifecycle WHERE account_id = :a"),
+                    {"a": account_id},
+                )
+                now = datetime.now(timezone.utc)
+                session.add(
+                    AegisPositionLifecycle(
+                        account_id=account_id,
+                        signal_id=signal_id,
+                        position_ticket=ticket,
+                        symbol="EURUSD",
+                        side="SELL",
+                        volume=0.1,
+                        risk_usd_at_open=risk,
+                        open_risk_applied=True,
+                        state="POSITION_OPEN",
+                        opened_at=now,
+                        created_at=now,
+                        updated_at=now,
                     )
                 )
-        except Exception as e:
-            await engine.dispose()
-            pytest.skip(f"NOT RUN — cannot prepare isolation schema: {e}")
-
-        async with Session() as session:
-            await session.execute(text(f'SET search_path TO "{_ISOLATION_SCHEMA}", public'))
-            await session.execute(
-                text("DELETE FROM aegis_position_lifecycle WHERE account_id = :a"),
-                {"a": account_id},
-            )
-            now = datetime.now(timezone.utc)
-            session.add(
-                AegisPositionLifecycle(
-                    account_id=account_id,
-                    signal_id=signal_id,
-                    position_ticket=ticket,
-                    symbol="EURUSD",
-                    side="SELL",
-                    volume=0.1,
-                    risk_usd_at_open=risk,
-                    open_risk_applied=True,
-                    state="POSITION_OPEN",
-                    opened_at=now,
-                    created_at=now,
-                    updated_at=now,
-                )
-            )
-            await session.commit()
-
-        results: list[dict] = []
-
-        async def one_reconcile():
-            async with Session() as session:
-                await session.execute(text(f'SET search_path TO "{_ISOLATION_SCHEMA}", public'))
-                dur = DurableLifecycleService()
-                summary = await dur.reconcile(session, account_id, [])
                 await session.commit()
-                results.append(summary)
 
-        await asyncio.gather(one_reconcile(), one_reconcile())
+            results: list[dict] = []
+            search_paths: list[str] = []
 
-        total_released = sum(float(r.get("stale_risk_released") or 0) for r in results)
-        assert abs(total_released - risk) < 1e-9, f"double release? totals={results}"
+            async def one_reconcile():
+                async with Session() as session:
+                    # Listener sets path; also assert for evidence
+                    sp = await session.execute(text("SHOW search_path"))
+                    search_paths.append(str(sp.scalar_one()))
+                    dur = DurableLifecycleService()
+                    summary = await dur.reconcile(session, account_id, [])
+                    await session.commit()
+                    results.append(summary)
 
-        async with Session() as session:
-            await session.execute(text(f'SET search_path TO "{_ISOLATION_SCHEMA}", public'))
-            q = await session.execute(
-                select(AegisPositionLifecycle).where(
-                    AegisPositionLifecycle.account_id == account_id,
-                    AegisPositionLifecycle.signal_id == signal_id,
-                )
+            await asyncio.gather(one_reconcile(), one_reconcile())
+
+            assert all(_ISOLATION_SCHEMA in p for p in search_paths), (
+                f"worker search_path not isolated: {search_paths!r}"
             )
-            final = q.scalar_one()
-            assert final.state == "RISK_RELEASED"
 
-        # Tear down isolation schema only — never public app tables
-        async with engine.begin() as conn:
-            await conn.execute(text(f'DROP SCHEMA IF EXISTS "{_ISOLATION_SCHEMA}" CASCADE'))
+            total_released = sum(
+                float(r.get("stale_risk_released") or 0) for r in results
+            )
+            assert abs(total_released - risk) < 1e-9, (
+                f"double release? totals={results}"
+            )
 
-        await engine.dispose()
+            async with Session() as session:
+                q = await session.execute(
+                    select(AegisPositionLifecycle).where(
+                        AegisPositionLifecycle.account_id == account_id,
+                        AegisPositionLifecycle.signal_id == signal_id,
+                    )
+                )
+                final = q.scalar_one()
+                assert final.state == "RISK_RELEASED"
+
+        finally:
+            # Tear down isolation schema only — never public app tables
+            try:
+                async with engine.begin() as conn:
+                    await conn.execute(
+                        text(f'DROP SCHEMA IF EXISTS "{_ISOLATION_SCHEMA}" CASCADE')
+                    )
+            except Exception:
+                pass
+            await engine.dispose()
 
     asyncio.run(_run())
-
-
-def test_pg_guard_refuses_unsafe_urls():
-    """Static guard: production-like URLs are rejected."""
-    assert _is_safe_test_database("postgresql://postgres:postgres@localhost:5432/aegis_test")
-    assert _is_safe_test_database("postgresql://postgres:postgres@postgres:5432/aegis_test")
-    assert not _is_safe_test_database("postgresql://user:pass@ep-x.neon.tech/aegis_prod")
-    assert not _is_safe_test_database("postgresql://user:pass@db.render.com/aegis")
-    assert not _is_safe_test_database("sqlite:///x.db")
