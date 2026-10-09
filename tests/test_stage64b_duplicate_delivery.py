@@ -290,11 +290,8 @@ def test_postgres_concurrent_claim_only_one_wins():
             async def one():
                 async with Session() as session:
                     svc = DurableExecutionQueueService()
-                    with patch(
-                        "app.services.durable_execution_queue.ExecutorSignalService.is_execution_authorized",
-                        return_value=True,
-                    ):
-                        payload = await svc.get_pending(session, account_id, "EURUSD")
+                    # Row is controlled_demo_test — real auth gate, no patch
+                    payload = await svc.get_pending(session, account_id, "EURUSD")
                     await session.commit()
                     results.append(payload)
 
