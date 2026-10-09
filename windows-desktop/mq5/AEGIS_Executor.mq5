@@ -35,6 +35,7 @@ input int    Slippage         = 30;
 input int    MagicNumber      = 20260827;
 input int    MaxSpreadPts     = 40;
 input int    PollSeconds      = 5;
+input int    HeartbeatSeconds = 30;   // Stage 6.2I: Executor presence (0=off); does not affect trading
 input int    MaxSignalAgeSec  = 300;
 input bool   UseServerSignals = true;
 input bool   UseLocalFileFallback = false;
@@ -80,6 +81,7 @@ double g_lastAtr14 = 0;
 double g_lastStopAtrMult = 1.5;
 double g_lastTrailAtrMult = 0.75;
 int    g_lastMaxHoldBars = 72;
+datetime g_lastHeartbeatAt = 0;
 string g_lastMethodology = "";
 
 
@@ -1683,6 +1685,33 @@ int OnInit()
    return INIT_SUCCEEDED;
   }
 void OnDeinit(const int reason){ EventKillTimer(); }
+
+//+------------------------------------------------------------------+
+//| Stage 6.2I — presence heartbeat (never blocks trading)           |
+//+------------------------------------------------------------------+
+void SendExecutorHeartbeat()
+  {
+   if(HeartbeatSeconds <= 0) return;
+   if(StringLen(AccountId) < 3 || StringLen(ApiKey) < 3) return;
+   datetime now = TimeGMT();
+   if(g_lastHeartbeatAt > 0 && (now - g_lastHeartbeatAt) < HeartbeatSeconds) return;
+   g_lastHeartbeatAt = now;
+   string mode = EnumToString(ExecMode);
+   string sym = NormalizeSymbolBase(_Symbol);
+   string url = BaseUrl()+"/api/executor/heartbeat";
+   string payload = "{";
+   payload += "\"account_id\":\""+AccountId+"\",";
+   payload += "\"client_type\":\"AEGIS_Executor\",";
+   payload += "\"executor_version\":\"2.20\",";
+   payload += "\"execution_mode\":\""+mode+"\",";
+   payload += "\"chart_symbol\":\""+sym+"\"";
+   payload += "}";
+   int code = HttpPostJson(url, payload);
+   // Telemetry only — never gate OrderSend on this result
+   if(code < 200 || code >= 300)
+      Print("AEGIS heartbeat HTTP ",code," (non-fatal)");
+  }
+
 void OnTimer()
   {
    FlushAckRetries();
@@ -1693,5 +1722,6 @@ void OnTimer()
       else PollChartOnly();
      }
    if(UseLocalFileFallback) PollLocalFallback();
+   SendExecutorHeartbeat();
    ManageAegisPositions();
   }

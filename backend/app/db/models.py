@@ -607,3 +607,21 @@ class AegisOperationalControl(Base):
     value: Mapped[str] = mapped_column(String(256), nullable=False, default="")
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+
+
+class AegisExecutorPresence(Base):
+    """Durable MQL5 Executor last-seen presence (Stage 6.2I).
+
+    Distinct from mobile device heartbeats and Python worker_registry.
+    One row per account_id; updated by POST /api/executor/heartbeat only.
+    """
+
+    __tablename__ = "aegis_executor_presence"
+
+    account_id: Mapped[str] = mapped_column(String, primary_key=True)
+    client_type: Mapped[str] = mapped_column(String(64), nullable=False, default="AEGIS_Executor")
+    executor_version: Mapped[str] = mapped_column(String(32), nullable=False, default="")
+    execution_mode: Mapped[str] = mapped_column(String(32), nullable=False, default="")
+    last_symbol: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

@@ -356,3 +356,23 @@ async def execution_diagnostic(
             "exists": False,
             "error": "diagnostic_query_failed",
         }
+
+
+@router.get("/ops/executor-status/{account_id}")
+async def executor_status(
+    account_id: str,
+    request: Request,
+    auth: AuthContext = Depends(verify_api_key),
+) -> dict[str, Any]:
+    """READ-ONLY: durable AEGIS_Executor last_seen for one account.
+
+    Distinct from mobile device heartbeats and Python worker_registry.
+    Admin only. No secrets.
+    """
+    require_admin(auth)
+    aid = (account_id or "").strip()
+    from app.db.base import async_session_factory
+    from app.services.executor_presence_service import get_executor_presence_service
+
+    async with async_session_factory() as session:
+        return await get_executor_presence_service().get_status(session, aid)

@@ -469,6 +469,43 @@ async def reconcile_positions(
     return {"ok": True, **summary}
 
 
+
+class HeartbeatBody(BaseModel):
+    account_id: str
+    client_type: str = "AEGIS_Executor"
+    executor_version: str = "2.20"
+    execution_mode: str = ""
+    chart_symbol: str | None = None
+
+
+@router.post("/heartbeat")
+async def executor_heartbeat(
+    body: HeartbeatBody,
+    request: Request,
+    auth: AuthContext = Depends(verify_api_key),
+) -> dict[str, Any]:
+    """MQL5 Executor presence heartbeat (Stage 6.2I).
+
+    Does not enqueue, claim, ACK, size, or execute trades.
+    Failure of callers must not block trading logic on the EA side.
+    """
+    require_account_match(auth, body.account_id)
+    from app.db.base import async_session_factory
+    from app.services.executor_presence_service import get_executor_presence_service
+
+    async with async_session_factory() as session:
+        out = await get_executor_presence_service().upsert_heartbeat(
+            session,
+            account_id=body.account_id,
+            client_type=body.client_type,
+            executor_version=body.executor_version,
+            execution_mode=body.execution_mode,
+            chart_symbol=body.chart_symbol,
+        )
+        await session.commit()
+    return out
+
+
 @router.get("/executions/recent")
 async def recent_executions(
     request: Request,
