@@ -325,20 +325,52 @@ async def ack_signal(
                 )
                 if should_risk and risk_usd is not None:
                     pr = getattr(request.app.state, "portfolio_risk", None)
-                    if pr is not None:
-                        # Stage 3.3: same session as lifecycle (atomic with commit below)
+                    if pr is None:
+                        # Fail closed for applied flag: commit lifecycle with
+                        # open_risk_applied=False so reconcile can repair once.
+                        # Durable queue is already terminal (Stage 6.3) — do not
+                        # reopen it; surface accounting gap for recovery.
+                        await session.commit()
+                        result = {
+                            **result,
+                            "lifecycle": (row.state if row else "UNKNOWN"),
+                            "open_risk_applied": False,
+                            "reconciliation_required": True,
+                            "lifecycle_accounting_error": "portfolio_risk_unavailable",
+                        }
+                    else:
+                        # Stage 3.3 / 6.4A: portfolio + applied flag same transaction
                         await pr.record_open_risk(
                             body.account_id, float(risk_usd), session=session
                         )
-                    await dur.mark_risk_recorded(
-                        session, account_id=body.account_id, signal_id=body.signal_id, risk_usd=float(risk_usd)
-                    )
-                await session.commit()
-                result = {
-                    **result,
-                    "lifecycle": (row.state if row else "UNKNOWN"),
-                    "reconciliation_required": bool(row and row.state == "BROKER_CONFIRMED_OPEN" and row.risk_usd_at_open is None),
-                }
+                        await dur.mark_risk_recorded(
+                            session,
+                            account_id=body.account_id,
+                            signal_id=body.signal_id,
+                            risk_usd=float(risk_usd),
+                        )
+                        await session.commit()
+                        result = {
+                            **result,
+                            "lifecycle": (row.state if row else "UNKNOWN"),
+                            "open_risk_applied": True,
+                            "reconciliation_required": bool(
+                                row
+                                and row.state == "BROKER_CONFIRMED_OPEN"
+                                and row.risk_usd_at_open is None
+                            ),
+                        }
+                else:
+                    await session.commit()
+                    result = {
+                        **result,
+                        "lifecycle": (row.state if row else "UNKNOWN"),
+                        "reconciliation_required": bool(
+                            row
+                            and row.state == "BROKER_CONFIRMED_OPEN"
+                            and row.risk_usd_at_open is None
+                        ),
+                    }
         # Mirror in-memory for gates (non-authoritative)
         life_mem.on_ack(
             account_id=body.account_id,

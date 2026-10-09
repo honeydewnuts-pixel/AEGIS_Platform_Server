@@ -94,6 +94,9 @@ class DurableLifecycleService:
             row.position_ticket = int(position_ticket)
             if row.risk_usd_at_open is not None:
                 row.state = "POSITION_OPEN"
+                # Explicit False until portfolio record succeeds (not NULL/historical)
+                if row.open_risk_applied is not True:
+                    row.open_risk_applied = False
                 row.opened_at = row.opened_at or now
                 row.updated_at = now
                 await session.flush()

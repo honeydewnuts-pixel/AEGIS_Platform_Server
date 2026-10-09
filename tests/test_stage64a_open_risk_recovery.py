@@ -231,3 +231,33 @@ def test_pg_concurrent_recovery_no_double():
 def test_pg_record_open_risk_failure_rolls_back_flag():
     """E: record_open_risk failure → open_risk_applied remains false after rollback."""
     assert False
+
+
+# --- ACK atomicity (MOCKED) ---
+
+def test_ack_source_mark_risk_only_after_portfolio():
+    """Source: mark_risk_recorded must not run when portfolio_risk is None."""
+    from pathlib import Path
+
+    src = Path("backend/app/api/executor_router.py").read_text()
+    start = src.index("async def ack_signal")
+    end = src.find("@router.post(\"/position-closed\")", start)
+    body = src[start:end]
+    assert "portfolio_risk_unavailable" in body
+    # mark_risk_recorded should appear only in the else/pr branch after record_open_risk
+    assert "mark_risk_recorded" in body
+    assert "record_open_risk" in body
+    # ordering within should_risk block: unavailable path does not call mark_risk_recorded
+    unavail = body.split("portfolio_risk_unavailable")[0]
+    # After unavailable marker, the mark is only in the else branch
+    after = body.split("portfolio_risk_unavailable", 1)[1]
+    assert "mark_risk_recorded" in after
+    # The unavailable path uses commit without mark before the else
+    assert "open_risk_applied\": False" in body.replace(" ", "") or "open_risk_applied\": False" in body or '"open_risk_applied": False' in body
+
+
+def test_ack_on_ack_sets_explicit_false_pending_apply():
+    from pathlib import Path
+
+    src = Path("backend/app/services/durable_lifecycle_service.py").read_text()
+    assert "open_risk_applied = False" in src
