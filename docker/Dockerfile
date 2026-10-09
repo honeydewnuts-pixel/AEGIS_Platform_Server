@@ -5,7 +5,8 @@
 # MT5 terminal (see requirements-worker.txt and app/worker/mt5_worker.py)
 # and are deployed separately, pointed at this same Redis instance.
 # ============================================================
-FROM python:3.12-slim
+# public.ecr.aws = official Docker library mirror (avoids Hub rate limits in CI)
+FROM public.ecr.aws/docker/library/python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
