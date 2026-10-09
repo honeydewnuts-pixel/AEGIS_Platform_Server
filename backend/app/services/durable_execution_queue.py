@@ -16,6 +16,8 @@ from app.services.executor_signal_service import ExecutorSignalService
 from app.utils.symbol_normalize import normalize_symbol
 
 TERMINAL = frozenset({"ACKED", "REJECTED", "EXPIRED"})
+# Claimed delivery in flight; not terminal (ACK still accepted) but not redelivered
+NON_DELIVERABLE = frozenset({"CLAIMED", "SUBMISSION_UNCERTAIN"}) | TERMINAL
 CLAIM_LEASE_SEC = 120.0
 
 
@@ -49,7 +51,9 @@ class DurableExecutionQueueService:
                 and_(
                     AegisExecutionQueue.account_id == account_id,
                     AegisExecutionQueue.symbol == symbol,
-                    AegisExecutionQueue.status.in_(["PENDING", "CLAIMED"]),
+                    AegisExecutionQueue.status.in_(
+                        ["PENDING", "CLAIMED", "SUBMISSION_UNCERTAIN"]
+                    ),
                 )
             )
         )
@@ -113,43 +117,84 @@ class DurableExecutionQueueService:
     async def get_pending(
         self, session: AsyncSession, account_id: str, symbol: str
     ) -> dict[str, Any] | None:
+        """Atomically claim one PENDING row for delivery (Stage 6.4B).
+
+        Concurrent pollers: only one acquires CLAIMED and receives the payload.
+        Lease expiry without ACK → SUBMISSION_UNCERTAIN (no automatic redelivery).
+        """
+        import uuid
+
         sym = normalize_symbol(symbol)
+        # Lock newest active row for this account+symbol
         q = await session.execute(
             select(AegisExecutionQueue)
             .where(
                 and_(
                     AegisExecutionQueue.account_id == account_id,
                     AegisExecutionQueue.symbol == sym,
-                    AegisExecutionQueue.status.in_(["PENDING", "CLAIMED"]),
+                    AegisExecutionQueue.status.in_(
+                        ["PENDING", "CLAIMED", "SUBMISSION_UNCERTAIN"]
+                    ),
                 )
             )
             .order_by(AegisExecutionQueue.created_at.desc())
             .limit(1)
+            .with_for_update()
         )
         row = q.scalar_one_or_none()
         if row is None:
             return None
-        # Lease recovery: CLAIMED too long → PENDING again
-        if row.status == "CLAIMED" and row.claimed_at is not None:
-            age = (_utcnow() - row.claimed_at).total_seconds()
-            if age > CLAIM_LEASE_SEC:
-                row.status = "PENDING"
-                row.claim_token = None
-                row.claimed_at = None
-                row.updated_at = _utcnow()
-                await session.flush()
-        payload = self._to_payload(row)
-        if not ExecutorSignalService.is_execution_authorized(payload):
+
+        now = _utcnow()
+
+        # Unauthorized → expire, never deliver
+        payload_check = self._to_payload(row)
+        if not ExecutorSignalService.is_execution_authorized(payload_check):
             row.status = "EXPIRED"
-            row.updated_at = _utcnow()
+            row.updated_at = now
             await session.flush()
             return None
+
+        if row.status == "SUBMISSION_UNCERTAIN":
+            # Fail closed: outcome unknown — do not redeliver
+            return None
+
+        if row.status == "CLAIMED":
+            age = (
+                (now - row.claimed_at).total_seconds()
+                if row.claimed_at is not None
+                else CLAIM_LEASE_SEC + 1
+            )
+            if age > CLAIM_LEASE_SEC:
+                # Lease expired without ACK → uncertain, not PENDING
+                row.status = "SUBMISSION_UNCERTAIN"
+                row.updated_at = now
+                row.ack_message = (row.ack_message or "")[:200]
+                await session.flush()
+                return None
+            # Still within lease: another worker holds claim — no second delivery
+            return None
+
+        # PENDING → CLAIMED (atomic under FOR UPDATE)
+        if row.status != "PENDING":
+            return None
+
+        token = uuid.uuid4().hex
+        row.status = "CLAIMED"
+        row.claim_token = token
+        row.claimed_at = now
+        row.attempt_count = int(row.attempt_count or 0) + 1
+        row.updated_at = now
+        await session.flush()
+        payload = self._to_payload(row)
+        payload["claim_token"] = token
+        payload["queue_status"] = "CLAIMED"
         return payload
 
     async def claim(
         self, session: AsyncSession, account_id: str, signal_id: str, claim_token: str
     ) -> bool:
-        """Mark PENDING → CLAIMED for single-executor safety."""
+        """Explicit PENDING → CLAIMED by signal_id (account-scoped, FOR UPDATE)."""
         q = await session.execute(
             select(AegisExecutionQueue)
             .where(

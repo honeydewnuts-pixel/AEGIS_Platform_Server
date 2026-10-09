@@ -107,21 +107,27 @@ async def get_pending_signal(
             "authorized": False,
             "reason": reason,
         }
-    row = svc.get_pending(account_id, base) or svc.get_pending(account_id, raw.upper())
-    if not row:
-        # Stage 5: durable queue survives API restart
-        try:
-            from app.db.base import async_session_factory
-            from app.services.durable_execution_queue import get_durable_execution_queue
-            async with async_session_factory() as session:
-                row = await get_durable_execution_queue().get_pending(session, account_id, base)
-                if row:
-                    await session.commit()
-                    # hydrate memory so subsequent polls are fast
-                    with svc._lock:
-                        svc._pending[svc._key(account_id, base)] = dict(row)
-        except Exception:
-            row = None
+    # Stage 6.4B: durable claim-on-deliver is authoritative.
+    # Memory alone must not deliver a signal that was not claimed this poll.
+    row = None
+    try:
+        from app.db.base import async_session_factory
+        from app.services.durable_execution_queue import get_durable_execution_queue
+        async with async_session_factory() as session:
+            row = await get_durable_execution_queue().get_pending(session, account_id, base)
+            if row:
+                await session.commit()
+                with svc._lock:
+                    svc._pending[svc._key(account_id, base)] = dict(row)
+            else:
+                await session.commit()
+                # Drop stale memory so a second poller cannot re-deliver
+                with svc._lock:
+                    svc._pending.pop(svc._key(account_id, base), None)
+                    svc._pending.pop(svc._key(account_id, raw.upper()), None)
+    except Exception:
+        # Fail closed: do not fall back to unclaimed in-memory delivery
+        row = None
     if not row:
         return {
             "has_signal": False,
@@ -207,25 +213,25 @@ async def get_pending_batch(
         else:
             blocked.append({"symbol": s, "reason": reason})
 
-    pending = svc.get_pending_many(account_id, authorized)
-    # Stage 5: fill gaps from durable queue after restart
+    # Stage 6.4B: only durable claim-on-deliver may return executable signals
+    pending: list[dict] = []
     try:
         from app.db.base import async_session_factory
         from app.services.durable_execution_queue import get_durable_execution_queue
-        have = {str(s.get("symbol") or "").upper() for s in pending}
-        missing = [s for s in authorized if s.upper() not in have]
-        if missing:
-            async with async_session_factory() as session:
-                dq = get_durable_execution_queue()
-                for sym in missing:
-                    drow = await dq.get_pending(session, account_id, sym)
-                    if drow:
-                        pending.append(drow)
-                        with svc._lock:
-                            svc._pending[svc._key(account_id, sym)] = dict(drow)
-                await session.commit()
+        async with async_session_factory() as session:
+            dq = get_durable_execution_queue()
+            for sym in authorized:
+                drow = await dq.get_pending(session, account_id, sym)
+                if drow:
+                    pending.append(drow)
+                    with svc._lock:
+                        svc._pending[svc._key(account_id, sym)] = dict(drow)
+                else:
+                    with svc._lock:
+                        svc._pending.pop(svc._key(account_id, sym), None)
+            await session.commit()
     except Exception:
-        pass
+        pending = []
     pending = [
         s for s in pending
         if getattr(svc, "is_execution_authorized", lambda r: r.get("production_authorized") is True)(s)

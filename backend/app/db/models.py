@@ -579,7 +579,7 @@ class AegisExecutionQueue(Base):
     risk_usd_at_open: Mapped[float | None] = mapped_column(Float, nullable=True)
     production_authorized: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     controlled_demo_authorized: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    # PENDING | CLAIMED | ACKED | REJECTED | EXPIRED
+    # PENDING | CLAIMED | SUBMISSION_UNCERTAIN | ACKED | REJECTED | EXPIRED
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="PENDING", index=True)
     claim_token: Mapped[str | None] = mapped_column(String(64), nullable=True)
     claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
