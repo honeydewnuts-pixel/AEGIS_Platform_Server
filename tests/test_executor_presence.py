@@ -46,7 +46,7 @@ async def test_upsert_advances_timestamp():
         session,
         account_id="ACC-1",
         client_type="AEGIS_Executor",
-        executor_version="2.20",
+        executor_version="2.21",
         execution_mode="CHART_ONLY",
         chart_symbol="EURUSD",
     )
@@ -74,7 +74,7 @@ async def test_get_status_healthy_row():
     svc = ExecutorPresenceService()
     row = MagicMock()
     row.client_type = "AEGIS_Executor"
-    row.executor_version = "2.20"
+    row.executor_version = "2.21"
     row.execution_mode = "CHART_ONLY"
     row.last_symbol = "EURUSD"
     row.last_seen_at = datetime.now(timezone.utc)
@@ -96,7 +96,7 @@ async def test_get_status_stale_row():
     svc = ExecutorPresenceService()
     row = MagicMock()
     row.client_type = "AEGIS_Executor"
-    row.executor_version = "2.20"
+    row.executor_version = "2.21"
     row.execution_mode = "CHART_ONLY"
     row.last_symbol = "EURUSD"
     row.last_seen_at = datetime.now(timezone.utc) - timedelta(seconds=200)
@@ -117,7 +117,7 @@ def test_heartbeat_wrong_account_rejected(exec_app):
         json={
             "account_id": "ACC-B",
             "client_type": "AEGIS_Executor",
-            "executor_version": "2.20",
+            "executor_version": "2.21",
             "execution_mode": "CHART_ONLY",
             "chart_symbol": "EURUSD",
         },
@@ -144,7 +144,7 @@ def test_heartbeat_valid_account(exec_app):
             json={
                 "account_id": "ACC-1987D3D2E6",
                 "client_type": "AEGIS_Executor",
-                "executor_version": "2.20",
+                "executor_version": "2.21",
                 "execution_mode": "CHART_ONLY",
                 "chart_symbol": "EURUSD",
             },
@@ -168,7 +168,7 @@ def test_admin_status_ok(exec_app):
     client = TestClient(exec_app)
     row = MagicMock()
     row.client_type = "AEGIS_Executor"
-    row.executor_version = "2.20"
+    row.executor_version = "2.21"
     row.execution_mode = "CHART_ONLY"
     row.last_symbol = "EURUSD"
     row.last_seen_at = datetime.now(timezone.utc)
@@ -243,3 +243,6 @@ def test_mq5_both_copies_have_heartbeat():
         assert "SendExecutorHeartbeat" in t
         assert "/api/executor/heartbeat" in t
         assert "non-fatal" in t
+        assert '#property version   "2.21"' in t
+        assert 'executor_version\":\"2.21\"' in t or '"executor_version":"2.21"' in t.replace("\\", "")
+        assert "AEGIS_Executor v2.21" in t

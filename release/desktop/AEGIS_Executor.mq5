@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| AEGIS_Executor.mq5  v2.20  Position manager (BE/trail/72-bar M5)
+//| AEGIS_Executor.mq5  v2.21  Position manager + Stage 6.2I presence heartbeat
 //| Partial COMPLETE_REMAINDER = exactly ONE residual OrderSend (not recursive).  PRODUCTION HARDENED                   |
 //| - ResolveBrokerSymbol (suffixes + MW scan)                       |
 //| - MarkHandled only after success / permanent fail                |
@@ -9,9 +9,9 @@
 //| - Fill modes from SYMBOL_TRADE_EXECUTION + SYMBOL_FILLING_MODE   |
 //+------------------------------------------------------------------+
 #property copyright "LeverageFx / Honeydewnuts"
-#property version   "2.20"
+#property version   "2.21"
 #property strict
-#property description "AEGIS multi-pair executor v2.20 broker-correct fill + lifecycle"
+#property description "AEGIS multi-pair executor v2.21 broker-correct fill + lifecycle + presence"
 
 enum ENUM_AEGIS_MODE
   {
@@ -1676,7 +1676,7 @@ void ManageAegisPositions()
 
 int OnInit()
   {
-   Print("AEGIS_Executor v2.20 POSITION_MANAGER mode=",EnumToString(ExecMode)," account=",AccountId);
+   Print("AEGIS_Executor v2.21 POSITION_MANAGER mode=",EnumToString(ExecMode)," account=",AccountId);
    LoadCloseQueueFromFile();
    // Broker is authoritative: reconcile before autonomous work
    if(StringLen(AccountId) > 0 && StringLen(ApiKey) > 0)
@@ -1702,7 +1702,7 @@ void SendExecutorHeartbeat()
    string payload = "{";
    payload += "\"account_id\":\""+AccountId+"\",";
    payload += "\"client_type\":\"AEGIS_Executor\",";
-   payload += "\"executor_version\":\"2.20\",";
+   payload += "\"executor_version\":\"2.21\",";
    payload += "\"execution_mode\":\""+mode+"\",";
    payload += "\"chart_symbol\":\""+sym+"\"";
    payload += "}";

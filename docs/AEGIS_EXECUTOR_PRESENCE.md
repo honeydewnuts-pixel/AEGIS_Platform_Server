@@ -19,7 +19,7 @@ JSON body:
 
 - `account_id` (required; must match key)
 - `client_type` (`AEGIS_Executor`)
-- `executor_version` (e.g. `2.20`)
+- `executor_version` (e.g. `2.21`)
 - `execution_mode` (`CHART_ONLY` / `MULTI_PAIR`)
 - `chart_symbol` (optional)
 
