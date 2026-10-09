@@ -1,5 +1,7 @@
 """Reconcile risk release must be transactionally idempotent.
 
+Stage 6.4A final isolation correction.
+
 DATABASE-BACKED tests use schema aegis_test_isolation_conc only.
 They never DROP, TRUNCATE, or mutate public.aegis_position_lifecycle.
 """
