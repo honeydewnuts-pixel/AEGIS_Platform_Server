@@ -45,9 +45,12 @@ def test_postgres_concurrent_reconcile_single_release():
         engine = create_async_engine(url, pool_size=5)
         Session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-        # Ensure lifecycle table exists without touching unrelated schema.
+        # Ensure lifecycle table matches current model (incl. open_risk_applied).
         try:
             async with engine.begin() as conn:
+                await conn.execute(
+                    text("DROP TABLE IF EXISTS aegis_position_lifecycle CASCADE")
+                )
                 await conn.run_sync(
                     lambda sync_conn: AegisPositionLifecycle.__table__.create(
                         sync_conn, checkfirst=True
@@ -77,6 +80,8 @@ def test_postgres_concurrent_reconcile_single_release():
                     side="SELL",
                     volume=0.1,
                     risk_usd_at_open=risk,
+                    # Stage 6.4A: only applied=True contributes to portfolio release
+                    open_risk_applied=True,
                     state="POSITION_OPEN",
                     opened_at=now,
                     created_at=now,
