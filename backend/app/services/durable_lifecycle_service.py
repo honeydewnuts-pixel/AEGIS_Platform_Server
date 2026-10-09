@@ -125,6 +125,18 @@ class DurableLifecycleService:
         row.updated_at = _utcnow()
         await session.flush()
 
+    async def mark_open_risk_applied(
+        self, session: AsyncSession, *, account_id: str, signal_id: str
+    ) -> bool:
+        """Set open_risk_applied=True under existing row identity. Returns False if missing/released."""
+        row = await self._get(session, account_id, signal_id)
+        if row is None or row.state == "RISK_RELEASED":
+            return False
+        row.open_risk_applied = True
+        row.updated_at = _utcnow()
+        await session.flush()
+        return True
+
     async def on_close(
         self,
         session: AsyncSession,
@@ -178,7 +190,11 @@ class DurableLifecycleService:
             return None, "RECONCILIATION_REQUIRED"
         # Atomic logical transition under row lock
         # Only return amount if portfolio open-risk was actually applied
-        amount = abs(float(row.risk_usd_at_open)) if bool(getattr(row, "open_risk_applied", False)) else None
+        amount = (
+            abs(float(row.risk_usd_at_open))
+            if getattr(row, "open_risk_applied", None) is True
+            else None
+        )
         row.state = "RISK_RELEASED"
         row.closed_at = _utcnow()
         row.close_reason = (close_reason or "")[:64] or None
@@ -251,6 +267,7 @@ class DurableLifecycleService:
         confirmed = 0
         open_risk_recovered = 0.0
         recovered_signal_ids: list[str] = []
+        ambiguous_signal_ids: list[str] = []
         now = _utcnow()
         for row in open_rows:
             # Re-check under lock — another txn may have released while we waited
@@ -259,8 +276,8 @@ class DurableLifecycleService:
             pt = int(row.position_ticket or 0)
             if pt > 0 and pt not in live_tickets:
                 if row.risk_usd_at_open is not None:
-                    # Only release portfolio risk if it was previously applied
-                    if bool(getattr(row, "open_risk_applied", False)):
+                    # Only release portfolio risk if explicitly applied (True)
+                    if getattr(row, "open_risk_applied", None) is True:
                         released += abs(float(row.risk_usd_at_open))
                     row.state = "RISK_RELEASED"
                     row.closed_at = now
@@ -275,19 +292,24 @@ class DurableLifecycleService:
                 if row.state in ("ORDER_SENT", "BROKER_CONFIRMED_OPEN") and row.risk_usd_at_open is not None:
                     row.state = "POSITION_OPEN"
                     row.updated_at = now
-                # Stage 6.4A: restore missing portfolio open-risk exactly once
-                if (
-                    row.risk_usd_at_open is not None
-                    and not bool(getattr(row, "open_risk_applied", False))
+                # Stage 6.4A: explicit False only — NULL is historical/ambiguous
+                applied = getattr(row, "open_risk_applied", None)
+                if applied is None and row.risk_usd_at_open is not None:
+                    recon_required += 1
+                    ambiguous_signal_ids.append(str(row.signal_id or ""))
+                elif (
+                    applied is False
+                    and row.risk_usd_at_open is not None
                     and row.state not in ("RISK_RELEASED",)
                 ):
+                    # Do NOT set open_risk_applied here — caller must record
+                    # portfolio risk then mark applied in the same transaction.
                     amt = abs(float(row.risk_usd_at_open))
-                    row.open_risk_applied = True
-                    if row.state != "POSITION_OPEN":
-                        row.state = "POSITION_OPEN"
-                    row.updated_at = now
                     open_risk_recovered += amt
                     recovered_signal_ids.append(str(row.signal_id or ""))
+                    if row.state != "POSITION_OPEN":
+                        row.state = "POSITION_OPEN"
+                        row.updated_at = now
             elif pt == 0 and row.state in ("ORDER_SENT", "SIGNAL_QUEUED"):
                 pass
 
@@ -331,6 +353,7 @@ class DurableLifecycleService:
             "stale_risk_released": released,
             "open_risk_recovered": open_risk_recovered,
             "recovered_signal_ids": recovered_signal_ids,
+            "ambiguous_open_risk_signal_ids": ambiguous_signal_ids,
             "confirmed_open": confirmed,
             "reconciliation_required_count": recon_required,
             "unknown_broker_tickets": unknown_broker_tickets,

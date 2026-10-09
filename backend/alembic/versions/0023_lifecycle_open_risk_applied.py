@@ -1,7 +1,12 @@
-"""lifecycle open_risk_applied flag (Stage 6.4A)
+"""lifecycle open_risk_applied tri-state (Stage 6.4A corrective)
 
 Revision ID: 0023_lifecycle_open_risk_applied
 Revises: 0022_aegis_executor_presence
+
+Semantics:
+  NULL  = historical/unknown — do NOT auto-recover (avoid double-count)
+  false = explicitly not applied to portfolio — eligible for recovery
+  true  = portfolio open_risk_usd was incremented for this row
 """
 from __future__ import annotations
 
@@ -22,10 +27,11 @@ def upgrade() -> None:
         sa.Column(
             "open_risk_applied",
             sa.Boolean(),
-            nullable=False,
-            server_default=sa.false(),
+            nullable=True,
+            server_default=None,
         ),
     )
+    # Existing rows remain NULL (ambiguous). New rows set false/true in app code.
 
 
 def downgrade() -> None:

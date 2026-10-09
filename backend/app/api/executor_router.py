@@ -469,13 +469,24 @@ async def reconcile_positions(
         pr = getattr(request.app.state, "portfolio_risk", None)
         stale = float(summary.get("stale_risk_released") or 0.0)
         recovered = float(summary.get("open_risk_recovered") or 0.0)
+        recovered_ids = list(summary.get("recovered_signal_ids") or [])
+        if recovered > 0 and pr is None:
+            # Fail closed: do not commit lifecycle promotion without portfolio apply
+            await session.rollback()
+            raise HTTPException(
+                status_code=503,
+                detail="portfolio_risk_unavailable_for_open_risk_recovery",
+            )
         if pr is not None:
             if stale > 0:
-                # Stage 3.3: same session as reconcile lifecycle updates
                 await pr.release_open_risk(account_id, stale, session=session)
             if recovered > 0:
-                # Stage 6.4A: restore missing open-risk once (flag already set under lock)
                 await pr.record_open_risk(account_id, recovered, session=session)
+                for sid in recovered_ids:
+                    if sid:
+                        await dur.mark_open_risk_applied(
+                            session, account_id=account_id, signal_id=str(sid)
+                        )
         await session.commit()
     get_lifecycle_service().reconcile_from_broker(account_id, positions)
     auto = getattr(request.app.state, "autonomous_ohlc", None)
