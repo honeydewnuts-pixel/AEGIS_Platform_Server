@@ -1,4 +1,5 @@
 name: Backend CI
+# python base also mirrored in docker/Dockerfile (public.ecr.aws)
 
 on:
   push:
