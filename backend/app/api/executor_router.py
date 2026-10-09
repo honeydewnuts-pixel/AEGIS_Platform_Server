@@ -466,12 +466,16 @@ async def reconcile_positions(
     async with async_session_factory() as session:
         dur = DurableLifecycleService()
         summary = await dur.reconcile(session, account_id, positions)
+        pr = getattr(request.app.state, "portfolio_risk", None)
         stale = float(summary.get("stale_risk_released") or 0.0)
-        if stale > 0:
-            pr = getattr(request.app.state, "portfolio_risk", None)
-            if pr is not None:
+        recovered = float(summary.get("open_risk_recovered") or 0.0)
+        if pr is not None:
+            if stale > 0:
                 # Stage 3.3: same session as reconcile lifecycle updates
                 await pr.release_open_risk(account_id, stale, session=session)
+            if recovered > 0:
+                # Stage 6.4A: restore missing open-risk once (flag already set under lock)
+                await pr.record_open_risk(account_id, recovered, session=session)
         await session.commit()
     get_lifecycle_service().reconcile_from_broker(account_id, positions)
     auto = getattr(request.app.state, "autonomous_ohlc", None)

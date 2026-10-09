@@ -539,6 +539,8 @@ class AegisPositionLifecycle(Base):
     side: Mapped[str] = mapped_column(String(16), nullable=False, default="")
     volume: Mapped[float | None] = mapped_column(Float, nullable=True)
     risk_usd_at_open: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Stage 6.4A: True only after portfolio open_risk_usd was incremented for this row
+    open_risk_applied: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     state: Mapped[str] = mapped_column(String(48), nullable=False, default="SIGNAL_QUEUED")
     opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
