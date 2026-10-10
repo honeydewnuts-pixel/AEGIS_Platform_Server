@@ -109,7 +109,7 @@ async def get_pending_signal(
             "authorized": False,
             "reason": reason,
         }
-    # Stage 6.4B corrective: emergency stop BEFORE claim (no orphan CLAIMED)
+    # Stage 6.4B: emergency stop BEFORE claim — fail closed if state unknown
     try:
         from app.db.base import async_session_factory
         from app.services.operational_control_service import get_operational_control_service
@@ -124,8 +124,14 @@ async def get_pending_signal(
                     "reason": "emergency_stop",
                     "emergency_stop": True,
                 }
-    except Exception:
-        pass
+    except HTTPException:
+        raise
+    except Exception as exc:
+        # Fail closed: do not claim or deliver when stop state is unknown
+        raise HTTPException(
+            status_code=503,
+            detail="emergency_stop_state_unavailable",
+        ) from exc
     # Stage 6.4B: durable claim-on-deliver is authoritative.
     row = None
     try:
@@ -212,7 +218,7 @@ async def get_pending_batch(
         else:
             blocked.append({"symbol": s, "reason": reason})
 
-    # Emergency stop before any batch claims
+    # Emergency stop before any batch claims — fail closed if state unknown
     try:
         from app.db.base import async_session_factory
         from app.services.operational_control_service import get_operational_control_service
@@ -226,9 +232,15 @@ async def get_pending_batch(
                     "signals": [],
                     "policy": "one_aegis_position_per_symbol",
                     "emergency_stop": True,
+                    "reason": "emergency_stop",
                 }
-    except Exception:
-        pass
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="emergency_stop_state_unavailable",
+        ) from exc
     # Stage 6.4B: only durable claim-on-deliver may return executable signals
     pending: list[dict] = []
     try:

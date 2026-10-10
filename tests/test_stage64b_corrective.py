@@ -230,9 +230,11 @@ def test_emergency_stop_before_claim_in_router_source():
     from pathlib import Path
     src = Path("backend/app/api/executor_router.py").read_text()
     # Single-symbol path: stop marker before get_pending claim
-    i_stop = src.find("emergency stop BEFORE claim")
+    i_stop = src.find("fail closed if state unknown")
+    if i_stop < 0:
+        i_stop = src.find("emergency stop BEFORE claim")
     i_claim = src.find("durable claim-on-deliver is authoritative")
-    assert i_stop > 0 and i_claim > i_stop
+    assert i_stop > 0 and i_claim > i_stop  # stop before claim
     # Batch also has stop before claims
     assert "Emergency stop before any batch claims" in src
 
