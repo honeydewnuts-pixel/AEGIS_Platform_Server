@@ -1,110 +1,120 @@
-# Stage 6.6F — Production Recovery Evidence & Deployment-Gate Closure
+# Stage 6.6 — Recovery Verification & Production Readiness (Updated)
 
-**Source checkpoint (main):** `f546af71b88b250f7a30d6614d74b6d818505177`  
-**Post-merge CI:** [38077295836](https://github.com/honeydewnuts-pixel/AEGIS_Platform_Server/actions/runs/38077295836) — **455 passed, 3 skipped**; docker-build success  
-**Health-route on main:** YES (Stage 6.6E merged)  
+**Document date:** 2026-10-10  
+**Main HEAD (verified):** `f546af71b88b250f7a30d6614d74b6d818505177`  
+**Main CI:** [38077295836](https://github.com/honeydewnuts-pixel/AEGIS_Platform_Server/actions/runs/38077295836) — **455 passed, 3 skipped**  
 
-**Overall:** READY FOR FURTHER EVIDENCE COLLECTION  
-**Production deployment:** **BLOCKED** until backup/restore and production inventory are **VERIFIED** and separately reviewed.
+**Conclusion:** READY FOR FURTHER EVIDENCE COLLECTION  
+**Deploy of further changes:** still requires backup/restore VERIFIED  
+**Current live deploy of health-route fix:** supported by live health contract + operator Render report (see §1)
 
-This document does **not** authorize deploy, migration, EA install, or trading.
-
----
-
-## 1. Source checkpoint (verified)
-
-| Item | Status |
-|------|--------|
-| `origin/main` | `f546af71b88b250f7a30d6614d74b6d818505177` |
-| Health-route fix present | VERIFIED (`base_router` no longer registers `/` or `/health`) |
-| Health tests on main | VERIFIED via CI 38077295836 |
-| Unexpected main drift | None observed at verification time |
-| Live `/health` | Still `0.1.0` / AEGIS Backend → **deploy not yet applied** (expected) |
+This document does **not** authorize new deploys, migrations, EA install, or trading.
 
 ---
 
-## 2. CATEGORY 2 — Backup & disposable restore runbook
+## 1. Source and deployment state
 
-### Provider identification
+| Item | Evidence | Status |
+|------|----------|--------|
+| main HEAD | `f546af7…` | **PASS** |
+| Health-route on main | Merged (FF); no legacy `/health` on base_router | **PASS** |
+| Main CI | 38077295836 success | **PASS** |
+| Live `GET /health` | `{"status":"ok","redis":true,"service":"AEGIS API","version":"3.0.3"}` | **PASS** (matches main.py contract) |
+| Live `GET /` | `service: AEGIS API`, `version: 3.0.3`, `status: online` | **PASS** |
+| Render deployed SHA | Operator reported active deploy commit prefix **f546af7** | **PASS with limitation** — full SHA should still be copied from Render Deploys for the audit trail |
+| Neon Alembic | Operator: `0023_lifecycle_open_risk_applied` | **PASS** |
+| Column `open_risk_applied` | Operator: boolean, nullable YES on `aegis_position_lifecycle` | **PASS** |
 
-`render.yaml` defines:
+**Limitation:** Builder cannot open Render dashboard. Live response contract matching main + operator commit-prefix report is strong evidence the health-route deploy is active. Record the **full** 40-character SHA from Render for formal closure.
 
-- Web service: **`aegis-api`** (Docker, `healthCheckPath: /health`)
-- Database resource: **`aegis-postgres`** (Render Postgres) wired to `DATABASE_URL`
-- Redis: **`aegis-redis`**
+---
 
-**Operator must confirm** in the Render dashboard whether the live `DATABASE_URL` still points at Render Postgres or was switched to an external provider (e.g. Neon). Use the dashboard value, not assumptions.
+## 2. Migration 0023 & recovery semantics (source)
 
-### A. Backup procedure (operator)
+| Check | Status |
+|-------|--------|
+| Additive nullable column, no backfill | **PASS** (migration source) |
+| NULL = do not auto-recover | **PASS** (source + design) |
+| FALSE eligible only with verified broker risk | **PASS** (source design) |
+| TRUE = applied | **PASS** |
+| Concurrent recovery / no double-count | **PASS** (main CI PG tests) |
+| Fail-closed on missing portfolio service | **PASS** (Stage 6.4A) |
+| Exactly-once broker | **Not claimed** |
 
-1. Render Dashboard → **aegis-postgres** (or external DB provider if `DATABASE_URL` is external).  
-2. Create/export a **full** logical backup or point-in-time snapshot per provider UI.  
-3. Record (no secrets):
-   - Backup identifier  
-   - UTC timestamp  
-   - Database/service name  
-   - Completion status = success  
-4. Store the backup in the operator’s secure location (not chat, not GitHub).
+Production schema matches migration intent (operator SQL).
 
-### B. Disposable restore
+---
 
-1. Create a **new** disposable database (Render free DB, Neon branch, or local Docker Postgres).  
-2. Restore the backup **only** into that disposable target.  
-3. **Before** any app process uses it, confirm connection string points at the disposable host (not production).  
-4. Verification queries on disposable only:
+## 3. Neon backup & restore (operator phone-friendly)
+
+**Facts:** Production DB is **Neon**. API is **Render**.  
+**BLOCKED:** Neon **Backup & Restore** page loads then goes **blank** (desktop and mobile). Availability of point-in-time restore / snapshots is **UNVERIFIED**.
+
+### A. Confirm project / branch (Neon Console)
+
+1. Open [console.neon.tech](https://console.neon.tech) and sign in.  
+2. Select the AEGIS project.  
+3. Open the **production** branch (name as used for live API).  
+4. Note project name and branch name (no passwords).
+
+### B. Why Backup & Restore may be blank
+
+Common causes (do not assume DB damage):
+
+- Plan does not include PITR / history (free/limited plans vary).  
+- Browser/extension issue (try another browser or desktop).  
+- Temporary Neon UI bug.  
+- Wrong org/project selected.
+
+### C. Supported alternatives (check what your plan shows)
+
+In Neon Console, look for **any** of:
+
+1. **Branches → Create branch** from current production (copy-on-write snapshot of current state).  
+2. **Restore** / **Point-in-time** if available on your plan.  
+3. **Export** / external dump using Neon’s documented connection (operator runs locally; **never** paste connection string into chat).
+
+### D. Disposable recovery test (preferred if “Create branch” works)
+
+1. Create a **new branch** named e.g. `restore-test-YYYYMMDD` from production.  
+2. Open **SQL Editor** on that **new** branch only.  
+3. Run:
 
 ```sql
 SELECT version_num FROM alembic_version;
 
-SELECT count(*) AS lifecycle_rows FROM aegis_position_lifecycle;
-SELECT count(*) AS queue_rows FROM aegis_execution_queue;
-SELECT count(*) AS subscriptions FROM subscriptions;
-SELECT count(*) AS presence_rows FROM aegis_executor_presence;
-SELECT count(*) AS ops_control FROM aegis_operational_control;
+SELECT count(*) FROM aegis_position_lifecycle;
+SELECT count(*) FROM aegis_execution_queue;
+SELECT count(*) FROM subscriptions;
+
+SELECT column_name, data_type, is_nullable
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND table_name = 'aegis_position_lifecycle'
+  AND column_name = 'open_risk_applied';
 ```
 
-5. Confirm schema includes columns `open_risk_applied` (lifecycle) and queue `status`.  
-6. Destroy the disposable database when evidence is recorded.
+4. Expected: revision `0023_lifecycle_open_risk_applied`; column present, nullable.  
+5. Record: branch name, time, query results.  
+6. **Delete** the test branch when done (do not delete production).
 
-### C. Gate rule
+### E. Gate rule
 
-- Backup job alone = **NOT sufficient**.  
-- Isolated restore + checks = required for **VERIFIED**.  
-- **Current status: NOT VERIFIED.**
+| Evidence | Status |
+|----------|--------|
+| Neon UI Backup page works | **UNVERIFIED** (blank) |
+| Disposable branch/restore test completed | **UNVERIFIED** |
+| Backup/restore gate overall | **BLOCKED** until disposable recovery succeeds |
 
 ---
 
-## 3. CATEGORY 1 — Production inventory (read-only)
+## 4. Read-only production inventory (Neon SQL Editor)
 
-**SELECT-only.** Operator environment only. Never paste secrets into chat.
-
-### Admin / API (optional)
-
-```bash
-BASE="https://aegis-api-0z1p.onrender.com"
-# Admin key entered interactively — do not log
-curl -sS "$BASE/health"
-curl -sS -H "X-API-Key: $ADMIN_KEY" -H "Accept: application/json" \
-  "$BASE/api/admin/ops/executor-status/ACC-1987D3D2E6"
-# Emergency-stop status via existing admin operational endpoint (GET only)
-```
-
-### SQL (production console — read-only)
-
-Tables/columns verified in models on main `f546af7`:
-
-- `alembic_version.version_num`
-- `aegis_position_lifecycle` (`open_risk_applied`, `state`, …)
-- `subscriptions` (`account_id`, `open_risk_usd`)
-- `aegis_execution_queue` (`status` ∈ PENDING|CLAIMED|SUBMISSION_UNCERTAIN|ACKED|REJECTED|EXPIRED)
-- `aegis_operational_control` (emergency_stop key)
-- `aegis_executor_presence`
+Run on **production** branch, SELECT only. Record counts (no secrets).
 
 ```sql
--- A. Alembic revision
 SELECT version_num FROM alembic_version;
 
--- B–C. Lifecycle + open_risk_applied
 SELECT
   CASE
     WHEN open_risk_applied IS NULL THEN 'NULL'
@@ -114,131 +124,95 @@ SELECT
   state,
   count(*)
 FROM aegis_position_lifecycle
-GROUP BY 1, 2
-ORDER BY 1, 2;
+GROUP BY 1, 2 ORDER BY 1, 2;
 
--- D. Portfolio open risk
 SELECT account_id, open_risk_usd
 FROM subscriptions
 WHERE open_risk_usd IS DISTINCT FROM 0
 ORDER BY open_risk_usd DESC;
 
--- E. Queue by status
-SELECT status, count(*), min(created_at) AS oldest, max(created_at) AS newest
+SELECT status, count(*), min(created_at), max(created_at)
 FROM aegis_execution_queue
-GROUP BY status
-ORDER BY status;
+GROUP BY status ORDER BY status;
 
--- Non-terminal / attention
 SELECT signal_id, account_id, symbol, status, created_at, claimed_at, attempt_count
 FROM aegis_execution_queue
 WHERE status IN ('PENDING', 'CLAIMED', 'SUBMISSION_UNCERTAIN')
 ORDER BY status, created_at;
 
--- G. Emergency stop (key name as stored by operational control service)
 SELECT key, value, updated_at
 FROM aegis_operational_control
 WHERE key = 'emergency_stop';
 
--- H. Executor presence (no secrets)
 SELECT account_id, client_type, executor_version, execution_mode,
        last_symbol, last_seen_at
 FROM aegis_executor_presence
 ORDER BY last_seen_at DESC NULLS LAST;
 ```
 
-### Broker comparison (F)
+**MT5 checklist (operator):** open positions (ticket, symbol, side, volume) vs lifecycle open rows.  
+Do not auto-fix NULL `open_risk_applied`.
 
-From **MT5 only**: open tickets, symbol, side, volume.  
-Compare to lifecycle rows with open states.  
-**Do not** treat ACK, queue status, or heartbeat as broker truth.
-
-### Historical risk safety
-
-- `open_risk_applied IS NULL` → **do not auto-recover**  
-- `FALSE` → recover only after independent broker ticket + risk amount verification  
-- `TRUE` → already applied; do not double-increment  
-- **No backfill, no production writes in this stage**
-
-### Inventory status
-
-**NOT VERIFIED** (Builder has no production access).
+**Inventory status:** **UNVERIFIED** (except Alembic + column schema already provided by operator).
 
 ---
 
-## 4. Live Render deployment identity
+## 5. Executor EA gate (separate)
 
-**NOT VERIFIED.**
-
-Operator:
-
-1. Render Dashboard → **aegis-api** → **Events / Deploys**  
-2. Select the **active** deployment  
-3. Record: commit SHA, status, timestamp  
-4. Compare to intended main: `f546af71b88b250f7a30d6614d74b6d818505177`  
-
-Live health still shows legacy `0.1.0` → consistent with **pre–health-route deploy** or undeployed main. **Do not** treat health as Git identity.
-
-After a **future authorized** deploy of `f546af7` (or later):
-
-- Expected `GET /health`: `service: AEGIS API`, `version: 3.0.3`, `redis` bool, status `ok`/`degraded`  
-- Still record the **dashboard deployed SHA** as authoritative  
-
-Entrypoint on deploy: `alembic upgrade head` (may apply pending migrations including 0023 if not already on DB).
-
----
-
-## 5. EA compilation (separate gate)
-
-| Item | Value |
+| Item | Status |
 |------|--------|
-| Branch | `fix/executor-v221-saveclosequeue-compile` |
-| Commit | `1bd2de1355e670ad34063c07abf6ba0f29f7cb79` |
-| Source SHA-256 | `06dfc5a5845cc818044219e21dad68dceb8f02ce4e8c154ea8abe6bb95695a01` |
-| MetaEditor | **NOT VERIFIED** |
+| Branch/commit | `fix/executor-v221-saveclosequeue-compile` / `1bd2de1` |
+| SHA-256 both paths | `06dfc5a5845cc818044219e21dad68dceb8f02ce4e8c154ea8abe6bb95695a01` **PASS** (source) |
+| MetaEditor 0 errors / 0 warnings | **UNVERIFIED** |
 | Merged / installed | **No** |
-
-Required operator evidence: file+commit, SHA-256 match, 0 errors / 0 warnings. No install implied.
 
 ---
 
 ## 6. Evidence register
 
-| Gate | Status | Evidence source | Owner action |
-|------|--------|-----------------|--------------|
-| Main SHA `f546af7` | VERIFIED | GitHub | — |
-| Post-merge CI | VERIFIED | Actions 38077295836 | — |
-| Health-route on main | VERIFIED | Source + CI | — |
-| Live deployed SHA | NOT VERIFIED | — | Render dashboard |
-| Backup created | NOT VERIFIED | — | Provider backup |
-| Disposable restore | NOT VERIFIED | — | Isolated restore + SQL checks |
-| Production inventory | NOT VERIFIED | — | Cat 1 SQL + admin + MT5 |
-| Emergency-stop known | NOT VERIFIED | — | Inventory query |
-| EA MetaEditor | NOT VERIFIED | — | Windows compile |
-| Production deploy | **BLOCKED** | — | Separate authorization after gates |
+| Gate | Status |
+|------|--------|
+| Main + CI | **PASS** |
+| Live health contract 3.0.3 | **PASS** |
+| Render commit prefix f546af7 | **PASS with limitation** (record full SHA) |
+| Neon Alembic 0023 | **PASS** |
+| open_risk_applied column | **PASS** |
+| Full production inventory | **UNVERIFIED** |
+| Neon backup / disposable restore | **BLOCKED / UNVERIFIED** |
+| EA MetaEditor | **UNVERIFIED** |
+| New production deploy authorization | **BLOCKED** until backup/restore + inventory |
+| production_authorized / Demo order | Not authorized |
 
 ---
 
-## 7. Safest next actions (order)
+## 7. Mobile operator checklist
 
-1. Operator: production **backup** + **disposable restore** → record evidence.  
-2. Operator: **production inventory** (SQL + admin + MT5 positions).  
-3. Operator: record **Render deployed commit SHA**.  
-4. Owner: review evidence; only then consider **separate deploy** authorization of a **named SHA**.  
-5. Post-deploy (if authorized): verify dashboard SHA + health contract + re-inventory.  
-6. Separate: MetaEditor EA compile → merge/install only with further authorization.  
-7. Separate: controlled Demo authorization.
-
----
-
-## 8. NOT performed / not authorized this stage
-
-Deploy · production migration · production data writes · env/secrets · emergency-stop change · production_authorized · signals/orders · EA merge/install · auto NULL recovery · UNCERTAIN redelivery · merge of docs/EA branches  
+- [ ] Copy **full** Render deploy commit SHA (Deploys → active)  
+- [ ] Neon: try **Create branch** from production for restore-test  
+- [ ] On test branch: run verification SQL; save results; delete test branch  
+- [ ] If Backup & Restore stays blank: note plan name + screenshot of empty page  
+- [ ] Production SQL inventory (section 4)  
+- [ ] MT5: list open positions  
+- [ ] Emergency-stop value from SQL  
+- [ ] Executor presence row (version / last_seen)  
+- [ ] Do **not** paste passwords or connection strings into chat  
+- [ ] Do **not** run UPDATE/DELETE/migrate on production  
 
 ---
 
-## Conclusion
+## 8. Exact next actions
 
-**READY FOR FURTHER EVIDENCE COLLECTION**
+1. Complete Neon **disposable branch** recovery test (or document plan limitation if Create branch unavailable).  
+2. Complete full **inventory** SQL + MT5.  
+3. Record full Render deploy SHA.  
+4. Owner reviews evidence before any **new** deploy authorization.  
+5. Separate: MetaEditor compile EA fix.  
+6. Separate: controlled Demo only after idle integrity.
 
-Production deployment remains **BLOCKED** until backup/restore and production inventory are verified and separately reviewed.
+---
+
+## NOT performed by Builder this stage
+
+Deploy · production SQL writes · restore over production · secret changes · emergency-stop change · production_authorized · signals/orders · EA merge/install · branch merges · fabricated backup success  
+
+**Production deployment of further changes remains BLOCKED until backup/restore is verified.**
