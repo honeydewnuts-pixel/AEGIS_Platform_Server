@@ -1,236 +1,245 @@
-# Stage 6.6 / 6.6B — Deployment Gate Evidence Report
+# Stage 6.6 / 6.6B / 6.6C — Deployment Gate Runbook
 
-**Status date:** 2026-10-10  
-**Overall decision:** READY WITH LIMITATIONS  
+**Document status:** authoritative Stage 6.6 operator runbook  
+**Overall readiness:** READY WITH LIMITATIONS (deploy **BLOCKED** until backup/restore + inventory)  
+**Application main SHA (verified):** `df757c2d17adea50b4ff17b3290641b03d5d0e56`  
 
-This document is evidence and procedure. **Nothing in this file authorizes production deploy, migration 0023 execution, EA install, or a controlled Demo order.**
-
----
-
-## 1. Verified source baseline
-
-| Item | Value | Evidence class |
-|------|--------|----------------|
-| `origin/main` | `df757c2d17adea50b4ff17b3290641b03d5d0e56` | Verified (git fetch 2026-10-10) |
-| Stage 6.6 branch | `stage-6.6-deployment-gate` | Verified |
-| EA compile-fix branch | `fix/executor-v221-saveclosequeue-compile` @ `1bd2de1355e670ad34063c07abf6ba0f29f7cb79` | Verified; **not on main** |
-| Main CI | [Run 38060842633](https://github.com/honeydewnuts-pixel/AEGIS_Platform_Server/actions/runs/38060842633) — **453 passed, 3 skipped**, Docker success | Verified |
-| Tested SHA | `df757c2d17adea50b4ff17b3290641b03d5d0e56` | Verified |
-
-**3 CI skips:** rulebook causal tests (external large CSV absent). Not Stage 6.4/6.5 related.
-
-**Application runtime behavior on main is unchanged by Stage 6.6 documentation commits.**
+**This document does not authorize production deploy, migration execution, EA install, or Demo orders.**
 
 ---
 
-## 2. Deployment identity (source)
+## Verified baseline (2026-10-10)
 
-| Topic | Finding |
-|-------|---------|
-| Platform | Render (`render.yaml`: web `aegis-api`, Docker) |
-| Dockerfile | `docker/Dockerfile` |
-| Entrypoint | `docker/entrypoint.sh`: `alembic upgrade head` then uvicorn `--workers 1` (`set -e`) |
-| Health check path | `/health` |
-| Required env (names only) | `DATABASE_URL`, `REDIS_URL`, `AEGIS_MASTER_KEY`, `ADMIN_BOOTSTRAP_KEY`, `SECRET_KEY`, payment keys, `ALLOWED_ORIGINS`, … |
-
-**Entrypoint implication:** Any deploy of a revision that includes migration 0023 will **automatically apply** it if not already applied. Failed migration prevents API start.
+| Item | Value |
+|------|--------|
+| `origin/main` | `df757c2d17adea50b4ff17b3290641b03d5d0e56` |
+| Main CI | [38060842633](https://github.com/honeydewnuts-pixel/AEGIS_Platform_Server/actions/runs/38060842633) — 453 passed, 3 skipped |
+| Docs branch | `stage-6.6-deployment-gate` |
+| EA fix branch | `fix/executor-v221-saveclosequeue-compile` @ `1bd2de1` — **not merged** |
+| Health-route fix branch | `fix/health-route-shadowing` @ `f546af7` — **not merged, not deployed** |
 
 ---
 
-## 3. Live health / source-identity discrepancy
+## CATEGORY 1 — READ-ONLY PRODUCTION INSPECTION
 
-### Observed live (read-only, 2026-10-10)
+No mutations. Operator enters credentials only in their environment.
 
-`GET https://aegis-api-0z1p.onrender.com/health`:
-
-```json
-{"status":"healthy","service":"AEGIS Backend","version":"0.1.0"}
-```
-
-`GET https://aegis-api-0z1p.onrender.com/`:
-
-```json
-{"application":"AEGIS","description":"Autonomous Enterprise Global Intelligence System","company":"Honeydewnuts Nigerian Limited","version":"0.1.0","status":"Running"}
-```
-
-### Current `main` source defines **two** health-related handlers
-
-1. `backend/app/main.py` — `@app.get("/health")` → `status`/`redis`/`service: AEGIS API`/`version: 3.0.3`
-2. `backend/app/api/router.py` — `@router.get("/health")` → `status: healthy`/`service: AEGIS Backend`/`version: 0.1.0` (matches live)
-
-`base_router` is `include_router`'d **before** the `main.py` `/health` registration. Live responses match the **base_router** shape, not the main.py Redis-aware shape.
-
-### Conclusion
-
-**LIVE SOURCE IDENTITY UNVERIFIED.**
-
-A health `version` string alone cannot prove the deployed Git SHA. Possible explanations include: older deploy; current main with route registration order favoring `base_router`; or another service revision. **Do not deploy solely to make version strings match.** Future improvement (separate authorization): single health handler exposing `git_sha` or build id — not implemented in this stage.
-
----
-
-## 4. Migration 0023 review
-
-| Check | Result |
-|-------|--------|
-| Revision | `0023_lifecycle_open_risk_applied` (revises `0022_aegis_executor_presence`) |
-| Operation | Additive `open_risk_applied BOOLEAN NULL` on `aegis_position_lifecycle` |
-| Backfill | **None** — existing rows remain NULL |
-| Destructive | No |
-| App semantics | NULL = historical unknown (no auto-recover); False = eligible when verified; True = applied |
-| Recovery | Flag not set inside `reconcile`; caller records portfolio risk then marks applied in same session |
-| Downgrade | Drops column; **does not** reverse `open_risk_usd` — unsafe as general rollback after flag is used |
-| Production migration this stage | **NOT EXECUTED** |
-
-**Gate: PASS** (design) / **NOT EXECUTED** (production apply).
-
----
-
-## 5. Read-only production inventory procedure
-
-**Category 1 — Read-only production inspection** (operator environment only; never paste secrets into chat).
+### 1.1 Public health
 
 ```bash
-# Local only — operator substitutes values; do not commit
 BASE="https://aegis-api-0z1p.onrender.com"
-KEY="YOUR_ADMIN_API_KEY"   # enter interactively; do not log
-
 curl -sS "$BASE/health"
-curl -sS -H "X-API-Key: $KEY" -H "Accept: application/json" \
-  "$BASE/api/admin/ops/executor-status/ACC-1987D3D2E6"
-# Optional: execution-diagnostic for a known signal_id
-# curl -sS -H "X-API-Key: $KEY" "$BASE/api/admin/ops/execution-diagnostic/SIGNAL_ID"
+curl -sS "$BASE/"
 ```
 
-SQL (**SELECT only**; production DB console / approved client):
+**Current live observation (Builder, 2026-10-10):**  
+`{"status":"healthy","service":"AEGIS Backend","version":"0.1.0"}`  
+
+This matches **legacy** `base_router` handlers. It does **not** prove the live Git SHA.
+
+### 1.2 Admin executor presence
+
+```bash
+KEY="YOUR_ADMIN_API_KEY"   # interactive only — never commit or paste into chat
+curl -sS -H "X-API-Key: $KEY" -H "Accept: application/json" \
+  "$BASE/api/admin/ops/executor-status/ACC-1987D3D2E6"
+```
+
+Capture: `exists`, `healthy`, `last_seen_at`, `executor_version`, `client_type`, `execution_mode`, `last_symbol`.
+
+### 1.3 SELECT-only SQL (production console)
+
+Verify names against models: `aegis_position_lifecycle`, `aegis_execution_queue`, `subscriptions`, `alembic_version`.
 
 ```sql
+-- B1 Alembic
 SELECT version_num FROM alembic_version;
 
-SELECT open_risk_applied, state, count(*)
+-- B2 Lifecycle by open_risk_applied
+SELECT
+  CASE
+    WHEN open_risk_applied IS NULL THEN 'NULL'
+    WHEN open_risk_applied IS FALSE THEN 'FALSE'
+    WHEN open_risk_applied IS TRUE THEN 'TRUE'
+  END AS applied_state,
+  state,
+  count(*)
 FROM aegis_position_lifecycle
-GROUP BY 1, 2 ORDER BY 1, 2;
+GROUP BY 1, 2
+ORDER BY 1, 2;
 
-SELECT account_id, open_risk_usd FROM subscriptions
+-- B3 Portfolio open risk
+SELECT account_id, open_risk_usd
+FROM subscriptions
 WHERE open_risk_usd IS DISTINCT FROM 0
 ORDER BY open_risk_usd DESC;
 
-SELECT status, count(*), min(created_at), max(created_at)
+-- B4 Queue by status
+SELECT status, count(*), min(created_at) AS oldest, max(created_at) AS newest
 FROM aegis_execution_queue
-GROUP BY status ORDER BY status;
+GROUP BY status
+ORDER BY status;
 
-SELECT signal_id, account_id, symbol, status, created_at, claimed_at
+-- B5 CLAIMED / SUBMISSION_UNCERTAIN detail (no secrets)
+SELECT signal_id, account_id, symbol, status, created_at, claimed_at, attempt_count
 FROM aegis_execution_queue
 WHERE status IN ('CLAIMED', 'SUBMISSION_UNCERTAIN')
 ORDER BY created_at;
 ```
 
-Broker positions: **from MT5 only**. Do not infer from DB.
+### 1.4 Emergency stop
 
-**Inventory completion this stage:** **INCONCLUSIVE / UNAVAILABLE** (no production DB or admin key in Builder environment).
+Use existing admin operational-control / ops endpoints with admin key (GET only). Record stop ON/OFF and retrieval success.
 
----
+### 1.5 Broker positions
 
-## 6. Backup / restore procedure (Category 2 — disposable)
+From **MT5 only**. Compare tickets to server lifecycle. Do not treat ACK, heartbeat, or DB rows as broker truth.
 
-1. Use the approved Postgres provider (Render Postgres / Neon) backup UI or documented export.
-2. Record: backup id, timestamp, database name (not password), completion status.
-3. Restore **only** to a disposable database/instance.
-4. On disposable DB: check `alembic_version`, row counts for lifecycle/queue/subscriptions.
-5. Ensure no app process uses production `DATABASE_URL` during the exercise.
-6. Tear down disposable environment after evidence capture.
-
-**This stage:** **BACKUP/RESTORE NOT VERIFIED.**
-
-**Gate: BLOCKED** for production migration/deploy until verified.
+**Inventory this stage:** UNAVAILABLE (Builder has no production DB/admin session).
 
 ---
 
-## 7. Executor v2.21 status
+## CATEGORY 2 — DISPOSABLE BACKUP / RESTORE VERIFICATION
+
+**Provider:** Render Postgres (primary in `render.yaml`); production may also use Neon if `DATABASE_URL` points there. Confirm in the Render dashboard which database the `aegis-api` service uses.
+
+### Procedure
+
+1. In the provider dashboard, create or download a **full** backup/export.  
+2. Record: backup id, UTC timestamp, database name (not password), status=completed.  
+3. Create a **new disposable** database (or local Docker Postgres).  
+4. Restore the backup **only** into the disposable database.  
+5. Verify on disposable:  
+   - `SELECT version_num FROM alembic_version;`  
+   - `SELECT count(*) FROM aegis_position_lifecycle;`  
+   - `SELECT count(*) FROM aegis_execution_queue;`  
+   - `SELECT count(*) FROM subscriptions;`  
+6. Ensure production app `DATABASE_URL` is unchanged and no test process uses production for writes.  
+7. Destroy the disposable database when done.
+
+**This stage:** BACKUP/RESTORE **NOT VERIFIED**.
+
+**Deploy gate:** **BLOCKED** until VERIFIED.
+
+---
+
+## CATEGORY 3 — OPERATOR-REQUIRED ACTIONS
+
+| Action | Owner | Evidence |
+|--------|--------|----------|
+| Provider backup + disposable restore | Operator with Render/Neon access | Backup id + restore check notes |
+| Production inventory (Cat 1) | Operator with admin key + DB console | Query outputs (redact secrets) |
+| MetaEditor compile EA fix | Windows VPS operator | 0 errors, 0 warnings screenshot/log |
+| Confirm Render **deployed commit SHA** | Operator with Render dashboard | Dashboard commit = intended SHA |
+
+**EA fix (not compiled in Builder):**
+
+| Path | SHA-256 at `1bd2de1` |
+|------|----------------------|
+| `release/desktop/AEGIS_Executor.mq5` | `06dfc5a5845cc818044219e21dad68dceb8f02ce4e8c154ea8abe6bb95695a01` |
+| `windows-desktop/mq5/AEGIS_Executor.mq5` | same |
+
+Main (unfixed): `0cfd6e9b17ce5b76715cb5bdb846facea2dea835e38d555b5227bc78fe97b9e0`  
+
+**METAEDITOR COMPILE NOT VERIFIED.**
+
+---
+
+## CATEGORY 4 — SEPARATELY AUTHORIZED CHANGES
+
+Require explicit owner approval **per action**:
+
+1. Merge `fix/health-route-shadowing` (optional identity fix).  
+2. Merge `fix/executor-v221-saveclosequeue-compile` after clean MetaEditor compile.  
+3. Production Render deploy of a named SHA.  
+4. Accept automatic `alembic upgrade head` on container start (may apply 0023).  
+5. VPS EA install/attach.  
+6. Controlled Demo test signal / order.  
+7. Any production data repair or stop-state change.
+
+---
+
+## Live deployment identity (Stage 6.6C finding)
+
+### Source fact
+
+On `main` (`df757c2`):
+
+1. `app.main` defines `@app.get("/")` and `@app.get("/health")` (version `3.0.3`, Redis ping).  
+2. `app.api.router` (`base_router`) **also** defined `@router.get("/")` and `@router.get("/health")` (version `0.1.0`).  
+3. `include_router(base_router)` runs **before** the `main.py` route decorators.  
+4. Starlette/FastAPI matches the **first** registered route for a path.
+
+### Conclusion
+
+Even if current `main` were deployed, live `/health` can still return the **legacy 0.1.0** payload because of **route shadowing**. Live response shape is therefore **insufficient** to prove or disprove deploy of `df757c2`.
+
+**LIVE SOURCE IDENTITY UNVERIFIED** until Render dashboard shows the deployed commit SHA (authoritative).
+
+### Proposed source fix (not merged, not deployed)
+
+Branch `fix/health-route-shadowing` @ `f546af7`: removes duplicate `/` and `/health` from `base_router`; tests assert single handlers owned by `app.main`.
+
+---
+
+## Migration 0023
 
 | Item | Status |
 |------|--------|
-| Main tree EA SHA-256 | `0cfd6e9b17ce5b76715cb5bdb846facea2dea835e38d555b5227bc78fe97b9e0` (pre-fix; compile error) |
-| Fix branch EA SHA-256 (both paths match) | `06dfc5a5845cc818044219e21dad68dceb8f02ce4e8c154ea8abe6bb95695a01` |
-| Fix | Orphaned `SaveCloseQueueToFile()` moved inside `FlushCloseNotifyRetries()` |
-| MetaEditor compile | **NOT VERIFIED** — requires Windows operator |
-| Merged to main | **No** |
-| Installed on VPS | **No evidence** |
-| Heartbeat `executor_version=2.21` | **NOT VERIFIED** this stage |
-
-**Gates:** compile **INCONCLUSIVE**; runtime **INCONCLUSIVE**. Do not merge/install/attach until 0 errors / 0 warnings from MetaEditor.
+| Design | PASS — additive nullable, no backfill |
+| Semantics NULL/FALSE/TRUE | PASS in source |
+| PG concurrent recovery / rollback tests | PASS on main CI |
+| Downgrade limitation | Documented — drops column, does not reverse open_risk_usd |
+| Entrypoint auto-migrate | YES — `alembic upgrade head` |
+| Production apply | **NOT EXECUTED** |
 
 ---
 
-## 8. Queue / risk / emergency-stop (source + CI)
+## Queue / risk / emergency-stop
 
-| Control | Evidence |
-|---------|----------|
-| Stop ON blocks delivery | Source + Stage 6.4B tests |
-| Stop lookup failure fail-closed (delivery) | Source + tests |
-| Enqueue fail-closed on stop lookup failure | Stage 6.5 on main |
-| CLAIMED not auto-redelivered | Source |
-| Lease → SUBMISSION_UNCERTAIN | Source |
-| Same account/symbol block while CLAIMED/UNCERTAIN | Source + tests |
-| Late ACK / durable ACK failure handling | Source + Stage 6.3/6.4 |
-| NULL/FALSE/TRUE open_risk_applied | Source + PG recovery tests |
-| Real PG concurrent claim / reconcile / recovery / rollback | Main CI **PASSED** |
-| Exactly-once broker | **Not claimed** |
+Stage 6.4–6.5 controls remain on main; CI evidence on `df757c2`. No exactly-once broker claim. No code change this stage except optional unmerged health-route fix.
 
 ---
 
-## 9. Gate status summary
+## Gate matrix
 
 | Gate | Status |
 |------|--------|
-| Source main SHA + CI | **PASS** |
+| Source + CI (`df757c2`) | **PASS** |
 | Migration 0023 design | **PASS** |
-| Migration 0023 production apply | **NOT EXECUTED** |
-| Backup + disposable restore | **BLOCKED** (not verified) |
-| Production inventory | **INCONCLUSIVE** |
-| Live deploy SHA identity | **INCONCLUSIVE** (`LIVE SOURCE IDENTITY UNVERIFIED`) |
-| EA MetaEditor compile (fix) | **INCONCLUSIVE** |
-| EA runtime v2.21 heartbeat | **INCONCLUSIVE** |
-| Controlled Demo order | **NOT EXECUTED** / not authorized |
+| Backup + disposable restore | **BLOCKED / NOT VERIFIED** |
+| Production inventory | **UNAVAILABLE** |
+| Live Git SHA identity | **INCONCLUSIVE** |
+| Health route shadowing (source) | **FAIL** on main (shadow present); fix on branch only |
+| EA MetaEditor compile | **NOT VERIFIED** |
+| EA runtime v2.21 | **INCONCLUSIVE** |
+| Deploy / migrate / Demo order | **NOT EXECUTED** |
 
 ---
 
-## 10. Operator actions (safest order)
+## Safest next order
 
-1. **Backup** production DB; **restore to disposable**; record evidence (Category 2).  
-2. **Read-only inventory** (Category 1): Alembic, lifecycle flags, open_risk, queue, CLAIMED/UNCERTAIN, stop, executor-status.  
-3. **Windows MetaEditor:** compile fix-branch `AEGIS_Executor.mq5` (hash `06dfc5a5…`); confirm 0 errors / 0 warnings.  
-4. **Separate authorization:** merge EA fix if compile clean; then VPS install/attach.  
-5. **Separate authorization:** deploy exact main SHA to Render (accepts entrypoint migration).  
-6. **After deploy:** confirm identity (Render commit SHA), health, inventory, EA heartbeat.  
-7. **Separate authorization:** controlled Demo order only after idle integrity.
-
----
-
-## 11. Rollback / forward recovery limitations
-
-- App image rollback **≠** database rollback.  
-- 0023 downgrade drops `open_risk_applied` and does **not** reverse `open_risk_usd`.  
-- Prefer stop + forward repair when open positions or SUBMISSION_UNCERTAIN exist.  
-- Uncertain broker outcomes require human/broker reconciliation.
+1. Category 2: backup + disposable restore → evidence  
+2. Category 1: full inventory  
+3. Render dashboard: record **deployed commit SHA**  
+4. MetaEditor: compile EA fix → 0/0  
+5. Owner decides merges (health-route, EA)  
+6. Separate deploy authorization (named SHA)  
+7. Post-deploy verify SHA + inventory + EA heartbeat  
+8. Separate controlled Demo authorization  
 
 ---
 
-## 12. Explicitly NOT performed in Stage 6.6 / 6.6B
+## NOT performed (6.6 / 6.6B / 6.6C)
 
-- Production deploy  
-- Production migration 0023  
-- Production env/secret changes  
-- `production_authorized=true`  
-- Emergency-stop state change  
-- Trading signals / claims / ACKs / broker orders  
-- EA merge / VPS install / chart attach  
-- Merge of documentation or EA branches to main  
-- Automatic NULL open_risk recovery or UNCERTAIN redelivery  
+Production deploy · production migration · env/secret changes · emergency-stop change · production_authorized · signals/claims/orders · EA merge/install/attach · merge of any feature branch to main · automatic NULL recovery · UNCERTAIN redelivery  
 
 ---
 
-## 13. Recommendation
+## Recommendation
 
-**READY WITH LIMITATIONS** — source and CI are acceptable for **considering** separate deployment authorization **only after** backup/restore verification and read-only production inventory. Do **not** authorize deploy while backup/restore remains BLOCKED.
+**Do not authorize deployment** until backup/restore is **VERIFIED** and production inventory is **COMPLETED** (or owner explicitly accepts residual risk in writing).
 
-Controlled Demo and EA production use require additional gates above.
+After those gates, deployment of a **named SHA** may be considered under **separate** authorization, with full awareness that entrypoint runs migrations.
+
+Health-route fix and EA compile fix remain **optional pre-deploy merges** under separate approval.
