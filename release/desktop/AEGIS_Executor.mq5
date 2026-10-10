@@ -1279,9 +1279,9 @@ void FlushCloseNotifyRetries()
            }
         }
      }
+   SaveCloseQueueToFile();
   }
 
-   SaveCloseQueueToFile();
 
 void SaveCloseQueueToFile()
   {
