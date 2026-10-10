@@ -32,13 +32,14 @@ class DurableExecutionQueueService:
         """Insert authorized pending row. Rejects unauthorized/research."""
         if not ExecutorSignalService.is_execution_authorized(payload):
             return None
-        # Stage 6: emergency stop blocks NEW durable enqueues only
+        # Stage 6 / 6.5: emergency stop blocks NEW durable enqueues only.
+        # Fail closed if stop state cannot be determined (consistent with delivery path).
         try:
             from app.services.operational_control_service import get_operational_control_service
             if await get_operational_control_service().is_emergency_stop_on(session):
                 return None
         except Exception:
-            pass
+            return None
         signal_id = str(payload.get("signal_id") or "")
         account_id = str(payload.get("account_id") or "")
         symbol = normalize_symbol(str(payload.get("symbol") or ""))
