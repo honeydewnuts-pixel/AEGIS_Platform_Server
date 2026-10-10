@@ -16,32 +16,10 @@ router = APIRouter()
 # also be nested here, which registered every /upload/* route twice.
 
 # ------------------------------------------------------------------
-# Root API Endpoint
+# Root "/" and "/health" are owned by app.main (authoritative).
+# Do not re-register them here — earlier registration would shadow
+# main.py handlers (Stage 6.6C: LIVE SOURCE IDENTITY).
 # ------------------------------------------------------------------
-
-@router.get("/")
-async def api_root():
-    return {
-        "application": "AEGIS",
-        "description": "Autonomous Enterprise Global Intelligence System",
-        "company": "Honeydewnuts Nigerian Limited",
-        "version": "0.1.0",
-        "status": "Running"
-    }
-
-
-# ------------------------------------------------------------------
-# Health Check
-# ------------------------------------------------------------------
-
-@router.get("/health")
-async def health():
-    return {
-        "status": "healthy",
-        "service": "AEGIS Backend",
-        "version": "0.1.0"
-    }
-
 
 # ------------------------------------------------------------------
 # Mode switch: DEMO_VERIFY <-> LIVE_TRADE
