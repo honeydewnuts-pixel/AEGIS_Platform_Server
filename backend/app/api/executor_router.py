@@ -49,6 +49,8 @@ class AckBody(BaseModel):
     symbol: str = ""
     side: str = ""
     volume: float = 0.0
+    # Optional; current EA may omit. When provided must match stored claim.
+    claim_token: str | None = None
 
 
 @router.get("/universe")
@@ -107,36 +109,7 @@ async def get_pending_signal(
             "authorized": False,
             "reason": reason,
         }
-    # Stage 6.4B: durable claim-on-deliver is authoritative.
-    # Memory alone must not deliver a signal that was not claimed this poll.
-    row = None
-    try:
-        from app.db.base import async_session_factory
-        from app.services.durable_execution_queue import get_durable_execution_queue
-        async with async_session_factory() as session:
-            row = await get_durable_execution_queue().get_pending(session, account_id, base)
-            if row:
-                await session.commit()
-                with svc._lock:
-                    svc._pending[svc._key(account_id, base)] = dict(row)
-            else:
-                await session.commit()
-                # Drop stale memory so a second poller cannot re-deliver
-                with svc._lock:
-                    svc._pending.pop(svc._key(account_id, base), None)
-                    svc._pending.pop(svc._key(account_id, raw.upper()), None)
-    except Exception:
-        # Fail closed: do not fall back to unclaimed in-memory delivery
-        row = None
-    if not row:
-        return {
-            "has_signal": False,
-            "signal": "HOLD",
-            "symbol": base,
-            "account_id": account_id,
-            "authorized": True,
-        }
-    # Stage 6: emergency stop blocks NEW order delivery to Executor
+    # Stage 6.4B corrective: emergency stop BEFORE claim (no orphan CLAIMED)
     try:
         from app.db.base import async_session_factory
         from app.services.operational_control_service import get_operational_control_service
@@ -153,6 +126,32 @@ async def get_pending_signal(
                 }
     except Exception:
         pass
+    # Stage 6.4B: durable claim-on-deliver is authoritative.
+    row = None
+    try:
+        from app.db.base import async_session_factory
+        from app.services.durable_execution_queue import get_durable_execution_queue
+        async with async_session_factory() as session:
+            row = await get_durable_execution_queue().get_pending(session, account_id, base)
+            if row:
+                await session.commit()
+                with svc._lock:
+                    svc._pending[svc._key(account_id, base)] = dict(row)
+            else:
+                await session.commit()
+                with svc._lock:
+                    svc._pending.pop(svc._key(account_id, base), None)
+                    svc._pending.pop(svc._key(account_id, raw.upper()), None)
+    except Exception:
+        row = None
+    if not row:
+        return {
+            "has_signal": False,
+            "signal": "HOLD",
+            "symbol": base,
+            "account_id": account_id,
+            "authorized": True,
+        }
     return {
         "has_signal": True,
         "signal": row["side"],
@@ -213,6 +212,23 @@ async def get_pending_batch(
         else:
             blocked.append({"symbol": s, "reason": reason})
 
+    # Emergency stop before any batch claims
+    try:
+        from app.db.base import async_session_factory
+        from app.services.operational_control_service import get_operational_control_service
+        async with async_session_factory() as session:
+            if await get_operational_control_service().is_emergency_stop_on(session):
+                return {
+                    "account_id": account_id,
+                    "polled": authorized,
+                    "blocked": blocked,
+                    "count": 0,
+                    "signals": [],
+                    "policy": "one_aegis_position_per_symbol",
+                    "emergency_stop": True,
+                }
+    except Exception:
+        pass
     # Stage 6.4B: only durable claim-on-deliver may return executable signals
     pending: list[dict] = []
     try:
@@ -277,7 +293,14 @@ async def ack_signal(
                 order_ticket=int(body.order_ticket or 0),
                 deal_ticket=int(body.deal_ticket or 0),
                 message=body.message or "",
+                claim_token=getattr(body, "claim_token", None),
             )
+            if durable_meta.get("ok") is False and durable_meta.get("reason") == "claim_token_mismatch":
+                await session.rollback()
+                raise HTTPException(
+                    status_code=409,
+                    detail="claim_token_mismatch",
+                )
             await session.commit()
         durable_meta = {**durable_meta, "durable_ack": True}
     except Exception as exc:

@@ -44,10 +44,14 @@ class DurableExecutionQueueService:
         symbol = normalize_symbol(str(payload.get("symbol") or ""))
         if not signal_id or not account_id or not symbol:
             return None
-        # Expire any prior PENDING for same account+symbol (one active pending)
         now = _utcnow()
+        # Stage 6.4B corrective: supersession rules (account+symbol)
+        # - PENDING: may be superseded (EXPIRED) by a newer authorized enqueue
+        # - CLAIMED / SUBMISSION_UNCERTAIN: block enqueue — broker outcome unknown
+        #   or delivery in flight; preserve audit/tickets; no new executable row
         q = await session.execute(
-            select(AegisExecutionQueue).where(
+            select(AegisExecutionQueue)
+            .where(
                 and_(
                     AegisExecutionQueue.account_id == account_id,
                     AegisExecutionQueue.symbol == symbol,
@@ -56,10 +60,18 @@ class DurableExecutionQueueService:
                     ),
                 )
             )
+            .with_for_update()
         )
+        blockers: list[AegisExecutionQueue] = []
         for old in q.scalars().all():
-            old.status = "EXPIRED"
-            old.updated_at = now
+            if old.status in ("CLAIMED", "SUBMISSION_UNCERTAIN"):
+                blockers.append(old)
+            elif old.status == "PENDING":
+                old.status = "EXPIRED"
+                old.updated_at = now
+        if blockers:
+            # Do not expire or supersede; leave uncertain/claimed intact
+            return None
         row = AegisExecutionQueue(
             signal_id=signal_id,
             account_id=account_id,
@@ -228,8 +240,17 @@ class DurableExecutionQueueService:
         order_ticket: int = 0,
         deal_ticket: int = 0,
         message: str = "",
+        claim_token: str | None = None,
     ) -> dict[str, Any]:
-        """Idempotent terminal transition to ACKED/REJECTED."""
+        """Idempotent terminal transition to ACKED/REJECTED.
+
+        Claim-token rules (Stage 6.4B corrective):
+        - Terminal rows: idempotent no-op.
+        - CLAIMED with stored token + mismatched provided token: reject (no state change).
+        - CLAIMED with matching token or tokenless (legacy EA): accept.
+        - SUBMISSION_UNCERTAIN: accept late ACK for this signal_id (genuine late fill);
+          mismatched explicit token still rejected to avoid cross-claim corruption.
+        """
         q = await session.execute(
             select(AegisExecutionQueue)
             .where(
@@ -245,6 +266,18 @@ class DurableExecutionQueueService:
             return {"ok": True, "idempotent": True, "found": False}
         if row.status in TERMINAL:
             return {"ok": True, "idempotent": True, "found": True, "status": row.status}
+
+        stored = (row.claim_token or "") or None
+        provided = (claim_token or "").strip() or None
+        if stored and provided and provided != stored:
+            return {
+                "ok": False,
+                "idempotent": False,
+                "found": True,
+                "status": row.status,
+                "reason": "claim_token_mismatch",
+            }
+
         row.status = "ACKED" if ok else "REJECTED"
         row.ack_ok = bool(ok)
         row.ack_message = (message or "")[:256] or None
