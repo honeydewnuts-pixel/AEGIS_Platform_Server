@@ -219,18 +219,9 @@ def test_no_claim_on_deliver():
     assert ".claim(" not in Path("backend/app/api/executor_router.py").read_text()
 
 
-# --- DATABASE-BACKED (skipped without DATABASE_URL / asyncpg fixture) ---
-
-@pytest.mark.skip(reason="DATABASE-BACKED: requires real PostgreSQL; not run in this environment")
-def test_pg_concurrent_recovery_no_double():
-    """H: two concurrent reconciles must not double-record (real PG)."""
-    assert False  # placeholder — implement when PG fixture available
-
-
-@pytest.mark.skip(reason="DATABASE-BACKED: requires real PostgreSQL transaction rollback proof")
-def test_pg_record_open_risk_failure_rolls_back_flag():
-    """E: record_open_risk failure → open_risk_applied remains false after rollback."""
-    assert False
+# --- DATABASE-BACKED: implemented in test_stage64a_pg_recovery_real.py ---
+# test_pg_concurrent_recovery_no_double
+# test_pg_record_open_risk_failure_rolls_back_flag
 
 
 # --- ACK atomicity (MOCKED) ---
