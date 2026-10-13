@@ -45,3 +45,11 @@
 
 **Overall MT5 runtime health: UNVERIFIED** pending operator presence + Experts evidence.  
 **Backend: PASS** for process/Redis health at inspection time.
+
+---
+
+## Addendum 2026-10-13 — OHLC stream vs HOLD
+
+Source review (main `f546af7`): continuous `POST /api/mt5/ohlc/stream` success does **not** imply screenshot-analysis OHLC readiness. HOLD `v40_research_awaiting_ohlc` is generated on the observation/analyze path when usable OHLC is missing for that request. See `docs/AEGIS_OHLC_STREAM_AND_HOLD_ROOT_CAUSE_REPORT.md`.
+
+Owner-supplied Render logs (2026-10-11) with repeated stream and pending-batch HTTP 200s support **Feed↔API HTTP health for that window**, not full signal-path health and not proof that streaming stopped when HOLDs appeared.

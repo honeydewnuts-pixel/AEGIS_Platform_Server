@@ -25,6 +25,12 @@
 | 7 | Docs branch merge | Owner only | Explicit approval | Separate decision |
 | 8 | Controlled Demo / deploy | Owner only | Gates satisfied | Separate authorization each |
 
+## OHLC / HOLD (2026-10-13)
+
+- Continuous Feed HTTP 200 ≠ synchronized OHLC for screenshot analysis.
+- Do not treat HOLD `v40_research_awaiting_ohlc` as proof the OHLC Feed stopped.
+- Details: `docs/AEGIS_OHLC_STREAM_AND_HOLD_ROOT_CAUSE_REPORT.md`.
+
 ## Acceptance reminders
 
 - Do **not** mutate signal `9fc3cb49-d6eb-4aa4-a4e5-4f75ee10f37b`.  
