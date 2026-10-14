@@ -53,3 +53,13 @@
 Source review (main `f546af7`): continuous `POST /api/mt5/ohlc/stream` success does **not** imply screenshot-analysis OHLC readiness. HOLD `v40_research_awaiting_ohlc` is generated on the observation/analyze path when usable OHLC is missing for that request. See `docs/AEGIS_OHLC_STREAM_AND_HOLD_ROOT_CAUSE_REPORT.md`.
 
 Owner-supplied Render logs (2026-10-11) with repeated stream and pending-batch HTTP 200s support **Feed↔API HTTP health for that window**, not full signal-path health and not proof that streaming stopped when HOLDs appeared.
+
+---
+
+## Addendum 2026-10-14 — Controlled-demo EURUSD stale rejection
+
+Forensic report: `docs/AEGIS_EURUSD_CONTROLLED_DEMO_EXECUTION_ROOT_CAUSE_REPORT.md`.
+
+Monitor `NO_POLL_YET` is driven by in-memory `last_poll_ms` and is **not** updated by durable `/pending` or `/pending-batch`. Do not treat it as proof the EA never polled.
+
+Stale rejection of the multi-day-old controlled-demo signal is **command-age** (`MaxSignalAgeSec=300`), not OHLC Feed failure.

@@ -25,6 +25,12 @@
 | 7 | Docs branch merge | Owner only | Explicit approval | Separate decision |
 | 8 | Controlled Demo / deploy | Owner only | Gates satisfied | Separate authorization each |
 
+## Controlled-demo EURUSD (2026-10-14)
+
+- See `docs/AEGIS_EURUSD_CONTROLLED_DEMO_EXECUTION_ROOT_CAUSE_REPORT.md`.
+- Original signal stayed PENDING beyond 300s EA max age → stale reject on later process; not OHLC path.
+- Before any new controlled-demo: Executor polling and operator ready within 5 minutes of publish.
+
 ## OHLC / HOLD (2026-10-13)
 
 - Continuous Feed HTTP 200 ≠ synchronized OHLC for screenshot analysis.
