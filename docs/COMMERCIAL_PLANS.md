@@ -2,15 +2,20 @@
 
 | Plan | Devices | Trades / day | Live trading |
 |------|---------|--------------|--------------|
-| demo | 1 | 5 | No |
-| starter | 1 | 15 | Yes |
+| demo | 1 | 100 (catalog) | Analysis / demo-style (not paid live entitlement) |
+| starter | 1 | 15 | Yes (commercial flag; execution safety gates separate) |
 | pro | 1 | 50 | Yes |
 | business | 3 | 200 | Yes |
-| enterprise | 10 | Unlimited | Yes |
+| enterprise | 10 | Unlimited (`max_trades_per_day = 0`) | Yes |
 
 Assign via Operator Console → **Tenants & plans** or:
 
-`POST /api/admin/tenants/set-plan` `{ "account_id": "ACC-…", "plan": "business" }`
+`POST /api/admin/tenants/set-plan`  
+`{ "account_id": "ACC-…", "plan": "business", "status": "active" }`
+
+**Full operator procedures** (Neon SQL, curl grants without payment, Trade Copier without a separate paid product, expiry behaviour):
+
+→ **`docs/AEGIS_OPERATOR_PLANS_AND_TRADE_COPIER_GUIDE.md`**
 
 Device registration respects `max_devices`. Market orders respect daily trade quota (HTTP 429 when exceeded).
 
