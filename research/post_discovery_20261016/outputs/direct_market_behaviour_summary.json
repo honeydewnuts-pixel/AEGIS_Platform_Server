@@ -1,0 +1,1135 @@
+{
+  "prereg_hash": "dd0ff932fb9617fe0a7f5acbe274d607f6aeb5176b08367734115c19ea55ced4",
+  "prereg_file": "/home/workdir/artifacts/discovery_hypotheses/post_discovery_phase/docs/AEGIS_DIRECT_MARKET_BEHAVIOUR_PREREGISTRATION.md",
+  "horizons": [
+    6,
+    12,
+    24
+  ],
+  "L_lookback": 12,
+  "k_atr": 1.0,
+  "development_fraction": 0.8,
+  "final_20_status": "EXPOSED_not_used_for_selection",
+  "n_pairs": 13,
+  "elapsed_sec": 96.3,
+  "per_pair": [
+    {
+      "symbol": "AUDUSD",
+      "rows": 373959,
+      "n_dev": 299167,
+      "med_spread": 0.00010999999999994348,
+      "d1": [
+        {
+          "H": 6,
+          "n_events": 192297,
+          "mean_signed_ret": -1.0521583800059274e-05,
+          "median_signed_ret": -2.0000000000020002e-05,
+          "cont_rate": 0.47901423319136543,
+          "uncond_mean_abs_ret": 0.0004520697056316132,
+          "mean_vs_uncond_abs": -0.02327425100374499,
+          "mean_over_med_spread": -0.09565076181876983,
+          "n_nonoverlap": 42461,
+          "mean_signed_ret_nonoverlap": -8.508749205152885e-06,
+          "cont_rate_nonoverlap": 0.47912201785167563
+        },
+        {
+          "H": 12,
+          "n_events": 192294,
+          "mean_signed_ret": -1.1412758588411473e-05,
+          "median_signed_ret": -2.0000000000020002e-05,
+          "cont_rate": 0.48451329734677107,
+          "uncond_mean_abs_ret": 0.0006409877133448116,
+          "mean_vs_uncond_abs": -0.017804956867047025,
+          "mean_over_med_spread": -0.10375235080379397,
+          "n_nonoverlap": 22865,
+          "mean_signed_ret_nonoverlap": -1.4417887601137035e-05,
+          "cont_rate_nonoverlap": 0.48580800349879727
+        },
+        {
+          "H": 24,
+          "n_events": 192283,
+          "mean_signed_ret": -1.3948711014494308e-05,
+          "median_signed_ret": -2.0000000000020002e-05,
+          "cont_rate": 0.4875261983638699,
+          "uncond_mean_abs_ret": 0.0009170338855547567,
+          "mean_vs_uncond_abs": -0.015210682216018746,
+          "mean_over_med_spread": -0.12680646376819524,
+          "n_nonoverlap": 11919,
+          "mean_signed_ret_nonoverlap": -2.1368403389546297e-05,
+          "cont_rate_nonoverlap": 0.4852756103699975
+        }
+      ],
+      "d2": [
+        {
+          "H": 6,
+          "n_lowvol_events": 142041,
+          "mean_ratio": 2.7103771728371453,
+          "median_ratio": 2.3067569588447876,
+          "uncond_mean_range": 0.0009069537989773975,
+          "uncond_mean_ratio_proxy": 2.8562992689243725,
+          "ratio_vs_uncond": 0.9489121823911054,
+          "n_nonoverlap": 26065,
+          "mean_ratio_nonoverlap": 2.6866525914260495
+        },
+        {
+          "H": 12,
+          "n_lowvol_events": 142041,
+          "mean_ratio": 4.069398475815769,
+          "median_ratio": 3.429784479199061,
+          "uncond_mean_range": 0.0013001854565519084,
+          "uncond_mean_ratio_proxy": 4.094716592182077,
+          "ratio_vs_uncond": 0.993816881877821,
+          "n_nonoverlap": 14029,
+          "mean_ratio_nonoverlap": 3.985845421255739
+        },
+        {
+          "H": 24,
+          "n_lowvol_events": 142035,
+          "mean_ratio": 6.268869273895741,
+          "median_ratio": 5.295724386687785,
+          "uncond_mean_range": 0.0018661252947097717,
+          "uncond_mean_ratio_proxy": 5.877049438472704,
+          "ratio_vs_uncond": 1.0666694809232133,
+          "n_nonoverlap": 7813,
+          "mean_ratio_nonoverlap": 5.942035015134089
+        }
+      ],
+      "stability_H12_first_half_mean": -5.900447485631481e-06,
+      "stability_H12_first_half_n": 95869,
+      "stability_H12_second_half_mean": -1.6856240535999416e-05,
+      "stability_H12_second_half_n": 96418
+    },
+    {
+      "symbol": "EURCHF",
+      "rows": 373387,
+      "n_dev": 298709,
+      "med_spread": 0.0001100000000000545,
+      "d1": [
+        {
+          "H": 6,
+          "n_events": 185445,
+          "mean_signed_ret": -3.064666073498896e-05,
+          "median_signed_ret": -2.999999999997449e-05,
+          "cont_rate": 0.4626385181590229,
+          "uncond_mean_abs_ret": 0.0003728429626157277,
+          "mean_vs_uncond_abs": -0.08219723531854636,
+          "mean_over_med_spread": -0.27860600668157975,
+          "n_nonoverlap": 41675,
+          "mean_signed_ret_nonoverlap": -3.0197480503899225e-05,
+          "cont_rate_nonoverlap": 0.461499700059988
+        },
+        {
+          "H": 12,
+          "n_events": 185439,
+          "mean_signed_ret": -4.331059270164327e-05,
+          "median_signed_ret": -4.0000000000040004e-05,
+          "cont_rate": 0.46046408792109533,
+          "uncond_mean_abs_ret": 0.0005203817512137957,
+          "mean_vs_uncond_abs": -0.08322850023203326,
+          "mean_over_med_spread": -0.39373266092383463,
+          "n_nonoverlap": 22612,
+          "mean_signed_ret_nonoverlap": -4.316601804351685e-05,
+          "cont_rate_nonoverlap": 0.46179019989386166
+        },
+        {
+          "H": 24,
+          "n_events": 185430,
+          "mean_signed_ret": -4.641531035970452e-05,
+          "median_signed_ret": -4.999999999999449e-05,
+          "cont_rate": 0.4651350914091571,
+          "uncond_mean_abs_ret": 0.0007185689219281057,
+          "mean_vs_uncond_abs": -0.06459409660406724,
+          "mean_over_med_spread": -0.4219573669061957,
+          "n_nonoverlap": 11843,
+          "mean_signed_ret_nonoverlap": -3.4193194291986745e-05,
+          "cont_rate_nonoverlap": 0.4695600776830195
+        }
+      ],
+      "d2": [
+        {
+          "H": 6,
+          "n_lowvol_events": 162765,
+          "mean_ratio": 2.611804403739612,
+          "median_ratio": 2.173549448303173,
+          "uncond_mean_range": 0.0007611332225880243,
+          "uncond_mean_ratio_proxy": 2.8780325434058938,
+          "ratio_vs_uncond": 0.907496480442426,
+          "n_nonoverlap": 29024,
+          "mean_ratio_nonoverlap": 2.5882053355096457
+        },
+        {
+          "H": 12,
+          "n_lowvol_events": 162765,
+          "mean_ratio": 3.8654537171236645,
+          "median_ratio": 3.150477750676385,
+          "uncond_mean_range": 0.0010832325262830026,
+          "uncond_mean_ratio_proxy": 4.095969496795571,
+          "ratio_vs_uncond": 0.9437213143671486,
+          "n_nonoverlap": 15359,
+          "mean_ratio_nonoverlap": 3.788556677440455
+        },
+        {
+          "H": 24,
+          "n_lowvol_events": 162765,
+          "mean_ratio": 5.909255267055219,
+          "median_ratio": 4.677797592174919,
+          "uncond_mean_range": 0.0015408663574096096,
+          "uncond_mean_ratio_proxy": 5.826395944963878,
+          "ratio_vs_uncond": 1.014221368213563,
+          "n_nonoverlap": 8323,
+          "mean_ratio_nonoverlap": 5.654121441625401
+        }
+      ],
+      "stability_H12_first_half_mean": -4.430822036467623e-05,
+      "stability_H12_first_half_n": 92356,
+      "stability_H12_second_half_mean": -4.231760067041974e-05,
+      "stability_H12_second_half_n": 93076
+    },
+    {
+      "symbol": "EURGBP",
+      "rows": 373933,
+      "n_dev": 299146,
+      "med_spread": 9.00000000000345e-05,
+      "d1": [
+        {
+          "H": 6,
+          "n_events": 181894,
+          "mean_signed_ret": -2.0600602548737084e-05,
+          "median_signed_ret": -2.0000000000020002e-05,
+          "cont_rate": 0.4651995118035779,
+          "uncond_mean_abs_ret": 0.00030328805710655633,
+          "mean_vs_uncond_abs": -0.06792421285978738,
+          "mean_over_med_spread": -0.22889558387476874,
+          "n_nonoverlap": 41353,
+          "mean_signed_ret_nonoverlap": -2.157729789858052e-05,
+          "cont_rate_nonoverlap": 0.46560104466423236
+        },
+        {
+          "H": 12,
+          "n_events": 181890,
+          "mean_signed_ret": -2.6122150750453463e-05,
+          "median_signed_ret": -2.999999999997449e-05,
+          "cont_rate": 0.46783220627851996,
+          "uncond_mean_abs_ret": 0.0004234964307805473,
+          "mean_vs_uncond_abs": -0.061682103677491835,
+          "mean_over_med_spread": -0.2902461194493717,
+          "n_nonoverlap": 22511,
+          "mean_signed_ret_nonoverlap": -2.9675536404424747e-05,
+          "cont_rate_nonoverlap": 0.4675491981697837
+        },
+        {
+          "H": 24,
+          "n_events": 181878,
+          "mean_signed_ret": -2.9513476066374168e-05,
+          "median_signed_ret": -3.0000000000085514e-05,
+          "cont_rate": 0.4700513531048285,
+          "uncond_mean_abs_ret": 0.0005921117779821115,
+          "mean_vs_uncond_abs": -0.04984443337194655,
+          "mean_over_med_spread": -0.3279275118484762,
+          "n_nonoverlap": 11834,
+          "mean_signed_ret_nonoverlap": -2.4307419300321575e-05,
+          "cont_rate_nonoverlap": 0.46991718776406965
+        }
+      ],
+      "d2": [
+        {
+          "H": 6,
+          "n_lowvol_events": 166809,
+          "mean_ratio": 2.5123555635483377,
+          "median_ratio": 2.088992525678742,
+          "uncond_mean_range": 0.0006355693064009095,
+          "uncond_mean_ratio_proxy": 2.8610448351459654,
+          "ratio_vs_uncond": 0.878125198419046,
+          "n_nonoverlap": 29485,
+          "mean_ratio_nonoverlap": 2.494893183978147
+        },
+        {
+          "H": 12,
+          "n_lowvol_events": 166809,
+          "mean_ratio": 3.6886356173743566,
+          "median_ratio": 2.9798210157812024,
+          "uncond_mean_range": 0.000901370577966249,
+          "uncond_mean_ratio_proxy": 4.057561639101803,
+          "ratio_vs_uncond": 0.9090769150190622,
+          "n_nonoverlap": 15467,
+          "mean_ratio_nonoverlap": 3.6354151305575764
+        },
+        {
+          "H": 24,
+          "n_lowvol_events": 166809,
+          "mean_ratio": 5.597924692325902,
+          "median_ratio": 4.3533515970326935,
+          "uncond_mean_range": 0.001280778764021645,
+          "uncond_mean_ratio_proxy": 5.765485260009272,
+          "ratio_vs_uncond": 0.9709373001357564,
+          "n_nonoverlap": 8297,
+          "mean_ratio_nonoverlap": 5.370993034360809
+        }
+      ],
+      "stability_H12_first_half_mean": -2.540798002803081e-05,
+      "stability_H12_first_half_n": 91328,
+      "stability_H12_second_half_mean": -2.683895048367842e-05,
+      "stability_H12_second_half_n": 90556
+    },
+    {
+      "symbol": "EURJPY",
+      "rows": 373545,
+      "n_dev": 298836,
+      "med_spread": 0.01099999999999568,
+      "d1": [
+        {
+          "H": 6,
+          "n_events": 187538,
+          "mean_signed_ret": -0.0014797806951124533,
+          "median_signed_ret": -0.0049999999999954525,
+          "cont_rate": 0.47599419850910213,
+          "uncond_mean_abs_ret": 0.08806171020483287,
+          "mean_vs_uncond_abs": -0.01680390593903367,
+          "mean_over_med_spread": -0.1345255177375486,
+          "n_nonoverlap": 41862,
+          "mean_signed_ret_nonoverlap": -0.0018238496488461378,
+          "cont_rate_nonoverlap": 0.4781902441354928
+        },
+        {
+          "H": 12,
+          "n_events": 187534,
+          "mean_signed_ret": -0.002294234992054791,
+          "median_signed_ret": -0.006000000000000227,
+          "cont_rate": 0.4790651295231798,
+          "uncond_mean_abs_ret": 0.12481745462304406,
+          "mean_vs_uncond_abs": -0.018380722463725237,
+          "mean_over_med_spread": -0.2085668174596084,
+          "n_nonoverlap": 22658,
+          "mean_signed_ret_nonoverlap": -0.001561690793538724,
+          "cont_rate_nonoverlap": 0.48027186865566246
+        },
+        {
+          "H": 24,
+          "n_events": 187526,
+          "mean_signed_ret": -0.0020770160511076195,
+          "median_signed_ret": -0.006000000000000227,
+          "cont_rate": 0.484556808122607,
+          "uncond_mean_abs_ret": 0.17779429934898666,
+          "mean_vs_uncond_abs": -0.011682129622337958,
+          "mean_over_med_spread": -0.18881964100985776,
+          "n_nonoverlap": 11857,
+          "mean_signed_ret_nonoverlap": -0.002553681369655208,
+          "cont_rate_nonoverlap": 0.48646369233364256
+        }
+      ],
+      "d2": [
+        {
+          "H": 6,
+          "n_lowvol_events": 144767,
+          "mean_ratio": 2.6292506189724905,
+          "median_ratio": 2.2330292030478507,
+          "uncond_mean_range": 0.1798988847209669,
+          "uncond_mean_ratio_proxy": 2.8487342187789384,
+          "ratio_vs_uncond": 0.9229539918608041,
+          "n_nonoverlap": 26432,
+          "mean_ratio_nonoverlap": 2.6133492457608787
+        },
+        {
+          "H": 12,
+          "n_lowvol_events": 144761,
+          "mean_ratio": 3.8876051669529605,
+          "median_ratio": 3.294998948856672,
+          "uncond_mean_range": 0.25759574640781524,
+          "uncond_mean_ratio_proxy": 4.079079303587919,
+          "ratio_vs_uncond": 0.9530594719091291,
+          "n_nonoverlap": 14212,
+          "mean_ratio_nonoverlap": 3.827424388030439
+        },
+        {
+          "H": 24,
+          "n_lowvol_events": 144749,
+          "mean_ratio": 5.906039386060075,
+          "median_ratio": 5.002695126750304,
+          "uncond_mean_range": 0.36909257241238486,
+          "uncond_mean_ratio_proxy": 5.844653470526822,
+          "ratio_vs_uncond": 1.0105029178962974,
+          "n_nonoverlap": 7877,
+          "mean_ratio_nonoverlap": 5.676227639027007
+        }
+      ],
+      "stability_H12_first_half_mean": -0.0020756257671985883,
+      "stability_H12_first_half_n": 93685,
+      "stability_H12_second_half_mean": -0.002504300518962963,
+      "stability_H12_second_half_n": 93841
+    },
+    {
+      "symbol": "EURUSD",
+      "rows": 374050,
+      "n_dev": 299240,
+      "med_spread": 2.999999999997449e-05,
+      "d1": [
+        {
+          "H": 6,
+          "n_events": 193020,
+          "mean_signed_ret": -1.3634369495388864e-05,
+          "median_signed_ret": -2.0000000000131024e-05,
+          "cont_rate": 0.4757797119469485,
+          "uncond_mean_abs_ret": 0.0005097341110015538,
+          "mean_vs_uncond_abs": -0.02674800293156622,
+          "mean_over_med_spread": -0.45447898318001523,
+          "n_nonoverlap": 42553,
+          "mean_signed_ret_nonoverlap": -1.2439263976688091e-05,
+          "cont_rate_nonoverlap": 0.47564214038963176
+        },
+        {
+          "H": 12,
+          "n_events": 193016,
+          "mean_signed_ret": -2.0204796493554808e-05,
+          "median_signed_ret": -2.999999999997449e-05,
+          "cont_rate": 0.47983068761138975,
+          "uncond_mean_abs_ret": 0.0007232366301223341,
+          "mean_vs_uncond_abs": -0.027936633256721532,
+          "mean_over_med_spread": -0.6734932164523996,
+          "n_nonoverlap": 22890,
+          "mean_signed_ret_nonoverlap": -2.2875316732198076e-05,
+          "cont_rate_nonoverlap": 0.4783748361730013
+        },
+        {
+          "H": 24,
+          "n_events": 193004,
+          "mean_signed_ret": -1.8084490476881286e-05,
+          "median_signed_ret": -2.999999999997449e-05,
+          "cont_rate": 0.4849174110381132,
+          "uncond_mean_abs_ret": 0.0010334774375772972,
+          "mean_vs_uncond_abs": -0.01749867952538508,
+          "mean_over_med_spread": -0.6028163492298888,
+          "n_nonoverlap": 11933,
+          "mean_signed_ret_nonoverlap": -2.6285091762339213e-05,
+          "cont_rate_nonoverlap": 0.48001340819575966
+        }
+      ],
+      "d2": [
+        {
+          "H": 6,
+          "n_lowvol_events": 142793,
+          "mean_ratio": 2.5863230629448264,
+          "median_ratio": 2.214548040095766,
+          "uncond_mean_range": 0.0010213309106227061,
+          "uncond_mean_ratio_proxy": 2.978163907930499,
+          "ratio_vs_uncond": 0.8684287174583485,
+          "n_nonoverlap": 25666,
+          "mean_ratio_nonoverlap": 2.5775617158114605
+        },
+        {
+          "H": 12,
+          "n_lowvol_events": 142793,
+          "mean_ratio": 3.8444456958359883,
+          "median_ratio": 3.2411028020407215,
+          "uncond_mean_range": 0.0014657134580151653,
+          "uncond_mean_ratio_proxy": 4.273967305432227,
+          "ratio_vs_uncond": 0.8995028321694658,
+          "n_nonoverlap": 13650,
+          "mean_ratio_nonoverlap": 3.8233084369272197
+        },
+        {
+          "H": 24,
+          "n_lowvol_events": 142793,
+          "mean_ratio": 5.813995526501789,
+          "median_ratio": 4.767646298230114,
+          "uncond_mean_range": 0.002102926739240913,
+          "uncond_mean_ratio_proxy": 6.132058131884786,
+          "ratio_vs_uncond": 0.9481311822976415,
+          "n_nonoverlap": 7541,
+          "mean_ratio_nonoverlap": 5.781224388232607
+        }
+      ],
+      "stability_H12_first_half_mean": -1.83818179923076e-05,
+      "stability_H12_first_half_n": 95941,
+      "stability_H12_second_half_mean": -2.196481811532232e-05,
+      "stability_H12_second_half_n": 97067
+    },
+    {
+      "symbol": "GBPJPY",
+      "rows": 373481,
+      "n_dev": 298784,
+      "med_spread": 0.021000000000015007,
+      "d1": [
+        {
+          "H": 6,
+          "n_events": 187777,
+          "mean_signed_ret": -0.0023253780974240978,
+          "median_signed_ret": -0.006000000000000227,
+          "cont_rate": 0.47644280183409043,
+          "uncond_mean_abs_ret": 0.11063117601178325,
+          "mean_vs_uncond_abs": -0.021019193515365173,
+          "mean_over_med_spread": -0.11073229035344934,
+          "n_nonoverlap": 41889,
+          "mean_signed_ret_nonoverlap": -0.0027036768841461824,
+          "cont_rate_nonoverlap": 0.4769509895199217
+        },
+        {
+          "H": 12,
+          "n_events": 187776,
+          "mean_signed_ret": -0.0023242070711912604,
+          "median_signed_ret": -0.007999999999981355,
+          "cont_rate": 0.47919329413769596,
+          "uncond_mean_abs_ret": 0.15669602328228302,
+          "mean_vs_uncond_abs": -0.01483258491508922,
+          "mean_over_med_spread": -0.11067652719950474,
+          "n_nonoverlap": 22682,
+          "mean_signed_ret_nonoverlap": -0.004673930341239865,
+          "cont_rate_nonoverlap": 0.4785733180495547
+        },
+        {
+          "H": 24,
+          "n_events": 187766,
+          "mean_signed_ret": -0.001695467171905497,
+          "median_signed_ret": -0.008000000000009777,
+          "cont_rate": 0.4836179073953751,
+          "uncond_mean_abs_ret": 0.22307695552542606,
+          "mean_vs_uncond_abs": -0.0076003689754150765,
+          "mean_over_med_spread": -0.08073653199544216,
+          "n_nonoverlap": 11849,
+          "mean_signed_ret_nonoverlap": -0.005716712043210324,
+          "cont_rate_nonoverlap": 0.4760739302894759
+        }
+      ],
+      "d2": [
+        {
+          "H": 6,
+          "n_lowvol_events": 148038,
+          "mean_ratio": 2.628735098371505,
+          "median_ratio": 2.2399232895310153,
+          "uncond_mean_range": 0.2269504599508468,
+          "uncond_mean_ratio_proxy": 2.8230993510863374,
+          "ratio_vs_uncond": 0.9311521740671151,
+          "n_nonoverlap": 27013,
+          "mean_ratio_nonoverlap": 2.612955980611352
+        },
+        {
+          "H": 12,
+          "n_lowvol_events": 148036,
+          "mean_ratio": 3.8740865416227273,
+          "median_ratio": 3.2858963572047015,
+          "uncond_mean_range": 0.3242769858497516,
+          "uncond_mean_ratio_proxy": 4.0337708437468685,
+          "ratio_vs_uncond": 0.960413144843941,
+          "n_nonoverlap": 14503,
+          "mean_ratio_nonoverlap": 3.810086795427688
+        },
+        {
+          "H": 24,
+          "n_lowvol_events": 148034,
+          "mean_ratio": 5.833377596766255,
+          "median_ratio": 4.958277543183128,
+          "uncond_mean_range": 0.46349108994106614,
+          "uncond_mean_ratio_proxy": 5.765493471704421,
+          "ratio_vs_uncond": 1.0117742089892205,
+          "n_nonoverlap": 8070,
+          "mean_ratio_nonoverlap": 5.6096942738791435
+        }
+      ],
+      "stability_H12_first_half_mean": -0.0014471786077916967,
+      "stability_H12_first_half_n": 93305,
+      "stability_H12_second_half_mean": -0.0031889455371131585,
+      "stability_H12_second_half_n": 94468
+    },
+    {
+      "symbol": "GBPNZD",
+      "rows": 371039,
+      "n_dev": 296831,
+      "med_spread": 0.0005199999999998539,
+      "d1": [
+        {
+          "H": 6,
+          "n_events": 183083,
+          "mean_signed_ret": -6.304714255283116e-05,
+          "median_signed_ret": -7.00000000000145e-05,
+          "cont_rate": 0.47551110698426396,
+          "uncond_mean_abs_ret": 0.001059198888046499,
+          "mean_vs_uncond_abs": -0.059523422148894264,
+          "mean_over_med_spread": -0.12124450490932476,
+          "n_nonoverlap": 41245,
+          "mean_signed_ret_nonoverlap": -6.218111286216428e-05,
+          "cont_rate_nonoverlap": 0.47790035155776456
+        },
+        {
+          "H": 12,
+          "n_events": 183077,
+          "mean_signed_ret": -7.368932197927616e-05,
+          "median_signed_ret": -9.000000000014552e-05,
+          "cont_rate": 0.4758762706402224,
+          "uncond_mean_abs_ret": 0.0014798594871449256,
+          "mean_vs_uncond_abs": -0.04979480999337582,
+          "mean_over_med_spread": -0.1417102345755709,
+          "n_nonoverlap": 22417,
+          "mean_signed_ret_nonoverlap": -5.990052192532422e-05,
+          "cont_rate_nonoverlap": 0.48213409466030244
+        },
+        {
+          "H": 24,
+          "n_events": 183068,
+          "mean_signed_ret": -0.00010423449210129558,
+          "median_signed_ret": -0.00011999999999989797,
+          "cont_rate": 0.47730351563353507,
+          "uncond_mean_abs_ret": 0.002064314260682032,
+          "mean_vs_uncond_abs": -0.05049351936698697,
+          "mean_over_med_spread": -0.20045094634870164,
+          "n_nonoverlap": 11759,
+          "mean_signed_ret_nonoverlap": -6.0194744451057115e-05,
+          "cont_rate_nonoverlap": 0.48422484905179014
+        }
+      ],
+      "d2": [
+        {
+          "H": 6,
+          "n_lowvol_events": 145010,
+          "mean_ratio": 2.615645487484204,
+          "median_ratio": 2.244549570940815,
+          "uncond_mean_range": 0.0021950936789066574,
+          "uncond_mean_ratio_proxy": 2.6878892117403708,
+          "ratio_vs_uncond": 0.973122506708753,
+          "n_nonoverlap": 26788,
+          "mean_ratio_nonoverlap": 2.5813663974423795
+        },
+        {
+          "H": 12,
+          "n_lowvol_events": 145010,
+          "mean_ratio": 3.8420027913092105,
+          "median_ratio": 3.3008027808282288,
+          "uncond_mean_range": 0.0031134505340429186,
+          "uncond_mean_ratio_proxy": 3.8124159265537743,
+          "ratio_vs_uncond": 1.0077606602546594,
+          "n_nonoverlap": 14527,
+          "mean_ratio_nonoverlap": 3.744458800195918
+        },
+        {
+          "H": 24,
+          "n_lowvol_events": 145001,
+          "mean_ratio": 5.719344635485658,
+          "median_ratio": 5.031596093040866,
+          "uncond_mean_range": 0.004417433389396906,
+          "uncond_mean_ratio_proxy": 5.409141151941948,
+          "ratio_vs_uncond": 1.0573480104937443,
+          "n_nonoverlap": 8151,
+          "mean_ratio_nonoverlap": 5.436271020324122
+        }
+      ],
+      "stability_H12_first_half_mean": -8.49480976541243e-05,
+      "stability_H12_first_half_n": 90073,
+      "stability_H12_second_half_mean": -6.277595569654284e-05,
+      "stability_H12_second_half_n": 92995
+    },
+    {
+      "symbol": "GBPUSD",
+      "rows": 373951,
+      "n_dev": 299160,
+      "med_spread": 9.000000000014552e-05,
+      "d1": [
+        {
+          "H": 6,
+          "n_events": 191276,
+          "mean_signed_ret": -1.7783752274200438e-05,
+          "median_signed_ret": -2.0000000000131024e-05,
+          "cont_rate": 0.47833497145486104,
+          "uncond_mean_abs_ret": 0.0006515142842814395,
+          "mean_vs_uncond_abs": -0.027296028196548732,
+          "mean_over_med_spread": -0.1975972474907965,
+          "n_nonoverlap": 42261,
+          "mean_signed_ret_nonoverlap": -1.5427486334918924e-05,
+          "cont_rate_nonoverlap": 0.4803246492037576
+        },
+        {
+          "H": 12,
+          "n_events": 191275,
+          "mean_signed_ret": -2.49318154489606e-05,
+          "median_signed_ret": -4.0000000000040004e-05,
+          "cont_rate": 0.47888642007580706,
+          "uncond_mean_abs_ret": 0.0009218870277499168,
+          "mean_vs_uncond_abs": -0.027044328316249974,
+          "mean_over_med_spread": -0.27702017165466986,
+          "n_nonoverlap": 22790,
+          "mean_signed_ret_nonoverlap": -3.22558578323825e-05,
+          "cont_rate_nonoverlap": 0.4810443176831944
+        },
+        {
+          "H": 24,
+          "n_events": 191267,
+          "mean_signed_ret": -2.3866934703843125e-05,
+          "median_signed_ret": -4.0000000000040004e-05,
+          "cont_rate": 0.484066775763723,
+          "uncond_mean_abs_ret": 0.001308401885720018,
+          "mean_vs_uncond_abs": -0.0182412873019585,
+          "mean_over_med_spread": -0.26518816337560597,
+          "n_nonoverlap": 11905,
+          "mean_signed_ret_nonoverlap": -1.9588408231833953e-05,
+          "cont_rate_nonoverlap": 0.4891222175556489
+        }
+      ],
+      "d2": [
+        {
+          "H": 6,
+          "n_lowvol_events": 147525,
+          "mean_ratio": 2.5567036405605905,
+          "median_ratio": 2.2161939656443397,
+          "uncond_mean_range": 0.0013088820936749666,
+          "uncond_mean_ratio_proxy": 2.9285301253003837,
+          "ratio_vs_uncond": 0.8730330681841102,
+          "n_nonoverlap": 26408,
+          "mean_ratio_nonoverlap": 2.5474387842831585
+        },
+        {
+          "H": 12,
+          "n_lowvol_events": 147520,
+          "mean_ratio": 3.7680187791208426,
+          "median_ratio": 3.2166445899438054,
+          "uncond_mean_range": 0.0018720741234934523,
+          "uncond_mean_ratio_proxy": 4.188632034878561,
+          "ratio_vs_uncond": 0.8995821900192499,
+          "n_nonoverlap": 14009,
+          "mean_ratio_nonoverlap": 3.745129857780125
+        },
+        {
+          "H": 24,
+          "n_lowvol_events": 147517,
+          "mean_ratio": 5.644404960638284,
+          "median_ratio": 4.682122177610625,
+          "uncond_mean_range": 0.002678300144473874,
+          "uncond_mean_ratio_proxy": 5.992505127536625,
+          "ratio_vs_uncond": 0.9419107435888943,
+          "n_nonoverlap": 7666,
+          "mean_ratio_nonoverlap": 5.616196392120728
+        }
+      ],
+      "stability_H12_first_half_mean": -2.577222070069695e-05,
+      "stability_H12_first_half_n": 94934,
+      "stability_H12_second_half_mean": -2.4054632272797785e-05,
+      "stability_H12_second_half_n": 96335
+    },
+    {
+      "symbol": "NZDCHF",
+      "rows": 373238,
+      "n_dev": 298590,
+      "med_spread": 0.00017999999999995797,
+      "d1": [
+        {
+          "H": 6,
+          "n_events": 186919,
+          "mean_signed_ret": -3.162995736120982e-05,
+          "median_signed_ret": -2.0000000000020002e-05,
+          "cont_rate": 0.4701234224450163,
+          "uncond_mean_abs_ret": 0.00035848644212571374,
+          "mean_vs_uncond_abs": -0.088231948671905,
+          "mean_over_med_spread": -0.17572198534009556,
+          "n_nonoverlap": 41627,
+          "mean_signed_ret_nonoverlap": -2.648209095058473e-05,
+          "cont_rate_nonoverlap": 0.4735628318158887
+        },
+        {
+          "H": 12,
+          "n_events": 186916,
+          "mean_signed_ret": -4.665817800509315e-05,
+          "median_signed_ret": -3.999999999992898e-05,
+          "cont_rate": 0.469542468274519,
+          "uncond_mean_abs_ret": 0.0005033688406525305,
+          "mean_vs_uncond_abs": -0.09269182801344816,
+          "mean_over_med_spread": -0.25921210002835576,
+          "n_nonoverlap": 22614,
+          "mean_signed_ret_nonoverlap": -3.541124966834746e-05,
+          "cont_rate_nonoverlap": 0.47346776333244894
+        },
+        {
+          "H": 24,
+          "n_events": 186913,
+          "mean_signed_ret": -5.125261485289917e-05,
+          "median_signed_ret": -4.0000000000040004e-05,
+          "cont_rate": 0.4730008078624815,
+          "uncond_mean_abs_ret": 0.0006922805842154629,
+          "mean_vs_uncond_abs": -0.07403445369045261,
+          "mean_over_med_spread": -0.28473674918283964,
+          "n_nonoverlap": 11829,
+          "mean_signed_ret_nonoverlap": -4.2600388874799257e-05,
+          "cont_rate_nonoverlap": 0.4751035590497929
+        }
+      ],
+      "d2": [
+        {
+          "H": 6,
+          "n_lowvol_events": 148340,
+          "mean_ratio": 2.807635359178015,
+          "median_ratio": 2.257977806374681,
+          "uncond_mean_range": 0.0007380678406776026,
+          "uncond_mean_ratio_proxy": 2.76698376210039,
+          "ratio_vs_uncond": 1.0146916644883983,
+          "n_nonoverlap": 27312,
+          "mean_ratio_nonoverlap": 2.763042627273211
+        },
+        {
+          "H": 12,
+          "n_lowvol_events": 148334,
+          "mean_ratio": 4.261933202633967,
+          "median_ratio": 3.3582927015816093,
+          "uncond_mean_range": 0.0010566254213323146,
+          "uncond_mean_ratio_proxy": 3.9612420733097506,
+          "ratio_vs_uncond": 1.0759082943580318,
+          "n_nonoverlap": 14783,
+          "mean_ratio_nonoverlap": 4.117761554986869
+        },
+        {
+          "H": 24,
+          "n_lowvol_events": 148333,
+          "mean_ratio": 6.556144047752747,
+          "median_ratio": 5.216087311614563,
+          "uncond_mean_range": 0.0015157858708108,
+          "uncond_mean_ratio_proxy": 5.682614334617436,
+          "ratio_vs_uncond": 1.1537196898642108,
+          "n_nonoverlap": 8283,
+          "mean_ratio_nonoverlap": 6.042089722056839
+        }
+      ],
+      "stability_H12_first_half_mean": -4.6784383640614256e-05,
+      "stability_H12_first_half_n": 93671,
+      "stability_H12_second_half_mean": -4.65205873204845e-05,
+      "stability_H12_second_half_n": 93237
+    },
+    {
+      "symbol": "NZDJPY",
+      "rows": 373507,
+      "n_dev": 298805,
+      "med_spread": 0.01099999999999568,
+      "d1": [
+        {
+          "H": 6,
+          "n_events": 187916,
+          "mean_signed_ret": -0.0021232678430788228,
+          "median_signed_ret": -0.0030000000000001137,
+          "cont_rate": 0.4764203154600992,
+          "uncond_mean_abs_ret": 0.06159462761506277,
+          "mean_vs_uncond_abs": -0.03447164022726528,
+          "mean_over_med_spread": -0.19302434937087787,
+          "n_nonoverlap": 41913,
+          "mean_signed_ret_nonoverlap": -0.0016453367690215663,
+          "cont_rate_nonoverlap": 0.4789444802328633
+        },
+        {
+          "H": 12,
+          "n_events": 187915,
+          "mean_signed_ret": -0.0027009339328951873,
+          "median_signed_ret": -0.0040000000000048885,
+          "cont_rate": 0.4792752042146715,
+          "uncond_mean_abs_ret": 0.08674620495740519,
+          "mean_vs_uncond_abs": -0.031136047210611938,
+          "mean_over_med_spread": -0.24553944844511347,
+          "n_nonoverlap": 22678,
+          "mean_signed_ret_nonoverlap": -0.0012847693800159055,
+          "cont_rate_nonoverlap": 0.48734456301261136
+        },
+        {
+          "H": 24,
+          "n_events": 187903,
+          "mean_signed_ret": -0.003706747630426344,
+          "median_signed_ret": -0.005000000000009663,
+          "cont_rate": 0.48099817459008104,
+          "uncond_mean_abs_ret": 0.12269422732522135,
+          "mean_vs_uncond_abs": -0.03021126349001731,
+          "mean_over_med_spread": -0.3369770573116182,
+          "n_nonoverlap": 11869,
+          "mean_signed_ret_nonoverlap": -0.0018882803943045129,
+          "cont_rate_nonoverlap": 0.4810009267840593
+        }
+      ],
+      "d2": [
+        {
+          "H": 6,
+          "n_lowvol_events": 152888,
+          "mean_ratio": 2.708694823243993,
+          "median_ratio": 2.303853154147249,
+          "uncond_mean_range": 0.1264298092601087,
+          "uncond_mean_ratio_proxy": 2.773895268778773,
+          "ratio_vs_uncond": 0.9764949865740659,
+          "n_nonoverlap": 28146,
+          "mean_ratio_nonoverlap": 2.6738712322465976
+        },
+        {
+          "H": 12,
+          "n_lowvol_events": 152882,
+          "mean_ratio": 4.012676735026577,
+          "median_ratio": 3.417657232655664,
+          "uncond_mean_range": 0.18061192675601745,
+          "uncond_mean_ratio_proxy": 3.962661749198817,
+          "ratio_vs_uncond": 1.012621563230289,
+          "n_nonoverlap": 15163,
+          "mean_ratio_nonoverlap": 3.8989495359793893
+        },
+        {
+          "H": 24,
+          "n_lowvol_events": 152870,
+          "mean_ratio": 6.034586363904564,
+          "median_ratio": 5.169922235732164,
+          "uncond_mean_range": 0.2581768962134326,
+          "uncond_mean_ratio_proxy": 5.6644526722416835,
+          "ratio_vs_uncond": 1.065343240217488,
+          "n_nonoverlap": 8438,
+          "mean_ratio_nonoverlap": 5.6730787430163145
+        }
+      ],
+      "stability_H12_first_half_mean": -0.002977006230363695,
+      "stability_H12_first_half_n": 93895,
+      "stability_H12_second_half_mean": -0.002415051590256356,
+      "stability_H12_second_half_n": 94010
+    },
+    {
+      "symbol": "USDCAD",
+      "rows": 373855,
+      "n_dev": 299084,
+      "med_spread": 0.00012999999999996348,
+      "d1": [
+        {
+          "H": 6,
+          "n_events": 192280,
+          "mean_signed_ret": -1.504169440399386e-05,
+          "median_signed_ret": -1.999999999990898e-05,
+          "cont_rate": 0.47934262533804867,
+          "uncond_mean_abs_ret": 0.0005448942246597334,
+          "mean_vs_uncond_abs": -0.027604796900511933,
+          "mean_over_med_spread": -0.11570534156921605,
+          "n_nonoverlap": 42510,
+          "mean_signed_ret_nonoverlap": -1.8803716772523424e-05,
+          "cont_rate_nonoverlap": 0.48136908962597036
+        },
+        {
+          "H": 12,
+          "n_events": 192274,
+          "mean_signed_ret": -1.8683150087895024e-05,
+          "median_signed_ret": -2.999999999997449e-05,
+          "cont_rate": 0.4803717611325504,
+          "uncond_mean_abs_ret": 0.0007685089373798176,
+          "mean_vs_uncond_abs": -0.02431090801831666,
+          "mean_over_med_spread": -0.14371653913769442,
+          "n_nonoverlap": 22858,
+          "mean_signed_ret_nonoverlap": -2.5664712573279344e-05,
+          "cont_rate_nonoverlap": 0.48061947676962113
+        },
+        {
+          "H": 24,
+          "n_events": 192264,
+          "mean_signed_ret": -2.4620521782548715e-05,
+          "median_signed_ret": -4.0000000000040004e-05,
+          "cont_rate": 0.4837151000707361,
+          "uncond_mean_abs_ret": 0.0010909248520116384,
+          "mean_vs_uncond_abs": -0.022568485571805505,
+          "mean_over_med_spread": -0.18938862909658177,
+          "n_nonoverlap": 11918,
+          "mean_signed_ret_nonoverlap": -1.6037086759522573e-05,
+          "cont_rate_nonoverlap": 0.4846450746769592
+        }
+      ],
+      "d2": [
+        {
+          "H": 6,
+          "n_lowvol_events": 147576,
+          "mean_ratio": 2.5762833016503195,
+          "median_ratio": 2.268984668859001,
+          "uncond_mean_range": 0.0010894603088059194,
+          "uncond_mean_ratio_proxy": 2.9486788348903357,
+          "ratio_vs_uncond": 0.8737076656726279,
+          "n_nonoverlap": 26394,
+          "mean_ratio_nonoverlap": 2.5690562816743374
+        },
+        {
+          "H": 12,
+          "n_lowvol_events": 147576,
+          "mean_ratio": 3.772807106780642,
+          "median_ratio": 3.298780816340714,
+          "uncond_mean_range": 0.001556875722524018,
+          "uncond_mean_ratio_proxy": 4.213762038373607,
+          "ratio_vs_uncond": 0.8953536228250892,
+          "n_nonoverlap": 13971,
+          "mean_ratio_nonoverlap": 3.760951729434862
+        },
+        {
+          "H": 24,
+          "n_lowvol_events": 147576,
+          "mean_ratio": 5.600891420016018,
+          "median_ratio": 4.841260509284853,
+          "uncond_mean_range": 0.0022238763999464783,
+          "uncond_mean_ratio_proxy": 6.019032743947786,
+          "ratio_vs_uncond": 0.9305301463341906,
+          "n_nonoverlap": 7635,
+          "mean_ratio_nonoverlap": 5.560867592328531
+        }
+      ],
+      "stability_H12_first_half_mean": -1.9964841788045774e-05,
+      "stability_H12_first_half_n": 95568,
+      "stability_H12_second_half_mean": -1.748543418235938e-05,
+      "stability_H12_second_half_n": 96699
+    },
+    {
+      "symbol": "USDCHF",
+      "rows": 373551,
+      "n_dev": 298840,
+      "med_spread": 9.999999999998899e-05,
+      "d1": [
+        {
+          "H": 6,
+          "n_events": 191841,
+          "mean_signed_ret": -2.356392533400048e-05,
+          "median_signed_ret": -2.0000000000020002e-05,
+          "cont_rate": 0.4734233036733545,
+          "uncond_mean_abs_ret": 0.0004586153254012083,
+          "mean_vs_uncond_abs": -0.05138058854310235,
+          "mean_over_med_spread": -0.23563925334003077,
+          "n_nonoverlap": 42377,
+          "mean_signed_ret_nonoverlap": -2.311199471411369e-05,
+          "cont_rate_nonoverlap": 0.4754465865917833
+        },
+        {
+          "H": 12,
+          "n_events": 191841,
+          "mean_signed_ret": -3.560199853003265e-05,
+          "median_signed_ret": -3.999999999992898e-05,
+          "cont_rate": 0.47216705500909606,
+          "uncond_mean_abs_ret": 0.000643655750050204,
+          "mean_vs_uncond_abs": -0.055312173513956425,
+          "mean_over_med_spread": -0.3560199853003657,
+          "n_nonoverlap": 22804,
+          "mean_signed_ret_nonoverlap": -2.686971583932649e-05,
+          "cont_rate_nonoverlap": 0.4766707595158744
+        },
+        {
+          "H": 24,
+          "n_events": 191835,
+          "mean_signed_ret": -3.808307660228842e-05,
+          "median_signed_ret": -4.999999999999449e-05,
+          "cont_rate": 0.4767951625094482,
+          "uncond_mean_abs_ret": 0.0009075048532315829,
+          "mean_vs_uncond_abs": -0.04196459827920076,
+          "mean_over_med_spread": -0.3808307660229261,
+          "n_nonoverlap": 11912,
+          "mean_signed_ret_nonoverlap": -3.9090832773672565e-05,
+          "cont_rate_nonoverlap": 0.47548690396239085
+        }
+      ],
+      "d2": [
+        {
+          "H": 6,
+          "n_lowvol_events": 154883,
+          "mean_ratio": 2.6304677202329185,
+          "median_ratio": 2.228111115739361,
+          "uncond_mean_range": 0.0009195454448067387,
+          "uncond_mean_ratio_proxy": 2.931478256319971,
+          "ratio_vs_uncond": 0.8973178342912475,
+          "n_nonoverlap": 27592,
+          "mean_ratio_nonoverlap": 2.61223729086251
+        },
+        {
+          "H": 12,
+          "n_lowvol_events": 154877,
+          "mean_ratio": 3.910063030581285,
+          "median_ratio": 3.277059775981512,
+          "uncond_mean_range": 0.0013177550584517325,
+          "uncond_mean_ratio_proxy": 4.200956377766396,
+          "ratio_vs_uncond": 0.9307554468490398,
+          "n_nonoverlap": 14576,
+          "mean_ratio_nonoverlap": 3.8563559237821567
+        },
+        {
+          "H": 24,
+          "n_lowvol_events": 154865,
+          "mean_ratio": 5.906624237896669,
+          "median_ratio": 4.8759089285888155,
+          "uncond_mean_range": 0.0018857274955138335,
+          "uncond_mean_ratio_proxy": 6.011632357773611,
+          "ratio_vs_uncond": 0.9825325113667078,
+          "n_nonoverlap": 7928,
+          "mean_ratio_nonoverlap": 5.767431851063988
+        }
+      ],
+      "stability_H12_first_half_mean": -3.253923160173156e-05,
+      "stability_H12_first_half_n": 96096,
+      "stability_H12_second_half_mean": -3.867337601972067e-05,
+      "stability_H12_second_half_n": 95737
+    },
+    {
+      "symbol": "USDJPY",
+      "rows": 374030,
+      "n_dev": 299224,
+      "med_spread": 0.006000000000000227,
+      "d1": [
+        {
+          "H": 6,
+          "n_events": 193465,
+          "mean_signed_ret": -0.00013956191559198123,
+          "median_signed_ret": -0.002999999999985903,
+          "cont_rate": 0.4822474349365518,
+          "uncond_mean_abs_ret": 0.08230181488785641,
+          "mean_vs_uncond_abs": -0.0016957331473448894,
+          "mean_over_med_spread": -0.023260319265329323,
+          "n_nonoverlap": 42478,
+          "mean_signed_ret_nonoverlap": -0.0005958497575215949,
+          "cont_rate_nonoverlap": 0.4847685860916239
+        },
+        {
+          "H": 12,
+          "n_events": 193462,
+          "mean_signed_ret": -0.0002487584693634885,
+          "median_signed_ret": -0.0030000000000001137,
+          "cont_rate": 0.48539248017698566,
+          "uncond_mean_abs_ret": 0.11730436660371366,
+          "mean_vs_uncond_abs": -0.0021206241213838433,
+          "mean_over_med_spread": -0.041459744893913186,
+          "n_nonoverlap": 22883,
+          "mean_signed_ret_nonoverlap": -2.7629157016111887e-05,
+          "cont_rate_nonoverlap": 0.486430974959577
+        },
+        {
+          "H": 24,
+          "n_events": 193454,
+          "mean_signed_ret": -0.0003529811893266733,
+          "median_signed_ret": -0.003999999999990678,
+          "cont_rate": 0.48810569954614536,
+          "uncond_mean_abs_ret": 0.1688859374728398,
+          "mean_vs_uncond_abs": -0.0020900567247254653,
+          "mean_over_med_spread": -0.058830198221109985,
+          "n_nonoverlap": 11920,
+          "mean_signed_ret_nonoverlap": 0.0013161912751677941,
+          "cont_rate_nonoverlap": 0.4884228187919463
+        }
+      ],
+      "d2": [
+        {
+          "H": 6,
+          "n_lowvol_events": 146090,
+          "mean_ratio": 2.7777123836787245,
+          "median_ratio": 2.31119751498911,
+          "uncond_mean_range": 0.16521142528201463,
+          "uncond_mean_ratio_proxy": 2.9560704812654066,
+          "ratio_vs_uncond": 0.9396637872076946,
+          "n_nonoverlap": 26674,
+          "mean_ratio_nonoverlap": 2.760688831113192
+        },
+        {
+          "H": 12,
+          "n_lowvol_events": 146090,
+          "mean_ratio": 4.213030845130483,
+          "median_ratio": 3.4525821094867837,
+          "uncond_mean_range": 0.23851218528078322,
+          "uncond_mean_ratio_proxy": 4.267615445645474,
+          "ratio_vs_uncond": 0.9872095784612723,
+          "n_nonoverlap": 14352,
+          "mean_ratio_nonoverlap": 4.116102172121846
+        },
+        {
+          "H": 24,
+          "n_lowvol_events": 146090,
+          "mean_ratio": 6.584305738578739,
+          "median_ratio": 5.340191644670318,
+          "uncond_mean_range": 0.34432518509763277,
+          "uncond_mean_ratio_proxy": 6.160890591470283,
+          "ratio_vs_uncond": 1.0687262889710576,
+          "n_nonoverlap": 7985,
+          "mean_ratio_nonoverlap": 6.176267767304913
+        }
+      ],
+      "stability_H12_first_half_mean": 0.001838480430579497,
+      "stability_H12_first_half_n": 95685,
+      "stability_H12_second_half_mean": -0.0022868396338344924,
+      "stability_H12_second_half_n": 97770
+    }
+  ]
+}

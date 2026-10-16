@@ -1,0 +1,28 @@
+[PASS] flat_long_produces_trade — n=1
+[PASS] flat_long_entry_is_ask — entry=1.1002
+[PASS] flat_long_loses_spread — gross_R=-0.100000
+[PASS] flat_long_R_approx_neg_spread_over_risk — R=-0.1000
+[PASS] flat_short_produces_trade — n=1
+[PASS] flat_short_entry_is_bid — entry=1.1
+[PASS] flat_short_loses_spread — gross_R=-0.100000
+[PASS] long_stop_hit — reason=STOP
+[PASS] long_stop_fill_at_stop_level — exit=1.0982
+[PASS] short_stop_hit — reason=STOP
+[PASS] stop_on_entry_bar — exit_i=21
+[PASS] gap_stop_exists — n=1
+[PASS] gap_fills_at_stop_level_not_open — exit=1.0982 stop=1.0982 open=1.0950
+[PASS] GAP_CONVENTION_DOCUMENTED — Frozen sim fills at stop price on gap-through; optimistic vs real open fill
+[PASS] be_trade_exists — n=1
+[PASS] be_not_original_stop_loss — R=0.6500 reason=STOP
+[PASS] trail_favorable_direction_by_code — LONG: candidate = bc - trail*atr; only if candidate > stop. SHORT: symmetric.
+[PASS] max_hold_respected — exit_i=30 max=30
+[PASS] max_hold_duration — duration=10
+[PASS] one_position_skips_overlap — n_trades=2
+[PASS] one_position_allows_after_exit — trades=[20, 40]
+[PASS] eof_no_crash — n_trades=1
+[PASS] frozen_api_always_be — simulate_*_broker_correct has no use_be flag; BE always on at +1R
+[PASS] broker_correct_cost_R_zero — cost_R=0.0
+[PASS] broker_correct_R_equals_gross — R=-0.09999999999998899 gross=-0.09999999999998899
+[PASS] intrabar_stop_checked_before_be — Loop checks stop on extreme first; then BE using close. Stop-first convention.
+[PASS] no_tick_precision_claimed — M5 OHLC cannot resolve true intrabar sequence; results are convention-dependent.
+TOTAL: 27 PASS, 0 FAIL

@@ -1,0 +1,65 @@
+=== AUDUSD ===
+  rows=373959 med_spread=0.000100 med_atr=0.000304 spread/atr=0.3286
+  signals LONG=1021 SHORT=1369
+  best BOTH AUDUSD_BOTH_htf_pb_C_s3.0 n=67 pf=0.9957 blk=0.4468 test=0.6334
+=== EURCHF ===
+  rows=373387 med_spread=0.000110 med_atr=0.000241 spread/atr=0.4563
+  signals LONG=387 SHORT=1007
+  best BOTH EURCHF_BOTH_htf_pb_B_s2.5 n=58 pf=0.4586 blk=0.0354 test=1.8493
+=== EURGBP ===
+  rows=373933 med_spread=0.000090 med_atr=0.000208 spread/atr=0.4328
+  signals LONG=721 SHORT=297
+  best BOTH EURGBP_BOTH_htf_pb_A_s2.0 n=80 pf=0.5994 blk=0.2408 test=0.1195
+=== EURJPY ===
+  rows=373545 med_spread=0.010000 med_atr=0.059949 spread/atr=0.1668
+  signals LONG=5423 SHORT=1610
+  best BOTH EURJPY_BOTH_htf_pb_C_s3.0 n=293 pf=0.9418 blk=0.6521 test=0.9262
+=== EURUSD ===
+  rows=374050 med_spread=0.000030 med_atr=0.000329 spread/atr=0.0913
+  signals LONG=3275 SHORT=4041
+  best BOTH EURUSD_BOTH_htf_pb_D_s2.5 n=660 pf=1.037 blk=0.3887 test=1.0123
+=== GBPJPY ===
+  rows=373481 med_spread=0.020000 med_atr=0.077198 spread/atr=0.2591
+  signals LONG=5377 SHORT=1734
+  best BOTH GBPJPY_BOTH_htf_pb_C_s3.0 n=268 pf=0.9259 blk=0.6922 test=0.7822
+=== GBPNZD ===
+  rows=371039 med_spread=0.000510 med_atr=0.000799 spread/atr=0.6384
+  signals LONG=714 SHORT=545
+=== GBPUSD ===
+  rows=373951 med_spread=0.000090 med_atr=0.000431 spread/atr=0.2088
+  signals LONG=3652 SHORT=3681
+  best BOTH GBPUSD_BOTH_htf_pb_C_s3.0 n=347 pf=0.9418 blk=0.7025 test=0.8438
+=== NZDCHF ===
+  rows=373238 med_spread=0.000170 med_atr=0.000246 spread/atr=0.6922
+  signals LONG=40 SHORT=166
+=== NZDJPY ===
+  rows=373507 med_spread=0.010000 med_atr=0.043775 spread/atr=0.2284
+  signals LONG=2375 SHORT=1673
+  best BOTH NZDJPY_BOTH_htf_pb_C_s3.0 n=205 pf=0.8462 blk=0.4591 test=0.6967
+=== USDCAD ===
+  rows=373855 med_spread=0.000130 med_atr=0.000346 spread/atr=0.3760
+  signals LONG=2270 SHORT=1358
+  best BOTH USDCAD_BOTH_htf_pb_C_s3.0 n=160 pf=1.236 blk=0.8396 test=0.7302
+=== USDCHF ===
+  rows=373551 med_spread=0.000100 med_atr=0.000297 spread/atr=0.3371
+  signals LONG=1568 SHORT=1766
+  best BOTH USDCHF_BOTH_htf_pb_C_s3.0 n=163 pf=1.0373 blk=0.8524 test=0.9361
+=== USDJPY ===
+  rows=374030 med_spread=0.006000 med_atr=0.053561 spread/atr=0.1120
+  signals LONG=4928 SHORT=1540
+  best BOTH USDJPY_BOTH_htf_pb_B_s2.5 n=325 pf=0.935 blk=0.7018 test=1.072
+
+==== SUMMARY ====
+Evals=195 Pass-strict=0 Pass-LF=0 elapsed=41.7s
+Top near-misses (BOTH, val>=50) by val PF:
+  USDCAD C n=160 pf=1.236 blk=0.8396 test_n=99 test_pf=0.7302 avgR=0.1062
+  USDCAD B n=174 pf=1.1641 blk=0.8258 test_n=114 test_pf=0.6047 avgR=0.0783
+  USDCAD E n=258 pf=1.1498 blk=0.7436 test_n=149 test_pf=0.6397 avgR=0.0346
+  USDCHF C n=163 pf=1.0373 blk=0.8524 test_n=86 test_pf=0.9361 avgR=0.0183
+  EURUSD D n=660 pf=1.037 blk=0.3887 test_n=537 test_pf=1.0123 avgR=0.0087
+  USDCHF B n=178 pf=1.0309 blk=0.8119 test_n=92 test_pf=0.951 avgR=0.0158
+  USDCAD A n=209 pf=1.0235 blk=0.698 test_n=125 test_pf=0.5764 avgR=0.0123
+  AUDUSD C n=67 pf=0.9957 blk=0.4468 test_n=72 test_pf=0.6334 avgR=-0.0022
+  USDCAD D n=283 pf=0.9936 blk=0.6673 test_n=170 test_pf=0.6873 avgR=-0.0016
+  EURUSD E n=605 pf=0.971 blk=0.3748 test_n=477 test_pf=1.0611 avgR=-0.0067
+DONE

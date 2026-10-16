@@ -1,0 +1,63 @@
+=== AUDUSD ===
+  rows=373959 med_spread=0.000100 med_atr=0.000304
+  signals LONG=92 SHORT=95 cost_rejected≈11287
+  best BOTH AUDUSD_BOTH_asianNY_E n=29 pf_full=0.9451 blk=None test_pf=0.9632
+=== EURCHF ===
+  rows=373387 med_spread=0.000110 med_atr=0.000241
+  signals LONG=20 SHORT=27 cost_rejected≈3339
+=== EURGBP ===
+  rows=373933 med_spread=0.000090 med_atr=0.000208
+  signals LONG=25 SHORT=25 cost_rejected≈2833
+=== EURJPY ===
+  rows=373545 med_spread=0.010000 med_atr=0.059949
+  signals LONG=81 SHORT=88 cost_rejected≈472
+  best BOTH EURJPY_BOTH_asianNY_C n=33 pf_full=0.885 blk=None test_pf=0.5426
+=== EURUSD ===
+  rows=374050 med_spread=0.000030 med_atr=0.000329
+  signals LONG=57 SHORT=72 cost_rejected≈452
+  best BOTH EURUSD_BOTH_asianNY_C n=27 pf_full=0.8404 blk=None test_pf=0.9334
+=== GBPJPY ===
+  rows=373481 med_spread=0.020000 med_atr=0.077198
+  signals LONG=86 SHORT=84 cost_rejected≈518
+  best BOTH GBPJPY_BOTH_asianNY_C n=39 pf_full=0.9779 blk=None test_pf=1.2376
+=== GBPNZD ===
+  rows=371039 med_spread=0.000510 med_atr=0.000799
+  signals LONG=35 SHORT=62 cost_rejected≈11712
+=== GBPUSD ===
+  rows=373951 med_spread=0.000090 med_atr=0.000431
+  signals LONG=63 SHORT=71 cost_rejected≈297
+  best BOTH GBPUSD_BOTH_asianNY_E n=27 pf_full=1.4643 blk=None test_pf=0.6892
+=== NZDCHF ===
+  rows=373238 med_spread=0.000170 med_atr=0.000246
+  signals LONG=7 SHORT=9 cost_rejected≈11473
+=== NZDJPY ===
+  rows=373507 med_spread=0.010000 med_atr=0.043775
+  signals LONG=95 SHORT=89 cost_rejected≈6099
+  best BOTH NZDJPY_BOTH_asianNY_E n=32 pf_full=0.8302 blk=None test_pf=0.4447
+=== USDCAD ===
+  rows=373855 med_spread=0.000130 med_atr=0.000346
+  signals LONG=73 SHORT=79 cost_rejected≈3152
+  best BOTH USDCAD_BOTH_asianNY_A n=27 pf_full=0.7701 blk=None test_pf=0.8173
+=== USDCHF ===
+  rows=373551 med_spread=0.000100 med_atr=0.000297
+  signals LONG=60 SHORT=51 cost_rejected≈2836
+  best BOTH USDCHF_BOTH_asianNY_B n=26 pf_full=0.6205 blk=None test_pf=0.8571
+=== USDJPY ===
+  rows=374030 med_spread=0.006000 med_atr=0.053561
+  signals LONG=135 SHORT=118 cost_rejected≈749
+  best BOTH USDJPY_BOTH_asianNY_D n=53 pf_full=0.8345 blk=None test_pf=1.7155
+
+==== SUMMARY ====
+Evals=195 Pass-strict=0 Pass-LF=0 elapsed=20.9s
+Top near-misses (BOTH, val>=30) by val PF_full_cost:
+  GBPJPY C n=39 pf_full=0.9779 pf_spread=1.0641 blk=None test_n=38 test_pf_full=1.2376
+  GBPJPY E n=39 pf_full=0.9303 pf_spread=1.022 blk=None test_n=38 test_pf_full=1.0937
+  GBPJPY B n=39 pf_full=0.9254 pf_spread=1.0238 blk=None test_n=38 test_pf_full=1.051
+  EURJPY C n=33 pf_full=0.885 pf_spread=1.0041 blk=None test_n=38 test_pf_full=0.5426
+  USDJPY D n=53 pf_full=0.8345 pf_spread=1.0296 blk=None test_n=44 test_pf_full=1.7155
+  NZDJPY E n=32 pf_full=0.8302 pf_spread=1.0179 blk=None test_n=24 test_pf_full=0.4447
+  NZDJPY C n=32 pf_full=0.7838 pf_spread=0.9383 blk=None test_n=24 test_pf_full=0.6435
+  EURJPY B n=33 pf_full=0.7748 pf_spread=0.9009 blk=None test_n=38 test_pf_full=0.5366
+  GBPJPY A n=39 pf_full=0.7603 pf_spread=0.8567 blk=None test_n=38 test_pf_full=0.6867
+  EURJPY D n=33 pf_full=0.7538 pf_spread=0.911 blk=None test_n=38 test_pf_full=0.668
+DONE

@@ -1,0 +1,13 @@
+finding_id,area,severity,status,repaired,evidence
+F1,execution_contract,Broker-correct vs V53.6 separation,PASS,n/a,common.py distinct functions; unit tests
+F2,execution_sides,Long Ask entry / Short Bid entry,PASS,n/a,test_broker_correct 27/27
+F3,htf_causality,H1/H4 shift+ffill no lookahead,PASS,n/a,prefix-invariance test prior audit
+F4,cost_accounting,HTF scan slip/comm not in realised R,FAIL,documented_not_replayed_grid,code inspection HTF script
+F5,cost_accounting,Asian-NY full cost in R,PASS,yes_in_that_scan,run_asian_range_ny_expansion.py
+F6,validation_blocks,Trade-count quantiles vs calendar,FAIL_then_fixed_in_NY,partial,prior scans quantiles; NY calendar
+F7,final_test,Prior final 20% exposed,DOCUMENTED,labelled_exposed,all new docs
+F8,gap_fills,Optimistic stop-price fill in frozen sim,DOCUMENTED,conservative_in_NY,unit test + NY gap_mode
+F9,commission,0.7 pip is assumption,DOCUMENTED,labelled,all full-cost reports
+F10,D1_persistence,Preregistered H1 rejected,FAIL_hypothesis,n/a,direct_market_behaviour results
+F11,D2_vol_expansion,Preregistered H1 rejected,FAIL_hypothesis,n/a,direct_market_behaviour results
+F12,git_commit_artefacts,Scan outputs not in 8385fc6,PROCESS_GAP,pending_operator_commit,git ls-files / disk inventory

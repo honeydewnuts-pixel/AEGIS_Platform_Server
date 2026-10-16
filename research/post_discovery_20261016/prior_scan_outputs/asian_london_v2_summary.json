@@ -1,0 +1,22 @@
+{
+  "hypothesis": "Asian-range \u2192 London expansion v2 (H1-ATR / percentile / pips compression)",
+  "gates_strict": {
+    "val_min_trades": 350,
+    "val_min_pf": 1.6,
+    "six_block_min_pf": 1.0
+  },
+  "gates_lf": {
+    "val_min_trades": 150,
+    "val_min_pf": 1.6,
+    "six_block_min_pf": 1.0
+  },
+  "execution": "broker_correct_bid_ask",
+  "split": "60/20/20",
+  "n_pairs": 4,
+  "n_evals": 254,
+  "n_pass_strict": 0,
+  "n_pass_lf": 0,
+  "winners_strict": [],
+  "winners_lf": [],
+  "elapsed_sec": 14.5
+}

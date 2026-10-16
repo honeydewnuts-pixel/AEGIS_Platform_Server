@@ -1,0 +1,1 @@
+dd0ff932fb9617fe0a7f5acbe274d607f6aeb5176b08367734115c19ea55ced4  /home/workdir/artifacts/discovery_hypotheses/post_discovery_phase/docs/AEGIS_DIRECT_MARKET_BEHAVIOUR_PREREGISTRATION.md
