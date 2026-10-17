@@ -1,0 +1,1 @@
+bfea37d1411c07d6ed8113a1e1dfac5a02346ba6620b641fa972d881cddf07a3  research/session_liquidity_transitions_20261017/docs/AEGIS_SESSION_LIQUIDITY_PREREGISTRATION.md
