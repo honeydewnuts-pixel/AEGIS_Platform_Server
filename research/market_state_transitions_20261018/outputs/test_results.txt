@@ -1,0 +1,26 @@
+=== Market-state integrity tests ===
+[PASS] prereg_hash_match
+[PASS] mat_ge1_equals_summary
+[PASS] ci_excl_equals_summary
+[PASS] same_sign_equals_summary
+[PASS] mat_count_not_exceed_pairs
+[PASS] no_15_over_13_bug
+[PASS] rv_matches_past_window
+[PASS] rv_nan_before_warm
+[PASS] prefix_invariance_elevated
+[PASS] H_star_is_12
+[PASS] abs_disp_forward
+[PASS] horizon_unavailable_is_nan
+[PASS] thin_min_gap
+[PASS] bootstrap_seed_repro_diff
+[PASS] bootstrap_seed_repro_ci
+[PASS] N_BOOT_is_1000
+[PASS] quiet_boundary
+[PASS] ordinary_boundary
+[PASS] elevated_boundary
+[PASS] q2a_transition
+[PASS] manifest_exists
+[PASS] manifest_13_rows
+[PASS] manifest_has_sha
+
+TOTAL: 23 PASS, 0 FAIL

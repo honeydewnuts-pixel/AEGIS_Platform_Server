@@ -1,0 +1,11 @@
+{
+  "metric": "materiality",
+  "formula": "abs(mean_abs_disp_ELEVATED - mean_abs_disp_B_HIGH) / median_spread_development",
+  "threshold": 1.0,
+  "summary_json_n_mat_ge1": 5,
+  "csv_count_materiality_ge1": 5,
+  "independent_recalc": 5,
+  "n_pairs": 13,
+  "typo_15_over_13_in_committed_artefacts": false,
+  "resolution": "prose-only external inconsistency; committed artefacts correct at 5/13"
+}

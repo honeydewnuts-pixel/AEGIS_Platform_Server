@@ -1,0 +1,15 @@
+{
+  "status": "CLOSEOUT_COMPLETE",
+  "prereg_hash_verified": true,
+  "prereg_precedes_analysis": true,
+  "materiality_n_ge1": 5,
+  "materiality_denominator": 13,
+  "tests_pass": 23,
+  "tests_fail": 0,
+  "decision": "RETAIN_AS_DESCRIPTIVE_MARKET_BEHAVIOUR_EVIDENCE_ONLY",
+  "rulebook_authorized": false,
+  "deviations": [
+    "percentile_refresh_every_50_bars_not_in_prereg_text",
+    "bootstrap_unpaired_not_day_clustered_matched"
+  ]
+}
