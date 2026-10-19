@@ -1,0 +1,173 @@
+{
+  "prereg_hash": "c90a055afad2b84b2d00a508e2fa04788751e15a7beda165e7d66e943e6779f7",
+  "prereg_commit": "bed45657c9953ad3210360f76d5a02eb3a49b834",
+  "primary_contrast": "ELEVATED_vs_B_HIGH",
+  "H_star": 12,
+  "n_boot": 1000,
+  "n_pairs": 13,
+  "n_sufficient": 13,
+  "n_ci_excludes_0": 13,
+  "n_mat_ge1": 5,
+  "n_same_sign_stability": 13,
+  "decision": "RETAIN_AS_DESCRIPTIVE_ONLY",
+  "note": "Richer state vs simple vol baseline; Bid-path only; not executable P&L",
+  "elapsed_sec": 118.0,
+  "instruments": [
+    {
+      "symbol": "AUDUSD",
+      "n_state": 4368,
+      "n_base": 6662,
+      "diff": 8.605203312648591e-05,
+      "ci": [
+        5.112241109985899e-05,
+        0.00011854810962110419
+      ],
+      "materiality": 0.7822912102403934,
+      "same_sign": true
+    },
+    {
+      "symbol": "EURCHF",
+      "n_state": 4538,
+      "n_base": 7138,
+      "diff": 7.762896451385284e-05,
+      "ci": [
+        4.3210389947052656e-05,
+        0.00010941245760868272
+      ],
+      "materiality": 0.7057178592164943,
+      "same_sign": true
+    },
+    {
+      "symbol": "EURGBP",
+      "n_state": 3723,
+      "n_base": 5858,
+      "diff": 8.984453583039194e-05,
+      "ci": [
+        5.500077372834829e-05,
+        0.00012277857464606569
+      ],
+      "materiality": 0.8984453583040184,
+      "same_sign": true
+    },
+    {
+      "symbol": "EURJPY",
+      "n_state": 5729,
+      "n_base": 8473,
+      "diff": 0.016973740846989438,
+      "ci": [
+        0.01097663518137338,
+        0.022986806213392934
+      ],
+      "materiality": 1.5430673497269185,
+      "same_sign": true
+    },
+    {
+      "symbol": "EURUSD",
+      "n_state": 4228,
+      "n_base": 6580,
+      "diff": 0.00013951599267296054,
+      "ci": [
+        9.990482220858008e-05,
+        0.0001833152826143848
+      ],
+      "materiality": 4.650533089102638,
+      "same_sign": true
+    },
+    {
+      "symbol": "GBPJPY",
+      "n_state": 5361,
+      "n_base": 8070,
+      "diff": 0.018008189256152052,
+      "ci": [
+        0.010301220999938309,
+        0.025995828519203318
+      ],
+      "materiality": 0.8575328217209135,
+      "same_sign": true
+    },
+    {
+      "symbol": "GBPNZD",
+      "n_state": 4882,
+      "n_base": 7372,
+      "diff": 0.0001656516291256092,
+      "ci": [
+        8.929760027923273e-05,
+        0.00023874210534373676
+      ],
+      "materiality": 0.34510756067832665,
+      "same_sign": true
+    },
+    {
+      "symbol": "GBPUSD",
+      "n_state": 4134,
+      "n_base": 6388,
+      "diff": 0.00018648867812440803,
+      "ci": [
+        0.0001249878748827221,
+        0.0002469190093476221
+      ],
+      "materiality": 1.8648867812442858,
+      "same_sign": true
+    },
+    {
+      "symbol": "NZDCHF",
+      "n_state": 4354,
+      "n_base": 6492,
+      "diff": 3.737279563328108e-05,
+      "ci": [
+        1.1396883245723016e-05,
+        6.326251526206071e-05
+      ],
+      "materiality": 0.2076266424071656,
+      "same_sign": true
+    },
+    {
+      "symbol": "NZDJPY",
+      "n_state": 5059,
+      "n_base": 7755,
+      "diff": 0.010540314093821862,
+      "ci": [
+        0.00584396160190458,
+        0.014935620654994269
+      ],
+      "materiality": 0.9582103721660001,
+      "same_sign": true
+    },
+    {
+      "symbol": "USDCAD",
+      "n_state": 3868,
+      "n_base": 6114,
+      "diff": 0.0001499810190320474,
+      "ci": [
+        0.00010028965704273024,
+        0.0001978551187595962
+      ],
+      "materiality": 1.1537001464006889,
+      "same_sign": true
+    },
+    {
+      "symbol": "USDCHF",
+      "n_state": 4719,
+      "n_base": 7120,
+      "diff": 9.089777876192782e-05,
+      "ci": [
+        5.331788080726937e-05,
+        0.000125538835050933
+      ],
+      "materiality": 0.9089777876193783,
+      "same_sign": true
+    },
+    {
+      "symbol": "USDJPY",
+      "n_state": 6330,
+      "n_base": 9100,
+      "diff": 0.011451999548634462,
+      "ci": [
+        0.005461305400760168,
+        0.017938565026995014
+      ],
+      "materiality": 1.9086665914390046,
+      "same_sign": true
+    }
+  ]
+}
