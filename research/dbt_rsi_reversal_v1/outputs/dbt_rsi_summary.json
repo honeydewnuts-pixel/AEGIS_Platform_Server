@@ -1,0 +1,13 @@
+{
+  "research_id": "AEGIS_DBT_RSI_REVERSAL_V1",
+  "production_authorized": false,
+  "execution_authorized": false,
+  "provisional_swing": {
+    "L": 2,
+    "R": 2
+  },
+  "n_pairs": 13,
+  "total_eligible": 183016,
+  "total_bear": 98165,
+  "total_bull": 84851
+}
