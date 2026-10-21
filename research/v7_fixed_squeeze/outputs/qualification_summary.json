@@ -1,0 +1,32 @@
+{
+  "n_rows": 104,
+  "n_qualifying": 0,
+  "production_authorized": false,
+  "symbols": [
+    "AUDUSD",
+    "BTCUSD",
+    "ETHUSD",
+    "EURCHF",
+    "EURGBP",
+    "EURJPY",
+    "EURUSD",
+    "GBPJPY",
+    "GBPNZD",
+    "GBPUSD",
+    "GER40",
+    "NZDCHF",
+    "NZDJPY",
+    "NZDUSD",
+    "UK100",
+    "UKOIL",
+    "US100",
+    "US500",
+    "USDCAD",
+    "USDCHF",
+    "USDJPY",
+    "USOIL",
+    "XAGUSD",
+    "XAUUSD"
+  ],
+  "baseline_note": "Original V7 Fixed Squeeze artifacts NOT in repository"
+}
