@@ -1,0 +1,13 @@
+{
+  "research_id": "BB17_BB34_RSI_SWING_V2.1",
+  "production_authorized": false,
+  "execution_authorized": false,
+  "rbb_source": "SMA7_of_RSI9",
+  "ddof": 0,
+  "total_eligible": 167412,
+  "total_bear": 88454,
+  "total_bull": 78958,
+  "total_target_changes": 64084,
+  "total_conflicts": 0,
+  "n_pairs": 13
+}
