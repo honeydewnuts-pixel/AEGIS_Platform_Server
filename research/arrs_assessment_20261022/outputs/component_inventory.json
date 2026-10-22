@@ -1,0 +1,58 @@
+[
+  {
+    "component": "RulebookRegistry",
+    "status": "VERIFIED",
+    "location": "backend/app/rulebooks/registry.py",
+    "recommendation": "reuse_pattern_not_mutate",
+    "gap": "research_lifecycle"
+  },
+  {
+    "component": "ExecutionGuard",
+    "status": "VERIFIED",
+    "location": "backend/app/safety/execution_guard.py",
+    "recommendation": "keep_fail_closed",
+    "gap": "arrs_must_not_bypass"
+  },
+  {
+    "component": "pattern_discovery_outputs",
+    "status": "VERIFIED",
+    "location": "research/pattern_discovery_20261022/outputs",
+    "recommendation": "register_as_case_study",
+    "gap": "unified_experiment_id"
+  },
+  {
+    "component": "p7_extension",
+    "status": "VERIFIED",
+    "location": "research/p7_price_action_extension",
+    "recommendation": "register_exploratory",
+    "gap": "confirmation_data"
+  },
+  {
+    "component": "multiple_testing_module",
+    "status": "MISSING",
+    "location": null,
+    "recommendation": "stage2",
+    "gap": "FDR_or_documented_policy"
+  },
+  {
+    "component": "research_experiment_registry",
+    "status": "MISSING",
+    "location": null,
+    "recommendation": "stage1_core",
+    "gap": "schema_and_api"
+  },
+  {
+    "component": "drift_monitor",
+    "status": "MISSING",
+    "location": null,
+    "recommendation": "stage2plus",
+    "gap": "criteria"
+  },
+  {
+    "component": "durable_lifecycle_service",
+    "status": "VERIFIED",
+    "location": "backend/app/services/durable_lifecycle_service.py",
+    "recommendation": "isolate_from_arrs",
+    "gap": "must_not_couple"
+  }
+]
