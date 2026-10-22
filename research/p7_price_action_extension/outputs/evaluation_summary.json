@@ -1,0 +1,34 @@
+{
+  "research_id": "P7_PRICE_ACTION_EXTENSION_20261022",
+  "production_authorized": false,
+  "execution_authorized": false,
+  "track": "A_H1_XAUUSD",
+  "gold_sha256": "88e004253d0b879d4e829601e9b228cfa7d4d5afcc25a0dbf4537ba6ef97517c",
+  "gold_sha_matches_p7_training": true,
+  "model_sha256": "18380c1ee7b1f6f0a5febb55c5e88e872abdd3c45f92edbec671a21d06cbe8fa",
+  "cost_rt_price": 0.42,
+  "prereg_commit": "96ab77d",
+  "final_20_exposed": true,
+  "cash_pf_not_computed": "no trade-management model registered",
+  "occurrences": [
+    {
+      "hypothesis": "P7-L1",
+      "total_events": 547,
+      "dev_events": 393,
+      "val_events": 97,
+      "test_events": 57,
+      "complete_h1": 29515,
+      "n_h1": 29568
+    },
+    {
+      "hypothesis": "P7-L2",
+      "total_events": 1496,
+      "dev_events": 903,
+      "val_events": 297,
+      "test_events": 296,
+      "complete_h1": 29515,
+      "n_h1": 29568
+    }
+  ],
+  "note": "Association layer only; in-sample historical structure"
+}
