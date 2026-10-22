@@ -1,0 +1,64 @@
+Registered patterns: 22, horizons: (3, 6, 12, 24, 48), min_support: 200
+Search space size: 110 pattern-horizon pairs per instrument
+=== AUDUSD (A_BIDASK) ===
+  candidates with support+same_sign: 76
+=== EURCHF (A_BIDASK) ===
+  candidates with support+same_sign: 86
+=== EURGBP (A_BIDASK) ===
+  candidates with support+same_sign: 92
+=== EURJPY (A_BIDASK) ===
+  candidates with support+same_sign: 85
+=== EURUSD (A_BIDASK) ===
+  candidates with support+same_sign: 62
+=== GBPJPY (A_BIDASK) ===
+  candidates with support+same_sign: 79
+=== GBPNZD (A_BIDASK) ===
+  candidates with support+same_sign: 86
+=== GBPUSD (A_BIDASK) ===
+  candidates with support+same_sign: 64
+=== NZDCHF (A_BIDASK) ===
+  candidates with support+same_sign: 92
+=== NZDJPY (A_BIDASK) ===
+  candidates with support+same_sign: 71
+=== NZDUSD (B_OHLC) ===
+  candidates with support+same_sign: 77
+=== USDCAD (A_BIDASK) ===
+  candidates with support+same_sign: 81
+=== USDCHF (A_BIDASK) ===
+  candidates with support+same_sign: 81
+=== USDJPY (A_BIDASK) ===
+  candidates with support+same_sign: 64
+=== BTCUSD (B_OHLC) ===
+  candidates with support+same_sign: 80
+=== ETHUSD (B_OHLC) ===
+  candidates with support+same_sign: 67
+=== GER40 (B_OHLC) ===
+  candidates with support+same_sign: 76
+=== UK100 (B_OHLC) ===
+  candidates with support+same_sign: 76
+=== UKOIL (B_OHLC) ===
+  candidates with support+same_sign: 62
+=== US100 (B_OHLC) ===
+  candidates with support+same_sign: 70
+=== US500 (B_OHLC) ===
+  candidates with support+same_sign: 81
+=== USOIL (B_OHLC) ===
+  candidates with support+same_sign: 63
+=== XAGUSD (B_OHLC) ===
+  candidates with support+same_sign: 64
+=== XAUUSD (B_OHLC) ===
+  candidates with support+same_sign: 102
+
+TOTAL evals=2640 survivors(val_n>=50,same_sign,support)=1837
+TOP 10 by |val_mean|:
+  ETHUSD   range_compression              h=48 val_n=10156 val_mean=0.000862 hit=0.530
+  BTCUSD   break_20lo                     h=48 val_n= 6409 val_mean=0.000841 hit=0.556
+  XAGUSD   break_20lo                     h=48 val_n= 3147 val_mean=0.000677 hit=0.571
+  ETHUSD   consec_bull_3                  h=48 val_n=12544 val_mean=0.000676 hit=0.520
+  ETHUSD   long_upper_wick_at_20hi        h=48 val_n= 3446 val_mean=0.000665 hit=0.519
+  ETHUSD   bear_engulf                    h=48 val_n= 6970 val_mean=0.000638 hit=0.521
+  XAGUSD   range_expansion                h=48 val_n= 3376 val_mean=0.000628 hit=0.562
+  NZDCHF   range_expansion                h=24 val_n= 3556 val_mean=0.000582 hit=0.613
+  NZDCHF   range_expansion                h=48 val_n= 3556 val_mean=0.000579 hit=0.586
+  UKOIL    bull_engulf_after_compression  h=48 val_n=  882 val_mean=-0.000579 hit=0.490
+DONE
