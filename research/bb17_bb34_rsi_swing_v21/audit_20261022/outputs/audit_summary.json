@@ -1,0 +1,19 @@
+{
+  "research_id": "BB17_BB34_RSI_SWING_V2.1_AUDIT_20261022",
+  "production_authorized": false,
+  "execution_authorized": false,
+  "reported_early_total": 167412,
+  "reproduced_early_total": 167412,
+  "reported_bear": 88454,
+  "reproduced_bear": 88454,
+  "reported_bull": 78958,
+  "reproduced_bull": 78958,
+  "early_match_reported": true,
+  "reported_target_changes": 64084,
+  "reproduced_target_changes_early_only": 64084,
+  "early_only_match_reported": true,
+  "reproduced_target_changes_with_late": 87985,
+  "total_late_events": 46833,
+  "total_conflicts": 191,
+  "n_pairs": 13
+}
