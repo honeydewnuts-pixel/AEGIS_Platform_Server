@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0.0",
+  "experiment_required": [
+    "experiment_id",
+    "name",
+    "objective",
+    "status",
+    "source_branch",
+    "source_commit",
+    "dataset_class_policy",
+    "production_authorized",
+    "execution_authorized"
+  ],
+  "candidate_required": [
+    "candidate_id",
+    "experiment_id",
+    "definition_version",
+    "lifecycle_state",
+    "production_authorized",
+    "execution_authorized"
+  ],
+  "lifecycle_states": [
+    "DISCOVERED",
+    "SCREENED",
+    "VALIDATED",
+    "DEMO_ELIGIBLE",
+    "DEMO_QUALIFIED",
+    "APPROVED",
+    "DEGRADED",
+    "SUSPENDED",
+    "REJECTED",
+    "RETIRED"
+  ],
+  "evaluation_statuses": [
+    "PASS",
+    "FAIL",
+    "INSUFFICIENT_EVIDENCE",
+    "NOT_RUN"
+  ],
+  "forbidden_auth_elevation": true
+}

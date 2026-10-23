@@ -1,0 +1,270 @@
+{
+  "candidates": {
+    "CAND-P7-L1-TRACKA-20261022": {
+      "candidate_id": "CAND-P7-L1-TRACKA-20261022",
+      "definition_version": "1",
+      "execution_authorized": false,
+      "experiment_id": "EXP-P7-TRACKA-20261022",
+      "hypothesis_id": "P7-L1",
+      "lifecycle_state": "VALIDATED",
+      "production_authorized": false,
+      "record_hash": "405694092a07203cd64b74cfa1679875986af4ebd67f7271ba7ccdd8a789cdaa",
+      "status_label": "EXPLORATORY_PROMISING_UNCONFIRMED",
+      "trade_management_status": "NOT_DEFINED"
+    },
+    "CAND-P7-L2-TRACKA-20261022": {
+      "candidate_id": "CAND-P7-L2-TRACKA-20261022",
+      "definition_version": "1",
+      "execution_authorized": false,
+      "experiment_id": "EXP-P7-TRACKA-20261022",
+      "hypothesis_id": "P7-L2",
+      "lifecycle_state": "REJECTED",
+      "production_authorized": false,
+      "record_hash": "51ee2e0c13e359a0fdc67c820c237c476d042cccd208e25f60ecdb6befc2e1b9",
+      "status_label": "EXPLORATORY_INCONCLUSIVE",
+      "trade_management_status": "NOT_DEFINED"
+    },
+    "CAND-PD-WAVE-NEGATIVE-20261022": {
+      "candidate_id": "CAND-PD-WAVE-NEGATIVE-20261022",
+      "definition_version": "1",
+      "description": "Aggregate discovery wave \u2014 no hard materiality passers",
+      "execution_authorized": false,
+      "experiment_id": "EXP-PATTERN-DISCOVERY-20261022",
+      "lifecycle_state": "REJECTED",
+      "long_short": "BOTH_EVALUATED",
+      "production_authorized": false,
+      "record_hash": "bd93836fb906095e9380aa9a6073d8ee13da0d187470d66d42ee34273b8de380",
+      "rejection_reason": "hard_materiality_gate_failed_zero_passers",
+      "trade_management": null,
+      "trade_management_status": "NOT_DEFINED"
+    }
+  },
+  "evaluations": {
+    "EVAL-P7-L1-TRACKA-20261022": {
+      "candidate_id": "CAND-P7-L1-TRACKA-20261022",
+      "evaluation_id": "EVAL-P7-L1-TRACKA-20261022",
+      "execution_authorized": false,
+      "note": "Association layer only; independent confirmation required",
+      "production_authorized": false,
+      "record_hash": "15c63de440273f062f73d1b56f938ef0fa6b3f9016f6d661ed881b0c49be691c",
+      "status": "INSUFFICIENT_EVIDENCE"
+    },
+    "EVAL-P7-L2-TRACKA-20261022": {
+      "candidate_id": "CAND-P7-L2-TRACKA-20261022",
+      "evaluation_id": "EVAL-P7-L2-TRACKA-20261022",
+      "execution_authorized": false,
+      "note": "Association layer only; independent confirmation required",
+      "production_authorized": false,
+      "record_hash": "5a30858166d345ad05eb17dacd1da6329d1d3c541f377433cc01d67a6aa09e0b",
+      "status": "INSUFFICIENT_EVIDENCE"
+    },
+    "EVAL-PD-WAVE-20261022": {
+      "candidate_id": "CAND-PD-WAVE-NEGATIVE-20261022",
+      "evaluation_id": "EVAL-PD-WAVE-20261022",
+      "execution_authorized": false,
+      "gate": "hard_materiality_abs_mean_gt_10bps_and_hit_gt_0.55",
+      "note": "Imported historical result; not re-run",
+      "passers": 0,
+      "production_authorized": false,
+      "record_hash": "2bed07a2ddc33baf2a1a934bec56392510709316a8282834157d0ab737967d84",
+      "status": "FAIL"
+    }
+  },
+  "events": [
+    {
+      "experiment_id": "EXP-PATTERN-DISCOVERY-20261022",
+      "kind": "experiment_registered",
+      "record_hash": "9927c8b90d8e3997bbd42a6f88d9f6bf511bfbe8d4a9e0a4cacf629d4291f604",
+      "ts": "2026-10-23T12:52:19Z"
+    },
+    {
+      "candidate_id": "CAND-PD-WAVE-NEGATIVE-20261022",
+      "kind": "candidate_registered",
+      "state": "REJECTED",
+      "ts": "2026-10-23T12:52:19Z"
+    },
+    {
+      "candidate_id": "CAND-PD-WAVE-NEGATIVE-20261022",
+      "evaluation_id": "EVAL-PD-WAVE-20261022",
+      "kind": "evaluation_added",
+      "status": "FAIL",
+      "ts": "2026-10-23T12:52:19Z"
+    },
+    {
+      "import_key": "pattern_discovery_20261022_v1",
+      "kind": "import_recorded",
+      "ts": "2026-10-23T12:52:19Z"
+    },
+    {
+      "experiment_id": "EXP-P7-TRACKA-20261022",
+      "kind": "experiment_registered",
+      "record_hash": "eca0df36201fece42261aa189d0838e020abca6f65e3f5545cd92f08226015db",
+      "ts": "2026-10-23T12:52:19Z"
+    },
+    {
+      "candidate_id": "CAND-P7-L1-TRACKA-20261022",
+      "kind": "candidate_registered",
+      "state": "DISCOVERED",
+      "ts": "2026-10-23T12:52:19Z"
+    },
+    {
+      "actor": "import_p7",
+      "candidate_id": "CAND-P7-L1-TRACKA-20261022",
+      "evidence": "occurrence_counts_recorded",
+      "from_state": "DISCOVERED",
+      "kind": "lifecycle_transition",
+      "to_state": "SCREENED",
+      "ts": "2026-10-23T12:52:19Z"
+    },
+    {
+      "actor": "import_p7",
+      "candidate_id": "CAND-P7-L1-TRACKA-20261022",
+      "evidence": "val_mean_price_exceeds_0.42_cost_but_unconfirmed_in_sample",
+      "from_state": "SCREENED",
+      "kind": "lifecycle_transition",
+      "to_state": "VALIDATED",
+      "ts": "2026-10-23T12:52:19Z"
+    },
+    {
+      "candidate_id": "CAND-P7-L1-TRACKA-20261022",
+      "evaluation_id": "EVAL-P7-L1-TRACKA-20261022",
+      "kind": "evaluation_added",
+      "status": "INSUFFICIENT_EVIDENCE",
+      "ts": "2026-10-23T12:52:19Z"
+    },
+    {
+      "candidate_id": "CAND-P7-L2-TRACKA-20261022",
+      "kind": "candidate_registered",
+      "state": "DISCOVERED",
+      "ts": "2026-10-23T12:52:19Z"
+    },
+    {
+      "actor": "import_p7",
+      "candidate_id": "CAND-P7-L2-TRACKA-20261022",
+      "evidence": "occurrence_counts_recorded",
+      "from_state": "DISCOVERED",
+      "kind": "lifecycle_transition",
+      "to_state": "SCREENED",
+      "ts": "2026-10-23T12:52:19Z"
+    },
+    {
+      "actor": "import_p7",
+      "candidate_id": "CAND-P7-L2-TRACKA-20261022",
+      "evidence": "exploratory_inconclusive",
+      "from_state": "SCREENED",
+      "kind": "lifecycle_transition",
+      "to_state": "REJECTED",
+      "ts": "2026-10-23T12:52:19Z"
+    },
+    {
+      "candidate_id": "CAND-P7-L2-TRACKA-20261022",
+      "evaluation_id": "EVAL-P7-L2-TRACKA-20261022",
+      "kind": "evaluation_added",
+      "status": "INSUFFICIENT_EVIDENCE",
+      "ts": "2026-10-23T12:52:19Z"
+    },
+    {
+      "import_key": "p7_price_action_extension_20261022_v1",
+      "kind": "import_recorded",
+      "ts": "2026-10-23T12:52:19Z"
+    }
+  ],
+  "execution_authorized_default": false,
+  "experiments": {
+    "EXP-P7-TRACKA-20261022": {
+      "artifact_sha256": {
+        "FINAL_REPORT.md": "839f6fde20ee9043044a469d0b6a92b3a7573f0fc8288bba2c706a68617a245d",
+        "PREREGISTRATION.md": "7358355f60c75ae43d6ebec869ba9f7b3fcd0d4ddd9a9216432a011413bc5f8d",
+        "evaluation_summary.json": "4b85fb7790995187b800c1ab1ac4caf9ff8dd2f6e5d40c6835eeac99e2b7cb88",
+        "forward_associations.csv": "d6ef053dac27a9fe908455c9b34f4100596f3d06c108ea38170088211cac377c",
+        "gold_sha256": "88e004253d0b879d4e829601e9b228cfa7d4d5afcc25a0dbf4537ba6ef97517c",
+        "hypothesis_occurrences.csv": "8cf91c83d1f6d5c6ee9e6342a971888e5532adb6745924bfe9b6c0ea19622a8c",
+        "model_sha256": "18380c1ee7b1f6f0a5febb55c5e88e872abdd3c45f92edbec671a21d06cbe8fa"
+      },
+      "dataset_class_policy": "XAUUSD Class B OHLC for association; not Bid/Ask executable claim",
+      "execution_authorized": false,
+      "experiment_id": "EXP-P7-TRACKA-20261022",
+      "gold_sha_matches_training": true,
+      "limitations": [
+        "in_sample_relative_to_original_model_fit",
+        "final_20pct_EXPOSED",
+        "no_cash_trade_management_in_this_phase",
+        "GBPUSD_training_hash_unverified"
+      ],
+      "name": "P7-L1/L2 Track A H1 XAUUSD association",
+      "objective": "Test frozen P7 long-tree leaf conditions as structural hypotheses",
+      "production_authorized": false,
+      "record_hash": "eca0df36201fece42261aa189d0838e020abca6f65e3f5545cd92f08226015db",
+      "source_branch": "research/p7-price-action-extension-20261022",
+      "source_commit": "c872ab2",
+      "status": "COMPLETED_EXPLORATORY"
+    },
+    "EXP-PATTERN-DISCOVERY-20261022": {
+      "artifact_sha256": {
+        "CANDIDATE_FREEZE.md": "197a2047761c2ef0d13aad7e3924349df4152c74c859b5b1a5404413601445fe",
+        "FINAL_REPORT.md": "a6a87e1baa282f6e190e3f7d5e9571d75d6750ac59354807a872d7aa314a8054",
+        "dataset_inventory.csv": "b5e2921952fec5773569dcbf92a9cfcaf56e836c2fa7d9f1ce7689e0c2b047fa",
+        "discovery_summary.json": "05cb8b0dbbb2f9fe9cca10070d8bb5bff8ea24f82b26ddc80d5eec1548169ee8",
+        "mfe_mae_cost.csv": "6318c91f569076cb2937abf7fd39fb1f916823115b56bf6a5b56095d80d1fb91",
+        "pattern_outcomes.csv": "856dd8912753e8d9900e557e47b2e8c087ffe6a0d075f79352930d5e92e0fb2d",
+        "survivor_patterns.csv": "0c37514859a9d19b6fc90c89abcbab8a0b407b6514e29f031fda2a748fc5d064"
+      },
+      "dataset_class_policy": "Class A Bid/Ask vs Class B OHLC separated; Class B not executable proof",
+      "disposition": "NO_QUALIFIED_RULEBOOK",
+      "execution_authorized": false,
+      "experiment_id": "EXP-PATTERN-DISCOVERY-20261022",
+      "hard_materiality_passers": 0,
+      "hypothesis": "Registered binary candle/range/session patterns have cost-aware forward edge",
+      "limitations": [
+        "final_20pct_EXPOSED",
+        "multiple_testing_2640",
+        "MFE_approx_MAE_no_net_edge",
+        "no_trade_management_rulebook"
+      ],
+      "n_evals": 2640,
+      "n_instruments": 24,
+      "n_patterns": 22,
+      "n_soft_survivors": 1837,
+      "name": "Data-driven pattern discovery 24 instruments",
+      "objective": "Enumerate price-structure patterns; assess materiality after costs",
+      "production_authorized": false,
+      "reconciliation_note": "Local authoritative artifacts include MFE commit 0ba218a; remote branch tip was 9168b74 (parent of MFE work). Both recorded.",
+      "record_hash": "9927c8b90d8e3997bbd42a6f88d9f6bf511bfbe8d4a9e0a4cacf629d4291f604",
+      "remote_tip_at_assessment": "9168b74",
+      "rulebooks_produced": 0,
+      "source_branch": "research/data-driven-pattern-discovery-20261022",
+      "source_commit": "0ba218a",
+      "status": "COMPLETED_NEGATIVE"
+    }
+  },
+  "imports": {
+    "p7_price_action_extension_20261022_v1": {
+      "artifacts": {
+        "FINAL_REPORT.md": "839f6fde20ee9043044a469d0b6a92b3a7573f0fc8288bba2c706a68617a245d",
+        "PREREGISTRATION.md": "7358355f60c75ae43d6ebec869ba9f7b3fcd0d4ddd9a9216432a011413bc5f8d",
+        "evaluation_summary.json": "4b85fb7790995187b800c1ab1ac4caf9ff8dd2f6e5d40c6835eeac99e2b7cb88",
+        "forward_associations.csv": "d6ef053dac27a9fe908455c9b34f4100596f3d06c108ea38170088211cac377c",
+        "gold_sha256": "88e004253d0b879d4e829601e9b228cfa7d4d5afcc25a0dbf4537ba6ef97517c",
+        "hypothesis_occurrences.csv": "8cf91c83d1f6d5c6ee9e6342a971888e5532adb6745924bfe9b6c0ea19622a8c",
+        "model_sha256": "18380c1ee7b1f6f0a5febb55c5e88e872abdd3c45f92edbec671a21d06cbe8fa"
+      },
+      "source_commit": "c872ab2"
+    },
+    "pattern_discovery_20261022_v1": {
+      "artifacts": {
+        "CANDIDATE_FREEZE.md": "197a2047761c2ef0d13aad7e3924349df4152c74c859b5b1a5404413601445fe",
+        "FINAL_REPORT.md": "a6a87e1baa282f6e190e3f7d5e9571d75d6750ac59354807a872d7aa314a8054",
+        "dataset_inventory.csv": "b5e2921952fec5773569dcbf92a9cfcaf56e836c2fa7d9f1ce7689e0c2b047fa",
+        "discovery_summary.json": "05cb8b0dbbb2f9fe9cca10070d8bb5bff8ea24f82b26ddc80d5eec1548169ee8",
+        "mfe_mae_cost.csv": "6318c91f569076cb2937abf7fd39fb1f916823115b56bf6a5b56095d80d1fb91",
+        "pattern_outcomes.csv": "856dd8912753e8d9900e557e47b2e8c087ffe6a0d075f79352930d5e92e0fb2d",
+        "survivor_patterns.csv": "0c37514859a9d19b6fc90c89abcbab8a0b407b6514e29f031fda2a748fc5d064"
+      },
+      "disposition": "NO_QUALIFIED_RULEBOOK",
+      "remote_tip": "9168b74",
+      "source_commit": "0ba218a"
+    }
+  },
+  "production_authorized_default": false,
+  "schema_version": "1.0.0"
+}
