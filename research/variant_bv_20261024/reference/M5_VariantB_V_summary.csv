@@ -1,0 +1,10 @@
+,0
+version,M5_VariantB_V
+trades,685
+net,20813.07
+pf,1.4
+win_pct,44.8
+six_block_pf,"[1.33, 1.73, 1.09, 1.07, 2.08, 1.28]"
+all_blocks_gt1,True
+max_dd_pct,-14.65
+final_balance,30813.07

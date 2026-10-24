@@ -1,0 +1,10 @@
+,0
+version,M15_VariantB_V
+trades,233
+net,11014.42
+profit_factor,1.99
+win_rate_pct,53.2
+six_block_pf,"[2.62, 1.68, 2.45, 2.27, 1.48, 1.82]"
+all_blocks_gt1,True
+max_drawdown_pct,-5.81
+final_balance,21014.42
