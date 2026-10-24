@@ -1,0 +1,117 @@
+{
+  "evaluation_id": "EVAL-CAND-STAGE2-DEMO-1-ebe827bb897d",
+  "config_hash": "ebe827bb897d5e6620b480e3a6f2ad56388b7184e10aa0ed3dec77e0f7be2791",
+  "dataset_hash": "588a80f98638f78d826501b6e8deb8b688bfb951c70abc3c20255b3eb18f2a50",
+  "data_report": {
+    "ok": true,
+    "issues": [],
+    "data_class": "A_BIDASK",
+    "n_rows": 500,
+    "start": "2020-01-01 00:00:00+00:00",
+    "end": "2020-01-02 17:35:00+00:00"
+  },
+  "timestamp": "2026-10-24T17:43:12Z",
+  "production_authorized": false,
+  "execution_authorized": false,
+  "evaluator_version": "ARRS_STAGE2_V1",
+  "walk_forward": {
+    "partition_spec": {
+      "train_frac": 0.6,
+      "val_frac": 0.2,
+      "test_frac": 0.2,
+      "embargo_bars": 0
+    },
+    "partitions": {
+      "train": {
+        "trades": 7,
+        "pf": 0.0,
+        "net": -0.002761,
+        "win_rate": 0.0,
+        "expectancy": -0.000394,
+        "avg_win": null,
+        "avg_loss": -0.000394,
+        "range": [
+          0,
+          300
+        ],
+        "n_bars": 300
+      },
+      "val": {
+        "trades": 1,
+        "pf": null,
+        "net": 0.000143,
+        "win_rate": 1.0,
+        "expectancy": 0.000143,
+        "avg_win": 0.000143,
+        "avg_loss": null,
+        "range": [
+          300,
+          400
+        ],
+        "n_bars": 100
+      },
+      "test": {
+        "trades": 2,
+        "pf": 0.0,
+        "net": -0.000909,
+        "win_rate": 0.0,
+        "expectancy": -0.000454,
+        "avg_win": null,
+        "avg_loss": -0.000454,
+        "range": [
+          400,
+          500
+        ],
+        "n_bars": 100
+      }
+    },
+    "final_test_locked": true
+  },
+  "gates": {
+    "policy": {
+      "policy_id": "ARRS_STAGE2_GATES_V1",
+      "min_val_trades": 30,
+      "min_test_trades": 20,
+      "min_val_pf": 1.2,
+      "min_test_pf": 1.1,
+      "require_class_a": true,
+      "require_trade_management": true,
+      "max_unadjusted_variants": 1
+    },
+    "gates": {
+      "data_eligibility": {
+        "status": "PASS"
+      },
+      "trade_management": {
+        "status": "PASS"
+      },
+      "validation": {
+        "status": "INSUFFICIENT_EVIDENCE",
+        "detail": "trades=1<30"
+      },
+      "final_test": {
+        "status": "INSUFFICIENT_EVIDENCE",
+        "detail": "trades=2<20"
+      },
+      "multiple_testing": {
+        "status": "PASS",
+        "detail": "single_or_adjusted"
+      }
+    },
+    "overall": "INSUFFICIENT_EVIDENCE",
+    "execution_authorized": false,
+    "production_authorized": false,
+    "note": "Gate PASS does not grant trading authority"
+  },
+  "status": "INSUFFICIENT_EVIDENCE",
+  "full_sample_metrics": {
+    "trades": 11,
+    "pf": 0.0347,
+    "net": -0.003988,
+    "win_rate": 0.0909,
+    "expectancy": -0.000363,
+    "avg_win": 0.000143,
+    "avg_loss": -0.000413
+  },
+  "n_full_trades": 11
+}

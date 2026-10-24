@@ -1,0 +1,66 @@
+{
+  "evaluation_id": "EVAL-CAND-STAGE2-GBPUSD-SCHEMA-1-e84bc316b0b4",
+  "config_hash": "e84bc316b0b44c02a492d0f8239f1ec4759863a7f15ada77f9fe5c2830e4a377",
+  "dataset_hash": "e66ab5076b02a2fbfc832d188a69bcf4d0039b78abc7c0eede222b254200c73f",
+  "data_report": {
+    "ok": true,
+    "issues": [
+      "large_gaps:2"
+    ],
+    "data_class": "A_BIDASK",
+    "n_rows": 3000,
+    "start": "2026-09-01 13:05:00+00:00",
+    "end": "2026-09-15 23:00:00+00:00"
+  },
+  "timestamp": "2026-10-24T17:43:43Z",
+  "production_authorized": false,
+  "execution_authorized": false,
+  "evaluator_version": "ARRS_STAGE2_V1",
+  "gates": {
+    "policy": {
+      "policy_id": "ARRS_STAGE2_GATES_V1",
+      "min_val_trades": 30,
+      "min_test_trades": 20,
+      "min_val_pf": 1.2,
+      "min_test_pf": 1.1,
+      "require_class_a": true,
+      "require_trade_management": true,
+      "max_unadjusted_variants": 1
+    },
+    "gates": {
+      "data_eligibility": {
+        "status": "PASS"
+      },
+      "trade_management": {
+        "status": "PASS"
+      },
+      "validation": {
+        "status": "INSUFFICIENT_EVIDENCE",
+        "detail": "trades=7<30"
+      },
+      "final_test": {
+        "status": "INSUFFICIENT_EVIDENCE",
+        "detail": "trades=7<20"
+      },
+      "multiple_testing": {
+        "status": "PASS",
+        "detail": "single_or_adjusted"
+      }
+    },
+    "overall": "INSUFFICIENT_EVIDENCE",
+    "execution_authorized": false,
+    "production_authorized": false,
+    "note": "Gate PASS does not grant trading authority"
+  },
+  "status": "INSUFFICIENT_EVIDENCE",
+  "full_sample_metrics": {
+    "trades": 37,
+    "pf": 0.4314,
+    "net": -0.008646,
+    "win_rate": 0.1351,
+    "expectancy": -0.000234,
+    "avg_win": 0.001312,
+    "avg_loss": -0.000475
+  },
+  "n_full_trades": 37
+}
