@@ -1,0 +1,2 @@
+sha256,m5_rows,m15_bars,start,end,dups,ohlc_bad,d1_obb_u_mean_abs_diff,d1_ma_cross_u_O1,d1_ma_cross_u_O2,d5_A,d5_B,d5_C,d6_A_buy_edges,d6_A_sell_edges,sep_atr_median,swing_high_confirms,swing_low_confirms
+1f7ce38ce9e2e172fab2a9afefb5fff561a7c1a0431317aa600910a71384f1e8,48000,16001,2026-05-12 08:05:00+00:00,2026-10-26 00:00:00+00:00,0,0,4.190282350510107,35,291,3856,1069,581,602,580,0.9365174356357407,2049,2038
