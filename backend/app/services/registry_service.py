@@ -4,10 +4,13 @@ Rulebook registry + tradeable pairs registry.
 Replaces the old indicator-template system. MT5 charts are plain price charts;
 no indicator stack is required or installed by the client.
 
-Sources (in order):
-  1. registry/v40/*.csv at repo root (preferred)
-  2. app/rulebooks founding_registry (code-defined GBPUSD frozen books)
-  3. app/templates/rulebook_v*.json (legacy JSON rule text, optional)
+Sources (in order) after rehabilitation:
+  1. registry/operational/*.csv (authoritative; empty until explicit approval)
+  2. No founding_registry fallback of research rulebooks
+  3. Instruments are NEVER derived from rulebook records
+
+production_authorized = false
+execution_authorized = false
 """
 
 from __future__ import annotations
@@ -24,7 +27,10 @@ from app.core.logging import configure_logging
 REPO_ROOT = Path(__file__).resolve().parents[3]
 BACKEND_APP = Path(__file__).resolve().parents[1]
 TEMPLATES_DIR = BACKEND_APP / "templates"
-REGISTRY_DIR = REPO_ROOT / "registry" / "v40"
+OPERATIONAL_REGISTRY_DIR = REPO_ROOT / "registry" / "operational"
+REGISTRY_DIR = OPERATIONAL_REGISTRY_DIR
+LEGACY_V40_REGISTRY_DIR = REPO_ROOT / "registry" / "v40"
+ARTIFACTS_V40_REGISTRY_DIR = REPO_ROOT / "artifacts" / "v40" / "registry"
 
 
 class RegistryService:
@@ -37,8 +43,8 @@ class RegistryService:
     def reload(self) -> None:
         self._rulebooks = self._load_rulebooks()
         self._instruments = self._load_instruments()
-        rb_csv = REGISTRY_DIR / "AEGIS_V40_RULEBOOK_REGISTRY.csv"
-        inst_csv = REGISTRY_DIR / "AEGIS_V40_INSTRUMENT_REGISTRY.csv"
+        rb_csv = REGISTRY_DIR / "AEGIS_OPERATIONAL_RULEBOOK_REGISTRY.csv"
+        inst_csv = REGISTRY_DIR / "AEGIS_OPERATIONAL_INSTRUMENT_REGISTRY.csv"
         self.logger.info(
             "Registry loaded: %s rulebooks, %s instruments (dir=%s rb_csv=%s inst_csv=%s)",
             len(self._rulebooks),
@@ -63,7 +69,7 @@ class RegistryService:
     def _load_rulebooks(self) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
         # CSV registry
-        for row in self._load_csv(REGISTRY_DIR / "AEGIS_V40_RULEBOOK_REGISTRY.csv"):
+        for row in self._load_csv(REGISTRY_DIR / "AEGIS_OPERATIONAL_RULEBOOK_REGISTRY.csv"):
             out.append(
                 {
                     "rulebook_id": row.get("rulebook_id") or row.get("id") or "",
@@ -80,16 +86,7 @@ class RegistryService:
                     "source": "csv_registry",
                 }
             )
-        # Code founding registry
-        try:
-            from app.rulebooks import founding_registry
-
-            for item in founding_registry().all():
-                d = item.to_dict() if hasattr(item, "to_dict") else dict(item.__dict__)
-                d["source"] = "founding_registry"
-                out.append(d)
-        except Exception as e:
-            self.logger.warning("founding_registry load failed: %s", e)
+        # founding_registry intentionally NOT merged (research archived)
         # Dedup by rulebook_id
         seen: set[str] = set()
         deduped = []
@@ -103,12 +100,12 @@ class RegistryService:
 
     def _load_instruments(self) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
-        for row in self._load_csv(REGISTRY_DIR / "AEGIS_V40_INSTRUMENT_REGISTRY.csv"):
+        for row in self._load_csv(REGISTRY_DIR / "AEGIS_OPERATIONAL_INSTRUMENT_REGISTRY.csv"):
             inst = (row.get("instrument") or "").upper()
             if not inst:
                 continue
             router_status = (row.get("router_status") or "").upper()
-            tradeable = router_status in {"RESEARCH_ELIGIBLE", "TRADING_ENABLED", "LIVE"}
+            tradeable = router_status in {"TRADING_ENABLED", "LIVE"}  # RESEARCH_ELIGIBLE is not operational
             reg_status = (row.get("registry_status") or "").upper()
             # "Good" = research/live path allowed; V2-OPT-only pairs are not Good
             good = tradeable and "V2OPT_INSUFFICIENT" not in reg_status
@@ -130,30 +127,7 @@ class RegistryService:
                     "reason": row.get("reason") or "",
                 }
             )
-        if not out:
-            # Fallback from rulebooks
-            by_inst: dict[str, dict[str, Any]] = {}
-            for r in self._rulebooks:
-                inst = (r.get("instrument") or "").upper()
-                if not inst:
-                    continue
-                by_inst.setdefault(
-                    inst,
-                    {
-                        "instrument": inst,
-                        "asset_class": r.get("asset_class") or "FOREX",
-                        "timeframe": r.get("timeframe") or "M5",
-                        "registry_status": "FROM_RULEBOOKS",
-                        "router_status": "RESEARCH_ELIGIBLE",
-                        "tradeable": True,
-                        "eligible_rulebooks": [],
-                        "reason": "Derived from rulebook registry",
-                    },
-                )
-                rid = r.get("rulebook_id")
-                if rid:
-                    by_inst[inst]["eligible_rulebooks"].append(rid)
-            out = list(by_inst.values())
+        # FAIL-CLOSED: never derive instruments from rulebook rows
         return out
 
     def list_rulebooks(self, instrument: str | None = None, timeframe: str | None = None) -> list[dict[str, Any]]:
@@ -200,35 +174,59 @@ class RegistryService:
         }
 
     def get_active_pointer(self) -> dict[str, Any]:
+        """Stale active_profile.json cannot authorize trading when registries are empty."""
+        base = {
+            "rulebook_version": None,
+            "registry_version": "operational",
+            "indicators_required": False,
+            "production_authorized": False,
+            "execution_authorized": False,
+            "active": False,
+            "rulebook_count": len(self._rulebooks),
+            "tradeable_instrument_count": len([x for x in self._instruments if x.get("tradeable")]),
+            "notes": (
+                "No approved operational strategy is active. "
+                "Research strategies are archived. Trading is disabled."
+            ),
+        }
         path = TEMPLATES_DIR / "active_profile.json"
-        if path.exists():
+        if path.exists() and self._rulebooks:
             try:
                 data = json.loads(path.read_text())
-                # Strip indicator keys for clients
-                return {
-                    "rulebook_version": data.get("rulebook_version") or data.get("active_rulebook") or "registry",
-                    "registry_version": data.get("registry_version") or "v40",
-                    "activated_at": data.get("activated_at"),
-                    "notes": data.get("notes")
-                    or "Indicator templates retired. Rulebook + pairs registry is authoritative.",
-                    "indicators_required": False,
-                }
+                rid = data.get("rulebook_version") or data.get("active_rulebook")
+                if rid and self.get_rulebook(str(rid)):
+                    base.update({
+                        "rulebook_version": rid,
+                        "registry_version": data.get("registry_version") or "operational",
+                        "activated_at": data.get("activated_at"),
+                        "active": True,
+                        "notes": data.get("notes") or base["notes"],
+                    })
             except Exception:
                 pass
-        return {
-            "rulebook_version": "registry",
-            "registry_version": "v40",
-            "indicators_required": False,
-            "notes": "Default registry profile",
-        }
+        return base
 
-    def activate(self, rulebook_version: str, registry_version: str = "v40") -> dict[str, Any]:
+    def activate(self, rulebook_version: str, registry_version: str = "operational") -> dict[str, Any]:
+        """Refuse activation unless the rulebook is present in the operational registry."""
+        if not rulebook_version or not self.get_rulebook(rulebook_version):
+            raise ValueError(
+                "ACTIVATION_REJECTED: rulebook is not in the operational registry "
+                f"(id={rulebook_version!r}). Research/archived rulebooks cannot be activated. "
+                "production_authorized=false execution_authorized=false"
+            )
+        if not any(x.get("tradeable") for x in self._instruments):
+            raise ValueError(
+                "ACTIVATION_REJECTED: no tradeable instruments in the operational registry. "
+                "production_authorized=false execution_authorized=false"
+            )
         ptr = {
             "rulebook_version": rulebook_version,
             "registry_version": registry_version,
             "indicators_required": False,
+            "production_authorized": False,
+            "execution_authorized": False,
             "activated_at": datetime.now(timezone.utc).isoformat(),
-            "notes": "Activated without indicator stack. MT5 charts remain indicator-free.",
+            "notes": "Activation recorded against operational registry only.",
         }
         TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
         (TEMPLATES_DIR / "active_profile.json").write_text(json.dumps(ptr, indent=2))
