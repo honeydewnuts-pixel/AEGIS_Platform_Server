@@ -1,0 +1,1 @@
+rulebook_id,source_rulebook_id,asset_class,instrument,timeframe,mechanism_family,status,validation_trades,validation_pf,final_test_trades,final_test_pf,min_six_block_pf,independent_reproduction,production_authorized
