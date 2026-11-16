@@ -17,23 +17,23 @@ def _registry(request: Request):
     )
 
 
-def _is_symbol_authorized(request: Request, symbol: str) -> tuple[bool, str, dict[str, Any] | None]:
-    """Good/tradeable instruments only — research-disabled pairs never reach Executor."""
-    reg = _registry(request)
-    sym = (symbol or "").strip().upper().split(".")[0].split("#")[0]
-    if not reg:
-        return False, "registry_unavailable_fail_closed", None  # Stage 2.5: never authorize on missing registry
-    try:
-        rows = reg.list_instruments(tradeable_only=False)
-    except Exception:
-        return False, "registry_error", None
-    match = next((r for r in rows if str(r.get("instrument") or "").upper() == sym), None)
-    if match is None:
-        return False, "unknown_instrument", None
-    if match.get("good") is False or not match.get("tradeable"):
-        return False, f"not_authorized:{match.get('router_status')}", match
-    # V2OPT insufficient already sets good=False in registry_service
-    return True, "ok", match
+def _is_symbol_authorized(
+    request: Request,
+    symbol: str,
+    *,
+    rulebook_id: str | None = None,
+    methodology: str | None = None,
+    timeframe: str | None = None,
+) -> tuple[bool, str, dict[str, Any] | None]:
+    """Shared fail-closed gate — instruments must be tradeable; optional rulebook association."""
+    from app.services.execution_authorization import evaluate_symbol_authorization
+    return evaluate_symbol_authorization(
+        _registry(request),
+        symbol,
+        rulebook_id=rulebook_id,
+        methodology=methodology,
+        timeframe=timeframe,
+    )
 
 
 class AckBody(BaseModel):
@@ -157,6 +157,22 @@ async def get_pending_signal(
             "symbol": base,
             "account_id": account_id,
             "authorized": True,
+            "reason": "no_pending",
+        }
+    from app.services.execution_authorization import filter_actionable_signal
+    actionable, a_reason = filter_actionable_signal(_registry(request), row)
+    if not actionable:
+        # CRITICAL: never present unauthorized rows as actionable signals
+        return {
+            "has_signal": False,
+            "signal": "HOLD",
+            "symbol": base,
+            "account_id": account_id,
+            "authorized": False,
+            "reason": a_reason,
+            "rejected_signal_id": row.get("signal_id"),
+            "production_authorized": False,
+            "controlled_demo_authorized": False,
         }
     return {
         "has_signal": True,
@@ -177,9 +193,7 @@ async def get_pending_signal(
         "take_profit": row.get("take_profit"),
         "created_at_ms": row.get("created_at_ms"),
         "details": row.get("details"),
-        "authorized": bool(
-            getattr(svc, "is_execution_authorized", lambda r: r.get("production_authorized") is True)(row)
-        ),
+        "authorized": True,
         "production_authorized": (row.get("production_authorized") is True),
         "controlled_demo_authorized": (row.get("controlled_demo_authorized") is True),
     }
@@ -260,10 +274,13 @@ async def get_pending_batch(
             await session.commit()
     except Exception:
         pending = []
-    pending = [
-        s for s in pending
-        if getattr(svc, "is_execution_authorized", lambda r: r.get("production_authorized") is True)(s)
-    ]
+    from app.services.execution_authorization import filter_actionable_signal
+    filtered: list[dict] = []
+    for s in pending:
+        ok, _reason = filter_actionable_signal(_registry(request), s)
+        if ok:
+            filtered.append(s)
+    pending = filtered
     return {
         "account_id": account_id,
         "polled": authorized,
