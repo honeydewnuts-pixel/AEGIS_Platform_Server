@@ -1,44 +1,66 @@
-from fastapi import APIRouter, HTTPException
-from app.rulebooks import founding_registry
+"""Rulebook HTTP API — authoritative source is RegistryService (operational CSVs).
+
+The in-process founding_registry() remains empty and is not used here, so
+/rulebooks* cannot disagree with /api/registry/*.
+
+production_authorized=false
+execution_authorized=false
+"""
+
+from __future__ import annotations
+
+from fastapi import APIRouter, HTTPException, Request
 
 router = APIRouter(prefix="/rulebooks", tags=["rulebooks"])
-_registry = founding_registry()
+
+
+def _svc(request: Request):
+    svc = getattr(request.app.state, "templates", None) or getattr(request.app.state, "registry", None)
+    if svc is None:
+        # Fail closed: construct empty operational service rather than founding snapshot
+        from app.services.registry_service import RegistryService
+        return RegistryService()
+    return svc
 
 
 @router.get("")
-def list_rulebooks():
-    items = [x.to_dict() for x in _registry.all()]
+def list_rulebooks(request: Request):
+    svc = _svc(request)
+    items = svc.list_rulebooks()
     return {
         "rulebook_count": len(items),
         "active_rulebooks": items,
+        "rulebooks": items,  # compat alias for clients expecting "rulebooks"
         "production_authorized": False,
         "execution_authorized": False,
         "message": (
             "No approved operational rulebooks are registered. "
             "Research strategies are archived and are not routable."
+            if not items
+            else "Operational registry listing; production/execution authorization remain false."
         ),
     }
 
 
 @router.get("/lookup")
-def lookup_rulebooks(instrument: str, timeframe: str):
-    items = [
-        x.to_dict()
-        for x in _registry.lookup(instrument, timeframe, qualified_only=True)
-    ]
+def lookup_rulebooks(instrument: str, timeframe: str, request: Request):
+    svc = _svc(request)
+    items = svc.list_rulebooks(instrument=instrument, timeframe=timeframe)
     return {
         "instrument": instrument,
         "timeframe": timeframe,
         "rulebook_count": len(items),
         "active_rulebooks": items,
+        "rulebooks": items,
         "production_authorized": False,
         "execution_authorized": False,
     }
 
 
 @router.get("/{rulebook_id}")
-def get_rulebook(rulebook_id: str):
-    item = _registry.get(rulebook_id)
+def get_rulebook(rulebook_id: str, request: Request):
+    svc = _svc(request)
+    item = svc.get_rulebook(rulebook_id)
     if item is None:
         raise HTTPException(
             status_code=404,
@@ -51,4 +73,4 @@ def get_rulebook(rulebook_id: str):
                 ),
             },
         )
-    return item.to_dict()
+    return item

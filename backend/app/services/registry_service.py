@@ -55,8 +55,8 @@ class RegistryService:
         )
         if not rb_csv.exists() or not inst_csv.exists():
             self.logger.warning(
-                "V40 registry CSV missing under %s — founding_registry fallback only. "
-                "Ensure Docker image COPYs registry/ (see docker/Dockerfile).",
+                "Operational registry CSV missing under %s — fail-closed empty registry "
+                "(no founding/legacy fallback). Ensure Docker image COPYs registry/operational/.",
                 REGISTRY_DIR,
             )
 
@@ -151,31 +151,30 @@ class RegistryService:
         return None
 
     def get_active_bundle(self) -> dict[str, Any]:
-        """What mobile/portal used to call 'active templates' — now registry snapshot."""
         ptr = self.get_active_pointer()
-        all_inst = self.list_instruments(tradeable_only=False)
-        tradeable = [r for r in all_inst if r.get("tradeable")]
-        blocked = [r for r in all_inst if not r.get("tradeable")]
+        tradeable = [x for x in self._instruments if x.get("tradeable")]
         return {
-            "mode": "rulebook_and_pairs_registry",
-            "indicators_required": False,
-            "indicator_stack": None,
-            "message": (
-                "No MT5 indicators required. Charts are plain price. "
-                "Full instrument registry is listed; only tradeable pairs may execute research/live paths."
-            ),
             "active": ptr,
-            "tradeable_pairs": [t["instrument"] for t in tradeable],
-            "blocked_pairs": [t["instrument"] for t in blocked],
-            "instruments": all_inst,
-            "instrument_count": len(all_inst),
-            "tradeable_count": len(tradeable),
+            "rulebooks": self._rulebooks,
+            "instruments": self._instruments,
+            "tradeable_pairs": tradeable,
             "rulebook_count": len(self._rulebooks),
+            "instrument_count": len(self._instruments),
+            "tradeable_count": len(tradeable),
+            "production_authorized": False,
+            "execution_authorized": False,
+            "indicators_required": False,
         }
 
     def get_active_pointer(self) -> dict[str, Any]:
-        """Stale active_profile.json cannot authorize trading when registries are empty."""
-        base = {
+        """Active only if rulebook + tradeable instrument + eligibility are consistent.
+
+        Stale active_profile.json cannot authorize trading when registries are empty
+        or associations are inconsistent.
+        production_authorized=false; execution_authorized=false unless all gates pass
+        (and even then flags remain false until separate human authorization elevates them).
+        """
+        blocked = {
             "rulebook_version": None,
             "registry_version": "operational",
             "indicators_required": False,
@@ -184,27 +183,92 @@ class RegistryService:
             "active": False,
             "rulebook_count": len(self._rulebooks),
             "tradeable_instrument_count": len([x for x in self._instruments if x.get("tradeable")]),
+            "blocked_reason": "NO_APPROVED_OPERATIONAL_STRATEGY",
             "notes": (
                 "No approved operational strategy is active. "
                 "Research strategies are archived. Trading is disabled."
             ),
         }
         path = TEMPLATES_DIR / "active_profile.json"
-        if path.exists() and self._rulebooks:
-            try:
-                data = json.loads(path.read_text())
-                rid = data.get("rulebook_version") or data.get("active_rulebook")
-                if rid and self.get_rulebook(str(rid)):
-                    base.update({
-                        "rulebook_version": rid,
-                        "registry_version": data.get("registry_version") or "operational",
-                        "activated_at": data.get("activated_at"),
-                        "active": True,
-                        "notes": data.get("notes") or base["notes"],
-                    })
-            except Exception:
-                pass
-        return base
+        if not path.exists():
+            blocked["blocked_reason"] = "NO_ACTIVE_PROFILE"
+            return blocked
+        try:
+            data = json.loads(path.read_text())
+        except Exception:
+            blocked["blocked_reason"] = "ACTIVE_PROFILE_UNREADABLE"
+            return blocked
+
+        rid = data.get("rulebook_version") or data.get("active_rulebook")
+        if not rid:
+            blocked["blocked_reason"] = "PROFILE_MISSING_RULEBOOK_ID"
+            return blocked
+        rid = str(rid)
+
+        rb = self.get_rulebook(rid)
+        if not rb:
+            blocked["blocked_reason"] = "RULEBOOK_NOT_IN_OPERATIONAL_REGISTRY"
+            blocked["requested_rulebook_id"] = rid
+            return blocked
+
+        instrument = (rb.get("instrument") or "").upper()
+        timeframe = (rb.get("timeframe") or "").upper()
+        if not instrument:
+            blocked["blocked_reason"] = "RULEBOOK_MISSING_INSTRUMENT"
+            blocked["requested_rulebook_id"] = rid
+            return blocked
+
+        # Find matching tradeable instrument that lists this rulebook
+        match = None
+        for inst in self._instruments:
+            if (inst.get("instrument") or "").upper() != instrument:
+                continue
+            inst_tf = (inst.get("timeframe") or "").upper()
+            if timeframe and inst_tf and inst_tf != timeframe:
+                continue
+            eligible = [str(x) for x in (inst.get("eligible_rulebooks") or [])]
+            if rid not in eligible:
+                continue
+            if not inst.get("tradeable"):
+                continue
+            match = inst
+            break
+
+        if match is None:
+            # Diagnose more specifically
+            same_sym = [i for i in self._instruments if (i.get("instrument") or "").upper() == instrument]
+            if not same_sym:
+                blocked["blocked_reason"] = "INSTRUMENT_NOT_IN_OPERATIONAL_REGISTRY"
+            elif not any(i.get("tradeable") for i in same_sym):
+                blocked["blocked_reason"] = "INSTRUMENT_NOT_TRADEABLE"
+            elif not any(rid in [str(x) for x in (i.get("eligible_rulebooks") or [])] for i in same_sym):
+                blocked["blocked_reason"] = "RULEBOOK_NOT_IN_INSTRUMENT_ELIGIBLE_LIST"
+            else:
+                blocked["blocked_reason"] = "TIMEFRAME_OR_ASSOCIATION_MISMATCH"
+            blocked["requested_rulebook_id"] = rid
+            blocked["instrument"] = instrument
+            blocked["timeframe"] = timeframe
+            return blocked
+
+        # Consistent association found — still NOT production/execution authorized
+        return {
+            "rulebook_version": rid,
+            "registry_version": data.get("registry_version") or "operational",
+            "activated_at": data.get("activated_at"),
+            "indicators_required": False,
+            "production_authorized": False,
+            "execution_authorized": False,
+            "active": True,
+            "instrument": instrument,
+            "timeframe": timeframe,
+            "rulebook_count": len(self._rulebooks),
+            "tradeable_instrument_count": len([x for x in self._instruments if x.get("tradeable")]),
+            "blocked_reason": None,
+            "notes": (
+                "Operational association is registry-consistent, but production and "
+                "execution authorization remain false until explicit human approval."
+            ),
+        }
 
     def activate(self, rulebook_version: str, registry_version: str = "operational") -> dict[str, Any]:
         """Refuse activation unless the rulebook is present in the operational registry."""
